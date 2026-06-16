@@ -2,6 +2,11 @@ name = "classmanager-api"
 main = "worker/src/index.ts"
 compatibility_date = "2026-06-16"
 
+[assets]
+binding = "ASSETS"
+directory = "public"
+run_worker_first = true
+
 [observability]
 enabled = true
 
