@@ -25,3 +25,9 @@ Make-CourseID Lookup JSON Example.txt
 
 # Local secrets. Use Config/Secrets.example.xcconfig as the template.
 Config/Secrets.xcconfig
+
+# Cloudflare local/generated state
+.dev.vars
+.wrangler/
+wrangler.generated.jsonc
+node_modules/
