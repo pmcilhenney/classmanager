@@ -1,0 +1,195 @@
+import SwiftUI
+import Foundation
+
+struct MainMenuView: View {
+    let config: AppConfig
+    let attendee: Attendee
+    let jotform: JotFormClient
+    let flexi: FlexiQuizClient
+
+    @State private var showSkills = false
+    @State private var skillsURL: URL?
+    @State private var showQuiz = false
+    @State private var quizURL: URL?
+
+    // UI state
+    @State private var busy = false
+    @State private var toast: String?
+    @State private var isPosting = false
+
+    // Resolved extras
+    @State private var courseId: String = ""   // resolved Course ID used for chip + TA post
+
+    var body: some View {
+        VStack(spacing: 20) {
+            if let img = UIImage(named: config.logoAsset) {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 80)
+                    .accessibilityHidden(true)
+            }
+
+            Text(attendee.fullName)
+                .font(.title3).bold()
+                .padding(.bottom, 8)
+
+            // Chips
+            HStack(spacing: 8) {
+                Chip(text: cleanCourseName(attendee.courseType))
+                Chip(text: attendee.courseDate ?? "—")
+                if !courseId.isEmpty {
+                    Text("Course ID: \(courseId)")
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color(.secondarySystemBackground)))
+                }
+            }
+            .padding(.bottom, 8)
+
+            actionButton(title: "Check In") { check(inOut: "Check-In") }
+            actionButton(title: "Check Out") { check(inOut: "Check-Out") }
+            actionButton(title: "Validate Skills") { openSkills() }
+            actionButton(title: "Mini-Quiz") { openQuiz() }
+
+            Spacer()
+        }
+        .padding()
+        // Always show YOUR custom loader (not the default) for both busy and posting states
+        .overlay {
+            if busy || isPosting {
+                LoadingSpinnerView()
+            }
+        }
+        .sheet(isPresented: $showSkills) {
+            if let url = skillsURL {
+                SafariSheet(url: url)
+            }
+        }
+        .sheet(isPresented: $showQuiz) {
+            if let url = quizURL {
+                SafariSheet(url: url)
+            }
+        }
+        .alert(toast ?? "", isPresented: Binding(get: { toast != nil }, set: { if !$0 { toast = nil } })) {
+            Button("OK", role: .cancel) {}
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            // Resolve Course ID once we land here (local DB)
+            if let dateOnly = attendee.courseDate, !attendee.courseType.isEmpty, courseId.isEmpty {
+                if let cid = CourseIdDB.lookup(date: dateOnly, type: attendee.courseType) {
+                    courseId = cid
+                }
+            }
+        }
+    }
+
+    // MARK: - UI bits
+
+    private func Chip(text: String) -> some View {
+        Text(text)
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color(.systemGray6)))
+    }
+
+    private func actionButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.accentColor))
+                .foregroundColor(.white)
+                .font(.headline)
+        }
+        .disabled(busy || isPosting)
+    }
+
+    // MARK: - Actions
+
+    private func check(inOut: String) {
+        Task { @MainActor in isPosting = true }
+        Task {
+            defer { Task { @MainActor in isPosting = false } }
+
+            do {
+                // Time & Attendance fields
+                var fields: [String: String] = [
+                    "3":  attendee.firstName,
+                    "5":  attendee.lastName,
+                    "6":  attendee.oemsId,
+                    "8":  cleanCourseName(attendee.courseType),
+                    "12": inOut,
+                    "10": nowForQ10()
+                ]
+                if let d = attendee.courseDate, !d.isEmpty { fields["16"] = d }
+                if !courseId.isEmpty { fields["7"] = courseId }
+
+                let formId = (inOut == "Check-In") ? config.checkinFormId : config.checkoutFormId
+                _ = try await jotform.postTimeAttendance(formId: formId, fields: fields)
+
+                await MainActor.run {
+                    toast = "Successfully \(inOut == "Check-In" ? "checked in" : "checked out")."
+                }
+            } catch {
+                await MainActor.run {
+                    toast = "Failed to submit \(inOut). Please try again."
+                }
+            }
+        }
+    }
+
+    private func openSkills() {
+        var comps = URLComponents(string: "https://form.jotform.com/\(config.skillsFormId)")!
+        var items: [URLQueryItem] = []
+        func add(_ qid: String, _ value: String?) {
+            guard let v = value, !v.isEmpty else { return }
+            items.append(URLQueryItem(name: "submission[\(qid)]", value: v))
+        }
+        add("3", attendee.firstName)
+        add("5", attendee.lastName)
+        add("6", attendee.oemsId)
+        add("8", cleanCourseName(attendee.courseType))
+        add("16", attendee.courseDate)
+        if !courseId.isEmpty { add("7", courseId) }
+
+        comps.queryItems = items
+        skillsURL = comps.url
+        showSkills = true
+    }
+
+    private func openQuiz() {
+        guard let quizId = flexi.quizId(for: cleanCourseName(attendee.courseType)) else {
+            toast = "No quiz configured for \(attendee.courseType)."
+            return
+        }
+        let email = attendee.email.isEmpty
+            ? attendee.firstName.lowercased() + "." + attendee.lastName.lowercased() + "@\(config.flexiEmailDomain)"
+            : attendee.email
+        if let url = flexi.ssoURL(email: email, name: attendee.fullName, redirectQuizId: quizId) {
+            quizURL = url
+            showQuiz = true
+        } else {
+            toast = "Couldn’t generate quiz link."
+        }
+    }
+
+    // MARK: - Local helpers
+
+    private func cleanCourseName(_ s: String) -> String {
+        if let range = s.range(of: #"\s*\([^)]*\)"#, options: .regularExpression) {
+            return String(s[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
+        }
+        return s.trimmingCharacters(in: .whitespaces)
+    }
+
+    private func nowForQ10() -> String {
+        let f = DateFormatter()
+        f.locale = .init(identifier: "en_US_POSIX")
+        f.dateFormat = "MM/dd/yyyy HH:mm"
+        return f.string(from: Date())
+    }
+}

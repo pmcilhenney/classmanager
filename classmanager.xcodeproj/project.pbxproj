@@ -6,6 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		2027D9A02EFE2DD800290223 /* RosterModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2027D99F2EFE2DD500290223 /* RosterModels.swift */; };
+		20E6BCC32EE5466D00DE32CE /* MainMenuViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E6BCC22EE5466D00DE32CE /* MainMenuViewModel.swift */; };
+		20E6BCC52EE5468400DE32CE /* MainMenuComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E6BCC42EE5468400DE32CE /* MainMenuComponents.swift */; };
+		20E6BCC72EE5469800DE32CE /* MaterialsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E6BCC62EE5469800DE32CE /* MaterialsViews.swift */; };
+		20E6BCC92EE546A400DE32CE /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E6BCC82EE546A400DE32CE /* MainMenuView.swift */; };
+		20E6BCCD2EE54E4000DE32CE /* CourseMaterialsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E6BCCC2EE54E4000DE32CE /* CourseMaterialsManager.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		201B0B9F2EBE52B000F95095 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,11 +36,33 @@
 		201B0B912EBE52AF00F95095 /* classmanager.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = classmanager.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		201B0B9E2EBE52B000F95095 /* classmanagerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = classmanagerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		201B0BA82EBE52B000F95095 /* classmanagerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = classmanagerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		201B0BAC2EBE52B000F95095 /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
+		2027D99F2EFE2DD500290223 /* RosterModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterModels.swift; sourceTree = "<group>"; };
+		2027D9B02F0484A600290223 /* BackgroundTasks.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundTasks.framework; path = System/Library/Frameworks/BackgroundTasks.framework; sourceTree = SDKROOT; };
+		20E6BCC12EE5465700DE32CE /* CourseMaterialsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseMaterialsManager.swift; sourceTree = "<group>"; };
+		20E6BCC22EE5466D00DE32CE /* MainMenuViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuViewModel.swift; sourceTree = "<group>"; };
+		20E6BCC42EE5468400DE32CE /* MainMenuComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuComponents.swift; sourceTree = "<group>"; };
+		20E6BCC62EE5469800DE32CE /* MaterialsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaterialsViews.swift; sourceTree = "<group>"; };
+		20E6BCC82EE546A400DE32CE /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
+		20E6BCCC2EE54E4000DE32CE /* CourseMaterialsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseMaterialsManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		20E6BCCE2EE54F8A00DE32CE /* Exceptions for "classmanager" folder in "classmanager" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 201B0B902EBE52AF00F95095 /* classmanager */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		201B0B932EBE52AF00F95095 /* classmanager */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				20E6BCCE2EE54F8A00DE32CE /* Exceptions for "classmanager" folder in "classmanager" target */,
+			);
 			path = classmanager;
 			sourceTree = "<group>";
 		};
@@ -76,8 +107,12 @@
 			isa = PBXGroup;
 			children = (
 				201B0B932EBE52AF00F95095 /* classmanager */,
+				201B0BAD2EBE52B000F95095 /* Config */,
+				20E6BCC02EE545A600DE32CE /* Managers */,
+				20E6BCBF2EE5457C00DE32CE /* Views MainMenu */,
 				201B0BA12EBE52B000F95095 /* classmanagerTests */,
 				201B0BAB2EBE52B000F95095 /* classmanagerUITests */,
+				2027D9AF2F0484A600290223 /* Frameworks */,
 				201B0B922EBE52AF00F95095 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +125,43 @@
 				201B0BA82EBE52B000F95095 /* classmanagerUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		2027D9AF2F0484A600290223 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2027D9B02F0484A600290223 /* BackgroundTasks.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		201B0BAD2EBE52B000F95095 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				201B0BAC2EBE52B000F95095 /* App.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		20E6BCBF2EE5457C00DE32CE /* Views MainMenu */ = {
+			isa = PBXGroup;
+			children = (
+				20E6BCC22EE5466D00DE32CE /* MainMenuViewModel.swift */,
+				20E6BCC42EE5468400DE32CE /* MainMenuComponents.swift */,
+				20E6BCC62EE5469800DE32CE /* MaterialsViews.swift */,
+				2027D99F2EFE2DD500290223 /* RosterModels.swift */,
+				20E6BCC82EE546A400DE32CE /* MainMenuView.swift */,
+				20E6BCCC2EE54E4000DE32CE /* CourseMaterialsManager.swift */,
+			);
+			path = "Views MainMenu";
+			sourceTree = "<group>";
+		};
+		20E6BCC02EE545A600DE32CE /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				20E6BCC12EE5465700DE32CE /* CourseMaterialsManager.swift */,
+			);
+			path = Managers;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -236,6 +308,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				20E6BCC72EE5469800DE32CE /* MaterialsViews.swift in Sources */,
+				20E6BCC52EE5468400DE32CE /* MainMenuComponents.swift in Sources */,
+				20E6BCCD2EE54E4000DE32CE /* CourseMaterialsManager.swift in Sources */,
+				20E6BCC32EE5466D00DE32CE /* MainMenuViewModel.swift in Sources */,
+				2027D9A02EFE2DD800290223 /* RosterModels.swift in Sources */,
+				20E6BCC92EE546A400DE32CE /* MainMenuView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -392,26 +470,36 @@
 		};
 		201B0BB32EBE52B000F95095 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 201B0BAC2EBE52B000F95095 /* App.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = classmanager/classmanager.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = XN2T2J875A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = classmanager/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "GCEMS Classes";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is needed to access the QR scanner  ";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to determine the location of the course.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gcems.classmanager;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -424,26 +512,36 @@
 		};
 		201B0BB42EBE52B000F95095 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 201B0BAC2EBE52B000F95095 /* App.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = classmanager/classmanager.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = XN2T2J875A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = classmanager/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "GCEMS Classes";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
+				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is needed to access the QR scanner  ";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to determine the location of the course.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gcems.classmanager;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;

@@ -1,0 +1,4 @@
+// Shared build settings for Class Manager.
+// Local secret values are loaded from Config/Secrets.xcconfig when present.
+
+#include? "Secrets.xcconfig"

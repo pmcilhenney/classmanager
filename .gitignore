@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Xcode user/local state
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.moved-aside
+
+# Build/export artifacts
+build/
+*.ipa
+*.xcarchive
+Exports/
+
+# Local editor state
+.vscode/
+
+# Local backups and generated archives
+Backup/
+*.zip
+*.bak
+*.corrupt.bak
+Make-CourseID Lookup JSON Example.txt
+
+# Local secrets. Use Config/Secrets.example.xcconfig as the template.
+Config/Secrets.xcconfig

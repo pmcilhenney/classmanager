@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>COURSE_MATERIALS_ID</key>
+	<string>253331214289050</string>
+	<key>DEPT_LOGO_ASSET_NAME</key>
+	<string>gcems_logo</string>
+	<key>Elective_Form_ID</key>
+	<string>251613674678063</string>
+	<key>FLEXIQUIZ_API_KEY</key>
+	<string>$(FLEXIQUIZ_API_KEY)</string>
+	<key>FLEXIQUIZ_MAP_RefresherA</key>
+	<string>22305f3a-c3d4-4850-8a62-31a05003c03c</string>
+	<key>FLEXIQUIZ_MAP_RefresherB</key>
+	<string>7f2c59df-47f8-4cb3-8f40-08c4161dbb2a</string>
+	<key>FLEXIQUIZ_MAP_RefresherC</key>
+	<string>d1ceddf4-b3dc-4452-b7c4-78b523075aa1</string>
+	<key>FLEXIQUIZ_SSO_AUD</key>
+	<string>FlexiQuiz</string>
+	<key>FLEXIQUIZ_SSO_EMAIL_DOMAIN</key>
+	<string>gcems.edu</string>
+	<key>FLEXIQUIZ_SSO_ISS</key>
+	<string>GCEMS-App</string>
+	<key>FLEXIQUIZ_SSO_SHARED_SECRET</key>
+	<string>$(FLEXIQUIZ_SSO_SHARED_SECRET)</string>
+	<key>JOTFORM_API_KEY</key>
+	<string>$(JOTFORM_API_KEY)</string>
+	<key>JOTFORM_CHECKIN_FORM_ID</key>
+	<string>243577669883075</string>
+	<key>JOTFORM_CHECKOUT_FORM_ID</key>
+	<string>243577669883075</string>
+	<key>JOTFORM_COURSE_LOOKUP_FORM_ID</key>
+	<string>251715517762056</string>
+	<key>JOTFORM_REGISTRATION_FORM</key>
+	<string>251265925097060</string>
+	<key>PEPP_QUIZ_ID</key>
+	<string>4d05909b-928f-4085-be74-8682e8fed516</string>
+	<key>SKILLS_A_VALIDATOR_FORM</key>
+	<string>https://form.jotform.com/243465145190051</string>
+	<key>SKILLS_B_VALIDATOR_FORM</key>
+	<string>https://form.jotform.com/243475216825157</string>
+	<key>SKILLS_C_VALIDATOR_FORM</key>
+	<string>https://form.jotform.com/243556670341154</string>
+</dict>
+</plist>
