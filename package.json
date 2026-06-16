@@ -7,7 +7,8 @@
     "cf:deploy": "bash scripts/cf-bootstrap.sh --deploy",
     "cf:types": "wrangler types -c wrangler.json worker/src/worker-configuration.d.ts",
     "cf:dev": "wrangler dev -c wrangler.generated.jsonc",
-    "cf:check": "wrangler deploy -c wrangler.generated.jsonc --dry-run"
+    "cf:check": "wrangler deploy -c wrangler.generated.jsonc --dry-run",
+    "cf:git-deploy": "bash scripts/cf-git-deploy.sh"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
