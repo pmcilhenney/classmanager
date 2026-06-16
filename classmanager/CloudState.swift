@@ -64,6 +64,7 @@ final class CKProgressStore: ObservableObject {
     // Identity for current record
     private var oemsId: String = ""
     private var courseDate: String? = nil
+    private let apiClient = ClassManagerAPIClient.shared
 
     // CK runtime
     private var currentRecordID: CKRecord.ID?
@@ -124,6 +125,8 @@ final class CKProgressStore: ObservableObject {
         if let local = loadLocal() {
             self.progress = local
         }
+
+        await fetchLatestFromWorker()
 
         // Check iCloud health
         self.iCloudOK = await checkAccountAndContainer()
@@ -215,6 +218,8 @@ final class CKProgressStore: ObservableObject {
     /// Fetch the latest server-side record (public then private), merge into local progress, and update local cache.
     @MainActor
     func fetchLatestAndMerge() async {
+        await fetchLatestFromWorker()
+
         guard iCloudOK, let cd = courseDate, !cd.isEmpty else { return }
         let rid = currentRecordID ?? recordID(oemsId: oemsId, courseDate: cd)
         // Try public then private
@@ -347,6 +352,64 @@ final class CKProgressStore: ObservableObject {
         saveLocal(next)
         // Try cloud, if available (no illegal await here)
         Task { await self.saveToCloud(next) }
+        Task { await self.saveToWorker(next) }
+    }
+
+    @MainActor
+    private func fetchLatestFromWorker() async {
+        guard let cd = courseDate, !cd.isEmpty, !oemsId.isEmpty else { return }
+
+        do {
+            guard let remote = try await apiClient.fetchProgress(
+                studentId: workerStudentId,
+                classSessionId: workerClassSessionId
+            ) else { return }
+
+            var merged = progress
+            merged.didCheckIn = merged.didCheckIn || remote.didCheckIn
+            merged.didCheckOut = merged.didCheckOut || remote.didCheckOut
+            merged.didOpenSkills = merged.didOpenSkills || remote.didOpenSkills
+            merged.didOpenQuiz = merged.didOpenQuiz || remote.didOpenQuiz
+            merged.checkInTime = merged.checkInTime ?? remote.checkInAt
+            if let remoteUpdatedAt = remote.updatedAt {
+                merged.updatedAt = max(merged.updatedAt, remoteUpdatedAt)
+            }
+
+            if merged != progress {
+                progress = merged
+                saveLocal(merged)
+            }
+        } catch {
+            #if DEBUG
+            print("[ClassManagerAPI] fetch progress failed: \(error)")
+            #endif
+        }
+    }
+
+    private func saveToWorker(_ p: CKProgress) async {
+        guard let cd = courseDate, !cd.isEmpty, !oemsId.isEmpty else { return }
+
+        do {
+            _ = try await apiClient.saveProgress(
+                p,
+                studentId: workerStudentId,
+                classSessionId: workerClassSessionId,
+                courseDate: cd
+            )
+        } catch {
+            #if DEBUG
+            print("[ClassManagerAPI] save progress failed: \(error)")
+            #endif
+        }
+    }
+
+    private var workerStudentId: String {
+        oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var workerClassSessionId: String {
+        let raw = (courseDate ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return raw.isEmpty ? "undated" : raw.replacingOccurrences(of: "/", with: "-")
     }
 
     // MARK: Cloud helpers
@@ -591,4 +654,3 @@ final class CKProgressStore: ObservableObject {
         return p
     }
 }
-

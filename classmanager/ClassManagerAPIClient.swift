@@ -1,0 +1,208 @@
+import Foundation
+import UIKit
+
+final class ClassManagerAPIClient {
+    static let shared = ClassManagerAPIClient()
+
+    private let baseURL: URL
+    private let session: URLSession
+    private let decoder: JSONDecoder
+    private let encoder: JSONEncoder
+
+    init(
+        baseURL: URL = ClassManagerAPIClient.defaultBaseURL(),
+        session: URLSession = .shared
+    ) {
+        self.baseURL = baseURL
+        self.session = session
+        self.decoder = JSONDecoder()
+        self.encoder = JSONEncoder()
+    }
+
+    func health() async throws -> HealthResponse {
+        try await send(path: "/health", method: "GET")
+    }
+
+    func fetchProgress(studentId: String, classSessionId: String) async throws -> RemoteProgress? {
+        let response: ProgressEnvelope = try await send(
+            path: "/progress/\(Self.pathEncode(classSessionId))/\(Self.pathEncode(studentId))",
+            method: "GET"
+        )
+        return response.progress
+    }
+
+    @discardableResult
+    func saveProgress(
+        _ progress: CKProgress,
+        studentId: String,
+        classSessionId: String,
+        courseDate: String?
+    ) async throws -> ProgressSaveResponse {
+        let request = ProgressPatchRequest(
+            didCheckIn: progress.didCheckIn,
+            didCheckOut: progress.didCheckOut,
+            didOpenSkills: progress.didOpenSkills,
+            didOpenQuiz: progress.didOpenQuiz,
+            checkInAt: progress.checkInTime.map(Self.isoString),
+            deviceId: UIDevice.current.identifierForVendor?.uuidString,
+            oemsId: studentId,
+            courseDate: courseDate,
+            courseTitle: "Class Session"
+        )
+
+        return try await send(
+            path: "/progress/\(Self.pathEncode(classSessionId))/\(Self.pathEncode(studentId))",
+            method: "PATCH",
+            body: request
+        )
+    }
+
+    private func send<T: Decodable, Body: Encodable>(
+        path: String,
+        method: String,
+        body: Body
+    ) async throws -> T {
+        var request = URLRequest(url: makeURL(path: path))
+        request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(body)
+        return try await perform(request)
+    }
+
+    private func send<T: Decodable>(
+        path: String,
+        method: String
+    ) async throws -> T {
+        var request = URLRequest(url: makeURL(path: path))
+        request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return try await perform(request)
+    }
+
+    private func perform<T: Decodable>(_ request: URLRequest) async throws -> T {
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let text = String(data: data, encoding: .utf8)
+            throw APIError.httpStatus(http.statusCode, text)
+        }
+        return try decoder.decode(T.self, from: data)
+    }
+
+    private static func defaultBaseURL() -> URL {
+        if let raw = Bundle.main.object(forInfoDictionaryKey: "CLASSMANAGER_API_BASE_URL") as? String,
+           let url = URL(string: raw), !raw.isEmpty {
+            return url
+        }
+        return URL(string: "https://classmanagerapp.gcemstrainingacademy.org")!
+    }
+
+    private func makeURL(path: String) -> URL {
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        let cleanPath = path.hasPrefix("/") ? path : "/\(path)"
+        components.path = cleanPath
+        return components.url!
+    }
+
+    private static func pathEncode(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
+    }
+
+    private static func isoString(_ date: Date) -> String {
+        ISO8601DateFormatter().string(from: date)
+    }
+}
+
+extension ClassManagerAPIClient {
+    struct HealthResponse: Decodable {
+        let ok: Bool
+        let service: String
+        let environment: String
+    }
+
+    struct ProgressEnvelope: Decodable {
+        let classSessionId: String
+        let studentId: String
+        let progress: RemoteProgress?
+    }
+
+    struct RemoteProgress: Decodable {
+        let didCheckIn: Bool
+        let didCheckOut: Bool
+        let didOpenSkills: Bool
+        let didOpenQuiz: Bool
+        let checkInAt: Date?
+        let updatedAt: Date?
+
+        enum CodingKeys: String, CodingKey {
+            case didCheckIn = "did_check_in"
+            case didCheckOut = "did_check_out"
+            case didOpenSkills = "did_open_skills"
+            case didOpenQuiz = "did_open_quiz"
+            case checkInAt = "check_in_at"
+            case updatedAt = "updated_at"
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            didCheckIn = try container.decodeFlexibleBool(forKey: .didCheckIn)
+            didCheckOut = try container.decodeFlexibleBool(forKey: .didCheckOut)
+            didOpenSkills = try container.decodeFlexibleBool(forKey: .didOpenSkills)
+            didOpenQuiz = try container.decodeFlexibleBool(forKey: .didOpenQuiz)
+            checkInAt = try container.decodeDateIfPresent(forKey: .checkInAt)
+            updatedAt = try container.decodeDateIfPresent(forKey: .updatedAt)
+        }
+    }
+
+    struct ProgressSaveResponse: Decodable {
+        let ok: Bool
+        let id: String
+        let updatedAt: String
+    }
+
+    struct ProgressPatchRequest: Encodable {
+        let didCheckIn: Bool
+        let didCheckOut: Bool
+        let didOpenSkills: Bool
+        let didOpenQuiz: Bool
+        let checkInAt: String?
+        let deviceId: String?
+        let oemsId: String
+        let courseDate: String?
+        let courseTitle: String
+    }
+
+    enum APIError: Error {
+        case invalidResponse
+        case httpStatus(Int, String?)
+    }
+}
+
+private extension KeyedDecodingContainer {
+    func decodeFlexibleBool(forKey key: Key) throws -> Bool {
+        if let bool = try? decode(Bool.self, forKey: key) {
+            return bool
+        }
+        if let int = try? decode(Int.self, forKey: key) {
+            return int != 0
+        }
+        if let string = try? decode(String.self, forKey: key) {
+            return string == "1" || string.lowercased() == "true"
+        }
+        return false
+    }
+
+    func decodeDateIfPresent(forKey key: Key) throws -> Date? {
+        guard let string = try? decodeIfPresent(String.self, forKey: key), !string.isEmpty else {
+            return nil
+        }
+        return ISO8601DateFormatter().date(from: string)
+    }
+}

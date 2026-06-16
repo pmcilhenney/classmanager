@@ -4,6 +4,8 @@
 <dict>
 	<key>COURSE_MATERIALS_ID</key>
 	<string>253331214289050</string>
+	<key>CLASSMANAGER_API_BASE_URL</key>
+	<string>https://classmanagerapp.gcemstrainingacademy.org</string>
 	<key>DEPT_LOGO_ASSET_NAME</key>
 	<string>gcems_logo</string>
 	<key>Elective_Form_ID</key>

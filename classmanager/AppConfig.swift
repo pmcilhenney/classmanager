@@ -25,6 +25,9 @@ struct AppConfig {
     let flexiEmailDomain: String
     let flexiMap: [String:String]
 
+    // Cloudflare backing API
+    let classManagerApiBaseURL: String
+
     // MARK: - Loader
 
     /// Load all keys from Info.plist (the app’s main bundle)
@@ -62,7 +65,11 @@ struct AppConfig {
             flexiIssuer:            s("FLEXIQUIZ_SSO_ISS"),
             flexiAudience:          s("FLEXIQUIZ_SSO_AUD"),
             flexiEmailDomain:       s("FLEXIQUIZ_SSO_EMAIL_DOMAIN"),
-            flexiMap:               map
+            flexiMap:               map,
+
+            classManagerApiBaseURL: s("CLASSMANAGER_API_BASE_URL").isEmpty
+                ? "https://classmanagerapp.gcemstrainingacademy.org"
+                : s("CLASSMANAGER_API_BASE_URL")
         )
     }
 }

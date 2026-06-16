@@ -1,6 +1,7 @@
 export interface Env {
   DB: D1Database;
   ARTIFACTS: R2Bucket;
+  ASSETS: Fetcher;
   ENVIRONMENT: string;
   JOTFORM_BASE_URL: string;
   JOTFORM_API_KEY?: string;
@@ -34,7 +35,17 @@ export default {
 
     try {
       if (request.method === "GET" && url.pathname === "/health") {
-        return json({ ok: true, service: "classmanager-api", environment: env.ENVIRONMENT });
+        const db = await env.DB.prepare("SELECT 1 AS ok").first();
+        return json({
+          ok: true,
+          service: "classmanager-api",
+          environment: env.ENVIRONMENT,
+          bindings: {
+            d1: db?.ok === 1,
+            r2: true,
+            assets: true
+          }
+        });
       }
 
       if (request.method === "POST" && url.pathname === "/session/lookup") {
@@ -112,6 +123,19 @@ async function patchProgress(request: Request, url: URL, env: Env): Promise<Resp
   const body = await readJson(request);
   const now = new Date().toISOString();
   const id = `${classSessionId}:${studentId}`;
+  const courseDate = stringField(body, "courseDate") ?? classSessionId;
+
+  await ensureProgressParents(env, {
+    studentId,
+    classSessionId,
+    oemsId: stringField(body, "oemsId") ?? studentId,
+    firstName: stringField(body, "firstName") ?? "Unknown",
+    lastName: stringField(body, "lastName") ?? "Student",
+    email: stringField(body, "email"),
+    courseId: stringField(body, "courseId"),
+    courseTitle: stringField(body, "courseTitle") ?? "Class Session",
+    courseDate
+  });
 
   await env.DB.prepare(
     `INSERT INTO student_progress (
@@ -150,6 +174,58 @@ async function patchProgress(request: Request, url: URL, env: Env): Promise<Resp
   });
 
   return json({ ok: true, id, updatedAt: now });
+}
+
+async function ensureProgressParents(
+  env: Env,
+  input: {
+    studentId: string;
+    classSessionId: string;
+    oemsId?: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+    courseId?: string;
+    courseTitle: string;
+    courseDate: string;
+  }
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  await env.DB.prepare(
+    `INSERT INTO students (id, oems_id, first_name, last_name, email, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+     ON CONFLICT(id) DO UPDATE SET
+       oems_id = COALESCE(excluded.oems_id, oems_id),
+       first_name = CASE WHEN excluded.first_name != 'Unknown' THEN excluded.first_name ELSE first_name END,
+       last_name = CASE WHEN excluded.last_name != 'Student' THEN excluded.last_name ELSE last_name END,
+       email = COALESCE(excluded.email, email),
+       updated_at = excluded.updated_at`
+  ).bind(
+    input.studentId,
+    input.oemsId ?? null,
+    input.firstName,
+    input.lastName,
+    input.email ?? null,
+    now
+  ).run();
+
+  await env.DB.prepare(
+    `INSERT INTO class_sessions (
+      id, course_id, course_title, course_date, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5)
+    ON CONFLICT(id) DO UPDATE SET
+      course_id = COALESCE(excluded.course_id, course_id),
+      course_title = CASE WHEN excluded.course_title != 'Class Session' THEN excluded.course_title ELSE course_title END,
+      course_date = excluded.course_date,
+      updated_at = excluded.updated_at`
+  ).bind(
+    input.classSessionId,
+    input.courseId ?? null,
+    input.courseTitle,
+    input.courseDate,
+    now
+  ).run();
 }
 
 async function assignQuiz(request: Request, env: Env): Promise<Response> {
