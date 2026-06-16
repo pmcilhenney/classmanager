@@ -5,7 +5,7 @@
   "scripts": {
     "cf:bootstrap": "bash scripts/cf-bootstrap.sh",
     "cf:deploy": "bash scripts/cf-bootstrap.sh --deploy",
-    "cf:types": "wrangler types -c wrangler.jsonc worker/src/worker-configuration.d.ts",
+    "cf:types": "wrangler types -c wrangler.toml worker/src/worker-configuration.d.ts",
     "cf:dev": "wrangler dev -c wrangler.generated.jsonc",
     "cf:check": "wrangler deploy -c wrangler.generated.jsonc --dry-run"
   },
