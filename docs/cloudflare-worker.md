@@ -1,6 +1,6 @@
 # Cloudflare Worker Setup
 
-The Git-linked Cloudflare deploy runs `npx wrangler deploy`, so the committed `wrangler.toml` is the deploy source of truth.
+The Git-linked Cloudflare deploy runs `npx wrangler deploy`, so the committed `wrangler.json` is the deploy source of truth. `wrangler.toml` is kept as an equivalent fallback for local/manual Wrangler use.
 
 `scripts/cf-bootstrap.sh` still exists for local/manual setup: it creates or reuses the D1 database and R2 bucket, writes `wrangler.generated.jsonc` with the resolved D1 ID, and applies migrations.
 
@@ -40,14 +40,14 @@ npm run cf:bootstrap
 Set these after `npm run cf:bootstrap` has generated `wrangler.generated.jsonc`:
 
 ```bash
-printf 'your-jotform-api-key' | npx wrangler secret put JOTFORM_API_KEY -c wrangler.toml
-printf 'your-flexiquiz-api-key' | npx wrangler secret put FLEXIQUIZ_API_KEY -c wrangler.toml
-printf 'your-flexiquiz-sso-shared-secret' | npx wrangler secret put FLEXIQUIZ_SSO_SHARED_SECRET -c wrangler.toml
+printf 'your-jotform-api-key' | npx wrangler secret put JOTFORM_API_KEY -c wrangler.json
+printf 'your-flexiquiz-api-key' | npx wrangler secret put FLEXIQUIZ_API_KEY -c wrangler.json
+printf 'your-flexiquiz-sso-shared-secret' | npx wrangler secret put FLEXIQUIZ_SSO_SHARED_SECRET -c wrangler.json
 
-printf 'smartermail-username-or-email' | npx wrangler secret put SM_USERNAME -c wrangler.toml
-printf 'smartermail-password' | npx wrangler secret put SM_PASSWORD -c wrangler.toml
-printf 'sender@example.org' | npx wrangler secret put FROM_ADDRESS -c wrangler.toml
-printf 'reply-to@example.org' | npx wrangler secret put REPLY_TO_ADDRESS -c wrangler.toml
+printf 'smartermail-username-or-email' | npx wrangler secret put SM_USERNAME -c wrangler.json
+printf 'smartermail-password' | npx wrangler secret put SM_PASSWORD -c wrangler.json
+printf 'sender@example.org' | npx wrangler secret put FROM_ADDRESS -c wrangler.json
+printf 'reply-to@example.org' | npx wrangler secret put REPLY_TO_ADDRESS -c wrangler.json
 ```
 
 `SM_BASE_URL`, `SM_AUTH`, and `SM_SEND_EMAIL` are non-secret defaults in `wrangler.template.jsonc`.
