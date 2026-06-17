@@ -23,6 +23,14 @@ final class ClassManagerAPIClient {
         try await send(path: "/health", method: "GET")
     }
 
+    func lookupSession(submissionId: String) async throws -> SessionLookupResponse {
+        try await send(
+            path: "/session/lookup",
+            method: "POST",
+            body: SessionLookupRequest(submissionId: submissionId)
+        )
+    }
+
     func fetchProgress(studentId: String, classSessionId: String) async throws -> RemoteProgress? {
         let response: ProgressEnvelope = try await send(
             path: "/progress/\(Self.pathEncode(classSessionId))/\(Self.pathEncode(studentId))",
@@ -125,6 +133,19 @@ extension ClassManagerAPIClient {
         let ok: Bool
         let service: String
         let environment: String
+    }
+
+    struct SessionLookupResponse: Decodable {
+        let ok: Bool
+        let submissionId: String
+        let formId: String
+        let formType: String
+        let attendee: RosterAttendee
+        let options: [RegistrationOption]
+    }
+
+    struct SessionLookupRequest: Encodable {
+        let submissionId: String
     }
 
     struct ProgressEnvelope: Decodable {

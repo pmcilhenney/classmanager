@@ -701,15 +701,8 @@ struct MainMenuView: View {
         await MainActor.run { busy = true; toast = nil }
         defer { Task { @MainActor in busy = false } }
         do {
-            let rawObj = try await jotform.rawSubmissionObject(submissionId: submissionId)
-            let content = rawObj["content"] as? [String: Any]
-            let formId = content?["form_id"] as? String ?? ""
-            let newAttendee: RosterAttendee
-            if formId == config.registrationFormId {
-                newAttendee = try await jotform.fetchRegistrationAsAttendee(submissionId: submissionId)
-            } else {
-                newAttendee = try await jotform.fetchRefresherSubmission(submissionId: submissionId)
-            }
+            let lookup = try await ClassManagerAPIClient.shared.lookupSession(submissionId: submissionId)
+            let newAttendee = lookup.attendee
             await MainActor.run {
                 self.attendee = newAttendee
                 resetForNewScan()

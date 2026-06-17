@@ -259,79 +259,22 @@ struct WelcomeView: View {
         }
 
         do {
-            // Fetch raw submission to determine form type
-            let rawObj = try await jotform.rawSubmissionObject(submissionId: submissionId)
-            let content = rawObj["content"] as? [String: Any]
-            let formId = content?["form_id"] as? String ?? ""
-
-            var attendee: RosterAttendee
-            
-            if formId == config.registrationFormId {
-                // Registration form: course from product field
-                attendee = try await jotform.fetchRegistrationAsAttendee(submissionId: submissionId)
-            } else {
-                // Refresher form: courses from appointment fields
-                attendee = try await jotform.fetchRefresherSubmission(submissionId: submissionId)
-            }
-
+            let lookup = try await ClassManagerAPIClient.shared.lookupSession(submissionId: submissionId)
+            let attendee = lookup.attendee
             lastSubmissionId = submissionId
 
-            if formId == config.registrationFormId {
-                // Registration pathway
-                let parsedProducts = parseRegistrationProducts(from: rawObj)
-
-                if parsedProducts.count <= 1 {
-                    // Single or no products - go straight to review
-                    await MainActor.run {
-                        self.fetched = attendee
-                        self.showReview = true
-                    }
-                } else {
-                    // Multiple products - show picker
-                    var productMap: [String: [String: Any]] = [:]
-                    var opts: [RegistrationOption] = []
-                    
-                    for (opt, prodDict) in parsedProducts {
-                        productMap[opt.id] = prodDict
-                        opts.append(opt)
-                    }
-
-                    await MainActor.run {
-                        self.registrationProductMap = productMap
-                        self.sessionOptions = opts
-                        self.lastScanWasRegistration = true
-                        self.showSessionPicker = true
-                    }
+            if lookup.options.count > 1 {
+                await MainActor.run {
+                    self.fetched = attendee
+                    self.registrationProductMap = [:]
+                    self.sessionOptions = lookup.options
+                    self.lastScanWasRegistration = lookup.formType == "registration"
+                    self.showSessionPicker = true
                 }
             } else {
-                // Refresher pathway
-                let parsedOptions = parseRefresherAppointmentOptions(from: rawObj)
-                
-                guard !parsedOptions.isEmpty else {
-                    await MainActor.run {
-                        errorText = "No valid course dates found in your registration."
-                    }
-                    return
-                }
-
-                if parsedOptions.count == 1 {
-                    // Single course - auto-assign and go to review
-                    let opt = parsedOptions[0]
-                    attendee.courseType = opt.courseType
-                    attendee.courseDate = opt.dateRaw
-
-                    await MainActor.run {
-                        self.fetched = attendee
-                        self.showReview = true
-                    }
-                } else {
-                    // Multiple courses - show picker
-                    await MainActor.run {
-                        self.fetched = attendee
-                        self.sessionOptions = parsedOptions
-                        self.lastScanWasRegistration = false
-                        self.showSessionPicker = true
-                    }
+                await MainActor.run {
+                    self.fetched = attendee
+                    self.showReview = true
                 }
             }
         } catch {
@@ -349,47 +292,33 @@ struct WelcomeView: View {
         await MainActor.run { busy = true }
         defer { Task { @MainActor in busy = false } }
 
-        do {
-            var attendee: RosterAttendee
-            
-            if lastScanWasRegistration {
-                // Registration flow - fetch and apply selected product
-                attendee = try await jotform.fetchRegistrationAsAttendee(submissionId: lastSubmissionId)
+        var attendee = fetched ?? RosterAttendee(
+            submissionId: lastSubmissionId,
+            firstName: "",
+            lastName: "",
+            email: "",
+            oemsId: "",
+            courseType: picked.courseType,
+            courseDate: picked.dateRaw,
+            courseId: nil,
+            ceuValue: nil,
+            productCategories: nil,
+            dob: nil,
+            courseImageURL: nil,
+            courseLocation: nil
+        )
 
-                if let prod = registrationProductMap[picked.id] {
-                    if let name = prod["name"] as? String {
-                        attendee.courseType = cleanCourseName(name)
-                    }
-                    if let desc = prod["description"] as? String {
-                        let (d, _, cid, ceu) = parseDescriptionFields(from: desc)
-                        if let dd = d { attendee.courseDate = dd }
-                        if let cc = cid { attendee.courseId = cc }
-                        if let cval = ceu { attendee.ceuValue = cval }
-                    }
-                    if let catsRaw = prod["connectedCategories"] as? String {
-                        if let data = catsRaw.data(using: .utf8),
-                           let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] {
-                            attendee.productCategories = arr.compactMap { String(describing: $0).trimmingCharacters(in: .whitespacesAndNewlines) }
-                        }
-                    } else if let cats = prod["connectedCategories"] as? [Any] {
-                        attendee.productCategories = cats.compactMap { String(describing: $0).trimmingCharacters(in: .whitespacesAndNewlines) }
-                    }
-                }
-            } else {
-                // Refresher flow - fetch and apply selected appointment
-                attendee = try await jotform.fetchRefresherSubmission(submissionId: lastSubmissionId)
-                attendee.courseType = picked.courseType
-                attendee.courseDate = picked.dateRaw
-            }
+        attendee.courseType = picked.courseType
+        attendee.courseDate = picked.dateRaw
+        attendee.courseId = picked.courseId
+        attendee.ceuValue = picked.ceuValue
+        attendee.productCategories = picked.productCategories
+        attendee.courseImageURL = picked.courseImageURL
+        attendee.courseLocation = picked.courseLocation
 
-            await MainActor.run {
-                self.fetched = attendee
-                self.showReview = true
-            }
-        } catch {
-            await MainActor.run {
-                errorText = "Could not finalize course selection."
-            }
+        await MainActor.run {
+            self.fetched = attendee
+            self.showReview = true
         }
     }
 
@@ -697,4 +626,3 @@ struct RegistrationWebSheet: UIViewControllerRepresentable {
     
     func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
-

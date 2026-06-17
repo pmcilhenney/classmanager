@@ -20,6 +20,33 @@ export interface Env {
 
 type JsonRecord = Record<string, unknown>;
 
+type NormalizedAttendee = {
+  submissionId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  oemsId: string;
+  courseType: string;
+  courseDate?: string;
+  courseId?: string;
+  ceuValue?: string;
+  productCategories?: string[];
+  dob?: string;
+  courseImageURL?: string;
+  courseLocation?: string;
+};
+
+type SessionOption = {
+  courseType: string;
+  datePretty: string;
+  dateRaw: string;
+  courseId?: string;
+  ceuValue?: string;
+  productCategories?: string[];
+  courseImageURL?: string;
+  courseLocation?: string;
+};
+
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store"
@@ -74,6 +101,9 @@ export default {
 
       return json({ error: "not_found" }, 404);
     } catch (error) {
+      if (error instanceof HttpError) {
+        return json({ error: error.message }, error.status);
+      }
       console.error("request failed", error);
       return json({ error: "internal_error" }, 500);
     }
@@ -83,22 +113,236 @@ export default {
 async function sessionLookup(request: Request, env: Env): Promise<Response> {
   const body = await readJson(request);
   const submissionId = stringField(body, "submissionId");
-  const formId = stringField(body, "formId");
 
   if (!submissionId) {
     return json({ error: "missing_submission_id" }, 400);
   }
 
+  if (!env.JOTFORM_API_KEY) {
+    return json({ error: "jotform_not_configured" }, 503);
+  }
+
+  const source = await fetchJotformSubmission(env, submissionId);
+  const normalized = normalizeSessionLookup(source, submissionId);
+  const selected = normalized.options[0];
+  const attendee = selected ? attendeeWithOption(normalized.attendee, selected) : normalized.attendee;
+
+  await ensureProgressParents(env, {
+    studentId: attendee.oemsId || attendee.submissionId,
+    classSessionId: sessionIdFor(attendee.courseDate ?? selected?.dateRaw ?? attendee.submissionId),
+    oemsId: attendee.oemsId || undefined,
+    firstName: attendee.firstName || "Unknown",
+    lastName: attendee.lastName || "Student",
+    email: attendee.email || undefined,
+    courseId: attendee.courseId,
+    courseTitle: attendee.courseType || "Class Session",
+    courseDate: attendee.courseDate ?? selected?.dateRaw ?? "undated",
+    sourceSubmissionId: attendee.submissionId,
+    sourceFormId: normalized.formId
+  });
+
   await audit(env, "session.lookup", {
-    payload: { submissionId, formId: formId ?? null }
+    studentId: attendee.oemsId || attendee.submissionId,
+    classSessionId: sessionIdFor(attendee.courseDate ?? selected?.dateRaw ?? attendee.submissionId),
+    payload: {
+      submissionId,
+      formId: normalized.formId,
+      formType: normalized.formType,
+      optionCount: normalized.options.length
+    }
   });
 
   return json({
-    status: "accepted",
+    ok: true,
     submissionId,
-    formId,
-    next: "Wire this endpoint to Jotform normalization in the next implementation slice."
+    formId: normalized.formId,
+    formType: normalized.formType,
+    attendee,
+    options: normalized.options
   });
+}
+
+async function fetchJotformSubmission(env: Env, submissionId: string): Promise<JsonRecord> {
+  const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/submission/${encodeURIComponent(submissionId)}`));
+  url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
+
+  const response = await fetch(url, {
+    headers: { accept: "application/json" }
+  });
+
+  if (response.status === 404) {
+    throw new HttpError(404, "submission_not_found");
+  }
+
+  if (!response.ok) {
+    throw new HttpError(502, "jotform_lookup_failed");
+  }
+
+  return await response.json<JsonRecord>();
+}
+
+function normalizeSessionLookup(source: JsonRecord, requestedSubmissionId: string): {
+  formId: string;
+  formType: "registration" | "refresher";
+  attendee: NormalizedAttendee;
+  options: SessionOption[];
+} {
+  const content = recordField(source, "content");
+  const answers = recordField(content, "answers");
+  if (!content || !answers) {
+    throw new HttpError(502, "malformed_jotform_submission");
+  }
+
+  const submissionId = stringField(content, "id") ?? requestedSubmissionId;
+  const formId = stringField(content, "form_id") ?? "";
+  const isRegistration = Boolean(answer(answers, "39"));
+
+  if (isRegistration) {
+    return normalizeRegistrationSubmission(answers, submissionId, formId);
+  }
+
+  return normalizeRefresherSubmission(answers, submissionId, formId);
+}
+
+function normalizeRegistrationSubmission(
+  answers: JsonRecord,
+  submissionId: string,
+  formId: string
+): {
+  formId: string;
+  formType: "registration";
+  attendee: NormalizedAttendee;
+  options: SessionOption[];
+} {
+  const name = answerObject(answers, "4");
+  const dobAnswer = answerObject(answers, "7");
+  const dobValue = stringField(answer(answers, "7") ?? {}, "prettyFormat") ??
+    normalizeDateToMMDDYYYY(stringField(dobAnswer, "datetime") ?? "");
+  const location = answerString(answers, "46");
+  const products = registrationProducts(answers);
+  const firstProduct = products[0];
+  const firstOption = firstProduct ? productToOption(firstProduct, location) : undefined;
+
+  const attendee: NormalizedAttendee = {
+    submissionId,
+    firstName: stringField(name, "first") ?? "",
+    lastName: stringField(name, "last") ?? "",
+    email: answerString(answers, "5"),
+    oemsId: answerString(answers, "6"),
+    courseType: firstOption?.courseType ?? "",
+    courseDate: firstOption?.dateRaw,
+    courseId: firstOption?.courseId,
+    ceuValue: firstOption?.ceuValue,
+    productCategories: firstOption?.productCategories,
+    dob: dobValue || undefined,
+    courseImageURL: firstOption?.courseImageURL,
+    courseLocation: location || undefined
+  };
+
+  return {
+    formId,
+    formType: "registration",
+    attendee,
+    options: products.map((product) => productToOption(product, location))
+  };
+}
+
+function normalizeRefresherSubmission(
+  answers: JsonRecord,
+  submissionId: string,
+  formId: string
+): {
+  formId: string;
+  formType: "refresher";
+  attendee: NormalizedAttendee;
+  options: SessionOption[];
+} {
+  const options = [
+    ["60", "Refresher A"],
+    ["74", "Refresher B"],
+    ["77", "Refresher C"]
+  ].flatMap(([qid, label]) => {
+    const rawDate = answerString(answers, qid);
+    if (!rawDate) {
+      return [];
+    }
+    return [{
+      courseType: label,
+      datePretty: rawDate,
+      dateRaw: extractDatePart(rawDate) ?? rawDate
+    }];
+  });
+
+  const firstOption = options[0];
+  const attendee: NormalizedAttendee = {
+    submissionId,
+    firstName: answerString(answers, "32"),
+    lastName: answerString(answers, "33"),
+    email: answerString(answers, "4"),
+    oemsId: answerString(answers, "6"),
+    courseType: firstOption?.courseType ?? answerString(answers, "96"),
+    courseDate: firstOption?.dateRaw
+  };
+
+  return {
+    formId,
+    formType: "refresher",
+    attendee,
+    options
+  };
+}
+
+function registrationProducts(answers: JsonRecord): JsonRecord[] {
+  const courseField = answer(answers, "39");
+  if (!courseField) {
+    return [];
+  }
+
+  const answerPayload = recordField(courseField, "answer");
+  const selectedJson = answerPayload ? stringField(answerPayload, "1") : undefined;
+  const selectedProduct = selectedJson ? parseJsonRecord(selectedJson) : undefined;
+  const products = arrayField(courseField, "products").filter(isJsonRecord);
+
+  if (selectedProduct) {
+    return [selectedProduct, ...products.filter((product) => stringField(product, "name") !== stringField(selectedProduct, "name"))];
+  }
+
+  return products;
+}
+
+function productToOption(product: JsonRecord, courseLocation?: string): SessionOption {
+  const name = firstNonEmpty(
+    stringField(product, "name"),
+    stringField(product, "title"),
+    stringField(product, "label"),
+    stringField(product, "text"),
+    "Unnamed Course"
+  );
+  const description = stringField(product, "description") ?? "";
+  const fields = parseDescriptionFields(description);
+  return {
+    courseType: cleanCourseName(name),
+    datePretty: description || fields.date || "",
+    dateRaw: fields.date ?? "",
+    courseId: fields.courseId,
+    ceuValue: fields.ceuValue,
+    productCategories: productCategories(product),
+    courseImageURL: firstImage(product),
+    courseLocation: courseLocation || undefined
+  };
+}
+
+function attendeeWithOption(attendee: NormalizedAttendee, option: SessionOption): NormalizedAttendee {
+  return {
+    ...attendee,
+    courseType: option.courseType,
+    courseDate: option.dateRaw || attendee.courseDate,
+    courseId: option.courseId ?? attendee.courseId,
+    ceuValue: option.ceuValue ?? attendee.ceuValue,
+    productCategories: option.productCategories ?? attendee.productCategories,
+    courseImageURL: option.courseImageURL ?? attendee.courseImageURL,
+    courseLocation: option.courseLocation ?? attendee.courseLocation
+  };
 }
 
 async function getProgress(url: URL, env: Env): Promise<Response> {
@@ -134,7 +378,9 @@ async function patchProgress(request: Request, url: URL, env: Env): Promise<Resp
     email: stringField(body, "email"),
     courseId: stringField(body, "courseId"),
     courseTitle: stringField(body, "courseTitle") ?? "Class Session",
-    courseDate
+    courseDate,
+    sourceSubmissionId: stringField(body, "sourceSubmissionId"),
+    sourceFormId: stringField(body, "sourceFormId")
   });
 
   await env.DB.prepare(
@@ -188,6 +434,8 @@ async function ensureProgressParents(
     courseId?: string;
     courseTitle: string;
     courseDate: string;
+    sourceSubmissionId?: string;
+    sourceFormId?: string;
   }
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -212,18 +460,22 @@ async function ensureProgressParents(
 
   await env.DB.prepare(
     `INSERT INTO class_sessions (
-      id, course_id, course_title, course_date, updated_at
-    ) VALUES (?1, ?2, ?3, ?4, ?5)
+      id, course_id, course_title, course_date, source_submission_id, source_form_id, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
     ON CONFLICT(id) DO UPDATE SET
       course_id = COALESCE(excluded.course_id, course_id),
       course_title = CASE WHEN excluded.course_title != 'Class Session' THEN excluded.course_title ELSE course_title END,
       course_date = excluded.course_date,
+      source_submission_id = COALESCE(excluded.source_submission_id, source_submission_id),
+      source_form_id = COALESCE(excluded.source_form_id, source_form_id),
       updated_at = excluded.updated_at`
   ).bind(
     input.classSessionId,
     input.courseId ?? null,
     input.courseTitle,
     input.courseDate,
+    input.sourceSubmissionId ?? null,
+    input.sourceFormId ?? null,
     now
   ).run();
 }
@@ -423,6 +675,12 @@ async function audit(
   ).run();
 }
 
+class HttpError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+  }
+}
+
 function progressPath(url: URL): { classSessionId?: string; studentId?: string } {
   const parts = url.pathname.split("/").filter(Boolean);
   return {
@@ -456,9 +714,191 @@ function boolInt(value: unknown): number {
   return value === true || value === 1 ? 1 : 0;
 }
 
+function sessionIdFor(value: string): string {
+  const clean = value.trim();
+  return clean ? clean.replace(/\//g, "-") : "undated";
+}
+
 function stringField(source: JsonRecord, key: string): string | undefined {
   const value = source[key];
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function recordField(source: JsonRecord | undefined, key: string): JsonRecord | undefined {
+  if (!source) {
+    return undefined;
+  }
+  const value = source[key];
+  return isJsonRecord(value) ? value : undefined;
+}
+
+function arrayField(source: JsonRecord, key: string): unknown[] {
+  const value = source[key];
+  return Array.isArray(value) ? value : [];
+}
+
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseJsonRecord(value: string): JsonRecord | undefined {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return isJsonRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function answer(answers: JsonRecord, qid: string): JsonRecord | undefined {
+  return recordField(answers, qid);
+}
+
+function answerObject(answers: JsonRecord, qid: string): JsonRecord {
+  return recordField(answer(answers, qid), "answer") ?? {};
+}
+
+function answerString(answers: JsonRecord, qid: string): string {
+  const field = answer(answers, qid);
+  if (!field) {
+    return "";
+  }
+
+  const raw = field.answer;
+  if (typeof raw === "string") {
+    return raw.trim();
+  }
+  if (Array.isArray(raw)) {
+    return raw.map(String).join(", ").trim();
+  }
+  if (isJsonRecord(raw)) {
+    return firstNonEmpty(
+      stringField(raw, "full"),
+      stringField(raw, "datetime"),
+      stringField(raw, "date"),
+      [stringField(raw, "first"), stringField(raw, "last")].filter(Boolean).join(" ")
+    );
+  }
+
+  return stringField(field, "text") ?? "";
+}
+
+function firstNonEmpty(...values: Array<string | undefined>): string {
+  return values.find((value) => value !== undefined && value.trim().length > 0)?.trim() ?? "";
+}
+
+function parseDescriptionFields(description: string): { date?: string; time?: string; courseId?: string; ceuValue?: string } {
+  const date = regexValue(description, /Date:\s*([^]+?)(?=\s+Time:|\n|$)/i);
+  const time = regexValue(description, /Time:\s*([^]+?)(?=\s+Course ID:|\n|$)/i);
+  const courseId = regexValue(description, /Course ID:\s*([A-Za-z0-9-]+)/i);
+  const ceuValue = regexValue(description, /CEUs?:\s*([\d.]+)/i);
+  return {
+    date: date ? normalizeDateToMMDDYYYY(date) : undefined,
+    time,
+    courseId,
+    ceuValue
+  };
+}
+
+function regexValue(source: string, pattern: RegExp): string | undefined {
+  const match = source.match(pattern);
+  const value = match?.[1]?.trim();
+  return value || undefined;
+}
+
+function normalizeDateToMMDDYYYY(raw: string): string {
+  const value = raw.trim();
+  const slash = value.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (slash) {
+    return `${slash[1].padStart(2, "0")}/${slash[2].padStart(2, "0")}/${slash[3]}`;
+  }
+
+  const iso = value.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (iso) {
+    return `${iso[2]}/${iso[3]}/${iso[1]}`;
+  }
+
+  const longDate = value
+    .replace(/&/g, ",")
+    .replace(/\([^)]*\)/g, "")
+    .trim()
+    .match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+((?:19|20)\d{2})\b/i);
+  if (longDate) {
+    const month = monthNumber(longDate[1]);
+    return `${month}/${longDate[2].padStart(2, "0")}/${longDate[3]}`;
+  }
+
+  return value;
+}
+
+function extractDatePart(raw: string): string | undefined {
+  const normalized = normalizeDateToMMDDYYYY(raw);
+  return normalized || undefined;
+}
+
+function monthNumber(month: string): string {
+  const months = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december"
+  ];
+  const index = months.indexOf(month.toLowerCase());
+  return index >= 0 ? String(index + 1).padStart(2, "0") : "01";
+}
+
+function cleanCourseName(value: string): string {
+  const trimmed = value.trim();
+  const match = trimmed.match(/\s*\([^)]*\)\s*$/);
+  if (!match || match.index === undefined) {
+    return trimmed;
+  }
+  const before = trimmed.slice(0, match.index).trim();
+  return before || trimmed;
+}
+
+function productCategories(product: JsonRecord): string[] | undefined {
+  const cid = stringField(product, "cid");
+  if (cid) {
+    return [cid];
+  }
+
+  const raw = product.connectedCategories;
+  if (Array.isArray(raw)) {
+    return raw.map(String).map((value) => value.trim()).filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(String).map((value) => value.trim()).filter(Boolean);
+      }
+    } catch {
+      return raw
+        .replace(/[\[\]'"]/g, "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return undefined;
+}
+
+function firstImage(product: JsonRecord): string | undefined {
+  const raw = product.images;
+  if (Array.isArray(raw)) {
+    return raw.map(String).find((value) => value.trim().length > 0)?.trim();
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(String).find((value) => value.trim().length > 0)?.trim();
+      }
+    } catch {
+      return raw.trim() || undefined;
+    }
+  }
+  return undefined;
 }
 
 function base64UrlJson(value: JsonRecord): string {
