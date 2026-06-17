@@ -445,7 +445,11 @@ final class CKProgressStore: ObservableObject {
         await withCheckedContinuation { cont in
             db.fetch(withRecordID: id) { rec, err in
                 #if DEBUG
-                if let err { print("[CK] fetch err: \(err.localizedDescription)") }
+                if let err = err as? CKError, err.code != .unknownItem {
+                    print("[CK] fetch err: \(err.localizedDescription)")
+                } else if let err, (err as? CKError) == nil {
+                    print("[CK] fetch err: \(err.localizedDescription)")
+                }
                 #endif
                 cont.resume(returning: rec)
             }
@@ -466,13 +470,19 @@ final class CKProgressStore: ObservableObject {
             let rec = self.currentRecord ?? CKRecord(recordType: "Progress", recordID: rid)
             self.encode(p, into: rec)
 
+            #if DEBUG
             print("[CK] saveToCloud: starting save sequence for recordName=\(rec.recordID.recordName)")
+            #endif
             // Try public, then private
             if await self.save(rec, to: self.dbPublic) == false {
+                #if DEBUG
                 print("[CK] saveToCloud: public DB save failed; trying private DB")
+                #endif
                 _ = await self.save(rec, to: self.dbPrivate)
             }
+            #if DEBUG
             print("[CK] saveToCloud: finished save sequence for recordName=\(rec.recordID.recordName)")
+            #endif
             return true
         }
     }

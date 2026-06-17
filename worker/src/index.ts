@@ -87,6 +87,10 @@ export default {
         return await patchProgress(request, url, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/attendance/submit") {
+        return await submitAttendance(request, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/quiz/assign") {
         return await assignQuiz(request, env);
       }
@@ -420,6 +424,167 @@ async function patchProgress(request: Request, url: URL, env: Env): Promise<Resp
   });
 
   return json({ ok: true, id, updatedAt: now });
+}
+
+async function submitAttendance(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const formId = stringField(body, "formId");
+  const inOut = stringField(body, "inOut");
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const attendee = recordField(body, "attendee");
+  const fields = recordField(body, "fields");
+  const deviceId = stringField(body, "deviceId");
+
+  if (!formId || !inOut || !studentId || !classSessionId || !attendee || !fields) {
+    return json({ error: "missing_attendance_fields" }, 400);
+  }
+
+  if (!env.JOTFORM_API_KEY) {
+    return json({ error: "jotform_not_configured" }, 503);
+  }
+
+  const jotform = await postJotformSubmission(env, formId, fields);
+  const now = new Date().toISOString();
+  const didCheckIn = inOut === "Check-In";
+  const didCheckOut = inOut === "Check-Out";
+
+  await ensureProgressParents(env, {
+    studentId,
+    classSessionId,
+    oemsId: stringField(attendee, "oemsId") ?? studentId,
+    firstName: stringField(attendee, "firstName") ?? "Unknown",
+    lastName: stringField(attendee, "lastName") ?? "Student",
+    email: stringField(attendee, "email"),
+    courseId: stringField(attendee, "courseId"),
+    courseTitle: stringField(attendee, "courseType") ?? "Class Session",
+    courseDate: stringField(attendee, "courseDate") ?? classSessionId,
+    sourceSubmissionId: stringField(attendee, "submissionId"),
+    sourceFormId: formId
+  });
+
+  await writeProgress(env, {
+    studentId,
+    classSessionId,
+    didCheckIn,
+    didCheckOut,
+    checkInAt: didCheckIn ? now : undefined,
+    checkOutAt: didCheckOut ? now : undefined,
+    deviceId
+  });
+
+  await audit(env, "attendance.submit", {
+    studentId,
+    classSessionId,
+    deviceId,
+    payload: {
+      formId,
+      inOut,
+      jotformSubmissionId: jotform.submissionId ?? null
+    }
+  });
+
+  return json({
+    ok: true,
+    formId,
+    inOut,
+    submissionId: jotform.submissionId,
+    updatedAt: now
+  });
+}
+
+async function postJotformSubmission(
+  env: Env,
+  formId: string,
+  fields: JsonRecord
+): Promise<{ submissionId?: string }> {
+  const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/form/${encodeURIComponent(formId)}/submissions`));
+  url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
+  const body = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(fields)) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      body.set(jotformSubmissionFieldName(key), value.trim());
+    }
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/x-www-form-urlencoded; charset=utf-8"
+    },
+    body
+  });
+
+  if (!response.ok) {
+    throw new HttpError(502, "jotform_submit_failed");
+  }
+
+  const data = await response.json<JsonRecord>().catch(() => ({}));
+  const content = recordField(data, "content");
+  return {
+    submissionId: content ? stringField(content, "submissionID") : undefined
+  };
+}
+
+function jotformSubmissionFieldName(key: string): string {
+  const clean = key.trim();
+  const firstBracket = clean.indexOf("[");
+  if (firstBracket === -1) {
+    return `submission[${clean}]`;
+  }
+
+  const root = clean.slice(0, firstBracket);
+  const suffix = clean.slice(firstBracket);
+  return `submission[${root}]${suffix}`;
+}
+
+async function writeProgress(
+  env: Env,
+  input: {
+    studentId: string;
+    classSessionId: string;
+    didCheckIn?: boolean;
+    didCheckOut?: boolean;
+    didOpenSkills?: boolean;
+    didOpenQuiz?: boolean;
+    checkInAt?: string;
+    checkOutAt?: string;
+    deviceId?: string;
+  }
+): Promise<void> {
+  const now = new Date().toISOString();
+  const id = `${input.classSessionId}:${input.studentId}`;
+
+  await env.DB.prepare(
+    `INSERT INTO student_progress (
+      id, student_id, class_session_id, did_check_in, did_check_out,
+      did_open_skills, did_open_quiz, check_in_at, check_out_at,
+      last_device_id, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+    ON CONFLICT(student_id, class_session_id) DO UPDATE SET
+      did_check_in = max(did_check_in, excluded.did_check_in),
+      did_check_out = max(did_check_out, excluded.did_check_out),
+      did_open_skills = max(did_open_skills, excluded.did_open_skills),
+      did_open_quiz = max(did_open_quiz, excluded.did_open_quiz),
+      check_in_at = COALESCE(excluded.check_in_at, check_in_at),
+      check_out_at = COALESCE(excluded.check_out_at, check_out_at),
+      last_device_id = COALESCE(excluded.last_device_id, last_device_id),
+      updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    input.studentId,
+    input.classSessionId,
+    input.didCheckIn ? 1 : 0,
+    input.didCheckOut ? 1 : 0,
+    input.didOpenSkills ? 1 : 0,
+    input.didOpenQuiz ? 1 : 0,
+    input.checkInAt ?? null,
+    input.checkOutAt ?? null,
+    input.deviceId ?? null,
+    now
+  ).run();
 }
 
 async function ensureProgressParents(

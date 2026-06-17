@@ -185,7 +185,12 @@ final class MainMenuViewModel: ObservableObject {
             }
             
             do {
-                _ = try await jotform.postTimeAttendance(formId: formId, fields: fields)
+                _ = try await ClassManagerAPIClient.shared.submitAttendance(
+                    formId: formId,
+                    inOut: action,
+                    attendee: attendee,
+                    fields: fields
+                )
                 toast = "\(action) posted successfully."
                 
                 if action == "Check-In" {

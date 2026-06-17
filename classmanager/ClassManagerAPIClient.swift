@@ -31,6 +31,32 @@ final class ClassManagerAPIClient {
         )
     }
 
+    @discardableResult
+    func submitAttendance(
+        formId: String,
+        inOut: String,
+        attendee: RosterAttendee,
+        fields: [String: String]
+    ) async throws -> AttendanceSubmitResponse {
+        let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? attendee.submissionId
+            : attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/attendance/submit",
+            method: "POST",
+            body: AttendanceSubmitRequest(
+                formId: formId,
+                inOut: inOut,
+                studentId: studentId,
+                classSessionId: classSessionId,
+                attendee: attendee,
+                fields: fields,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     func fetchProgress(studentId: String, classSessionId: String) async throws -> RemoteProgress? {
         let response: ProgressEnvelope = try await send(
             path: "/progress/\(Self.pathEncode(classSessionId))/\(Self.pathEncode(studentId))",
@@ -123,6 +149,11 @@ final class ClassManagerAPIClient {
         value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
     }
 
+    private static func classSessionId(for value: String) -> String {
+        let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return clean.isEmpty ? "undated" : clean.replacingOccurrences(of: "/", with: "-")
+    }
+
     private static func isoString(_ date: Date) -> String {
         ISO8601DateFormatter().string(from: date)
     }
@@ -146,6 +177,24 @@ extension ClassManagerAPIClient {
 
     struct SessionLookupRequest: Encodable {
         let submissionId: String
+    }
+
+    struct AttendanceSubmitRequest: Encodable {
+        let formId: String
+        let inOut: String
+        let studentId: String
+        let classSessionId: String
+        let attendee: RosterAttendee
+        let fields: [String: String]
+        let deviceId: String?
+    }
+
+    struct AttendanceSubmitResponse: Decodable {
+        let ok: Bool
+        let formId: String
+        let inOut: String
+        let submissionId: String?
+        let updatedAt: String
     }
 
     struct ProgressEnvelope: Decodable {

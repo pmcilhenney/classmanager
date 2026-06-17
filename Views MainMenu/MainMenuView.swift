@@ -63,10 +63,7 @@ struct MainMenuView: View {
     // Called when the checkout survey flow completes (thank-you page detected).
     private func checkoutSurveyCompleted() {
         showingCheckoutSurvey = false
-        // Proceed with real check out flow depending on course type
-        let isElective = attendee.productCategories?.contains("2002") ?? false
-        if isElective { showElectiveCheckInOut(inOut: "Check-Out") }
-        else { showRefresherCheckInOut(inOut: "Check-Out") }
+        submitNativeAttendance(inOut: "Check-Out")
     }
     @State private var instructorIdInput: String = ""
     @State private var authenticatedInstructor: InstructorAuthService.Instructor?
@@ -752,13 +749,180 @@ struct MainMenuView: View {
         }
 
         if isElective {
-            showElectiveCheckInOut(inOut: inOut)
+            submitNativeAttendance(inOut: inOut)
         } else {
-            showRefresherCheckInOut(inOut: inOut)
+            submitNativeAttendance(inOut: inOut)
         }
     }
 
     private func canCheckOut() -> Bool { true }
+
+    private func submitNativeAttendance(inOut: String) {
+        if inOut == "Check-Out" && !canCheckOut() {
+            toast = "You cannot check out until the class is over."
+            return
+        }
+
+        let isElective = attendee.productCategories?.contains("2002") ?? false
+        let formId = isElective ? electiveFormId : refresherCheckInOutFormId
+        guard !formId.isEmpty else {
+            toast = isElective ? "Elective form ID not configured." : "Refresher check-in/out form not configured."
+            return
+        }
+
+        let fields = isElective
+            ? electiveAttendanceFields(inOut: inOut)
+            : refresherAttendanceFields(inOut: inOut)
+
+        busy = true
+        Task { @MainActor in
+            defer { busy = false }
+            do {
+                _ = try await ClassManagerAPIClient.shared.submitAttendance(
+                    formId: formId,
+                    inOut: inOut,
+                    attendee: attendee,
+                    fields: fields
+                )
+
+                showingElectiveForm = false
+                showSkills = false
+                showQuizWorkspace = false
+                showingMaterials = false
+
+                if inOut == "Check-In" {
+                    didCheckIn = true
+                    progressStore.markCheckIn()
+                } else {
+                    didCheckOut = true
+                    progressStore.markCheckOut()
+                }
+
+                toast = "\(inOut) posted successfully."
+            } catch {
+                toast = "Failed to post \(inOut). Please try again."
+            }
+        }
+    }
+
+    private func electiveAttendanceFields(inOut: String) -> [String: String] {
+        var fields: [String: String] = [:]
+        func add(_ name: String, _ value: String?) {
+            guard let value, !value.isEmpty else { return }
+            fields[name] = value
+        }
+
+        add("name[first]", attendee.firstName)
+        add("name[last]", attendee.lastName)
+        add("email", attendee.email)
+        add("typeA", attendee.oemsId)
+        add("courseTitle", cleanCourseName(attendee.courseType))
+        add("status", "2")
+        add("courseId", attendee.courseId)
+        add("ceuValue", attendee.ceuValue)
+        add("courseLocation", attendee.courseLocation)
+        if inOut == "Check-Out" { add("verified", "Yes") }
+        addDobParts(to: &fields, prefix: "birthdate", dob: attendee.dob)
+        addTodayParts(to: &fields, prefix: "date")
+        add("courseStart", normalizedCourseStart())
+        add("prefillapp", "1")
+        return fields
+    }
+
+    private func refresherAttendanceFields(inOut: String) -> [String: String] {
+        var fields: [String: String] = [:]
+        func add(_ name: String, _ value: String?) {
+            guard let value, !value.isEmpty else { return }
+            fields[name] = value
+        }
+
+        add("firstName", attendee.firstName)
+        add("lastName", attendee.lastName)
+        add("njOems", attendee.oemsId)
+        add("courseId", attendee.courseId)
+        add("courseType", cleanCourseName(attendee.courseType))
+        add("inout", inOut)
+        add("dob", attendee.dob)
+        add("appform", "1")
+        add("date", nowAttendanceString())
+        addCourseDateParts(to: &fields, prefix: "courseDate")
+        return fields
+    }
+
+    private func addDobParts(to fields: inout [String: String], prefix: String, dob: String?) {
+        guard let date = parseFlexibleDate(dob) else { return }
+        addDateParts(to: &fields, prefix: prefix, date: date)
+    }
+
+    private func addTodayParts(to fields: inout [String: String], prefix: String) {
+        addDateParts(to: &fields, prefix: prefix, date: Date())
+    }
+
+    private func addCourseDateParts(to fields: inout [String: String], prefix: String) {
+        guard let date = parseFlexibleDate(attendee.courseDate) else {
+            if let courseDate = attendee.courseDate {
+                let parts = courseDate.split(separator: "/")
+                if parts.count == 3 {
+                    fields["\(prefix)[month]"] = String(parts[0])
+                    fields["\(prefix)[day]"] = String(parts[1])
+                    fields["\(prefix)[year]"] = String(parts[2])
+                }
+            }
+            return
+        }
+        addDateParts(to: &fields, prefix: prefix, date: date)
+    }
+
+    private func addDateParts(to fields: inout [String: String], prefix: String, date: Date) {
+        let cal = Calendar(identifier: .gregorian)
+        let components = cal.dateComponents([.month, .day, .year], from: date)
+        if let month = components.month, let day = components.day, let year = components.year {
+            fields["\(prefix)[month]"] = String(format: "%02d", month)
+            fields["\(prefix)[day]"] = String(format: "%02d", day)
+            fields["\(prefix)[year]"] = String(format: "%04d", year)
+        }
+    }
+
+    private func normalizedCourseStart() -> String? {
+        guard let courseDate = attendee.courseDate else { return nil }
+        if let date = parseFlexibleDate(courseDate) {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "MM/dd/yyyy"
+            return formatter.string(from: date)
+        }
+        return courseDate
+    }
+
+    private func nowAttendanceString() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = .init(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        formatter.dateFormat = "MM/dd/yyyy HH:mm"
+        return formatter.string(from: Date())
+    }
+
+    private func parseFlexibleDate(_ raw: String?) -> Date? {
+        guard var candidate = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !candidate.isEmpty else {
+            return nil
+        }
+        if let range = candidate.range(of: #"(\d{1,2}/\d{1,2}/\d{4})"#, options: .regularExpression) {
+            candidate = String(candidate[range])
+        } else if let range = candidate.range(of: #"([A-Za-z]+\s+\d{1,2},\s+\d{4})"#, options: .regularExpression) {
+            candidate = String(candidate[range])
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        for format in ["MM/dd/yyyy", "M/d/yyyy", "MMMM d, yyyy", "MMM d, yyyy"] {
+            formatter.dateFormat = format
+            if let date = formatter.date(from: candidate) {
+                return date
+            }
+        }
+        return nil
+    }
 
     private func showElectiveCheckInOut(inOut: String) {
         guard !electiveFormId.isEmpty else { toast = "Elective form ID not configured."; return }
