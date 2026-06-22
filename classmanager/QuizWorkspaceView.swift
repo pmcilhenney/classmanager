@@ -96,51 +96,30 @@ struct QuizWorkspaceView: View {
             ? attendee.firstName.lowercased() + "." + attendee.lastName.lowercased() + "@\(config.flexiEmailDomain)"
             : attendee.email
 
-        #if DEBUG
-        print("[Quiz] ensureUserAndAssignQuiz email=\(email) quizId=\(quizId)")
-        #endif
-
-        // 3) Ensure user + assign quiz (fail silently if duplicate/500)
+        let launch: ClassManagerAPIClient.QuizAssignResponse
         do {
-            _ = try await flexi.ensureUserAndAssignQuiz(
+            launch = try await ClassManagerAPIClient.shared.assignQuiz(
+                attendee: attendee,
                 email: email,
-                firstName: attendee.firstName,
-                lastName: attendee.lastName,
-                oemsId: attendee.oemsId,
                 quizId: quizId
             )
-            #if DEBUG
-            print("[Quiz] ensure/assign succeeded")
-            #endif
         } catch {
             #if DEBUG
-            print("[Quiz] ensure/assign failed: \(error)")
-            #endif
-            // Swallow server-side flakiness (e.g. 500 on create/assign when it actually exists already)
-            // We still proceed to SSO; worst case the quiz is already assigned.
-        }
-
-        // 4) Build SSO – use auto-POST bridge for reliability
-        let ssoURL = flexi.ssoAutoPostBridgeURL(userName: email, quizId: quizId)
-            ?? flexi.ssoURL(userName: email, quizId: quizId)
-
-        guard let url = ssoURL else {
-            #if DEBUG
-            print("[Quiz] Failed to build SSO URL")
+            print("[Quiz] Worker assign/SSO failed: \(error)")
             #endif
             await MainActor.run {
                 isLoading = false
-                toast = "Couldn’t build SSO URL."
+                toast = "Couldn’t prepare quiz."
             }
             return
         }
 
         #if DEBUG
-        print("[Quiz] SSO URL generated successfully")
+        print("[Quiz] Worker SSO URL generated successfully warnings=\(launch.warnings)")
         #endif
 
         await MainActor.run {
-            currentURL = url
+            currentURL = launch.launchUrl
             // isLoading stays true; FlexiWebView will turn it false on finish/fail/timeout
         }
     }
@@ -167,4 +146,3 @@ struct QuizWorkspaceView: View {
         return s.trimmingCharacters(in: .whitespaces)
     }
 }
-

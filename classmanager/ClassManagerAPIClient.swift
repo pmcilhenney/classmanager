@@ -31,6 +31,33 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func assignQuiz(
+        attendee: RosterAttendee,
+        email: String,
+        quizId: String
+    ) async throws -> QuizAssignResponse {
+        let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? attendee.submissionId
+            : attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/quiz/assign",
+            method: "POST",
+            body: QuizAssignRequest(
+                email: email,
+                quizId: quizId,
+                firstName: attendee.firstName,
+                lastName: attendee.lastName,
+                oemsId: attendee.oemsId,
+                studentId: studentId,
+                classSessionId: classSessionId,
+                courseTitle: attendee.courseType,
+                courseDate: attendee.courseDate,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     @discardableResult
     func submitAttendance(
         formId: String,
@@ -195,6 +222,28 @@ extension ClassManagerAPIClient {
         let inOut: String
         let submissionId: String?
         let updatedAt: String
+    }
+
+    struct QuizAssignRequest: Encodable {
+        let email: String
+        let quizId: String
+        let firstName: String
+        let lastName: String
+        let oemsId: String
+        let studentId: String
+        let classSessionId: String
+        let courseTitle: String
+        let courseDate: String?
+        let deviceId: String?
+    }
+
+    struct QuizAssignResponse: Decodable {
+        let ok: Bool
+        let email: String
+        let quizId: String
+        let launchUrl: URL
+        let flexiquizUserId: String?
+        let warnings: [String]
     }
 
     struct ProgressEnvelope: Decodable {

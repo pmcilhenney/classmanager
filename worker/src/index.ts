@@ -649,6 +649,14 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
   const body = await readJson(request);
   const email = stringField(body, "email");
   const quizId = stringField(body, "quizId");
+  const firstName = stringField(body, "firstName") ?? "";
+  const lastName = stringField(body, "lastName") ?? "";
+  const oemsId = stringField(body, "oemsId") ?? "";
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const courseTitle = stringField(body, "courseTitle") ?? "Class Session";
+  const courseDate = stringField(body, "courseDate") ?? classSessionId ?? "undated";
+  const deviceId = stringField(body, "deviceId");
 
   if (!email || !quizId) {
     return json({ error: "missing_email_or_quiz_id" }, 400);
@@ -658,12 +666,58 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     return json({ error: "flexiquiz_not_configured" }, 503);
   }
 
+  const warnings: string[] = [];
+  let flexiquizUserId = await flexiFindUserId(env, email);
+
+  if (!flexiquizUserId) {
+    flexiquizUserId = await flexiCreateUser(env, {
+      userName: email,
+      email,
+      firstName,
+      lastName,
+      password: `${lastName}${oemsId}`
+    }).catch((error) => {
+      console.warn("flexiquiz create failed", error);
+      warnings.push("flexiquiz_create_failed");
+      return undefined;
+    });
+  }
+
+  if (flexiquizUserId) {
+    const assigned = await flexiAssignQuiz(env, flexiquizUserId, quizId);
+    if (!assigned) {
+      warnings.push("flexiquiz_assign_failed");
+    }
+  } else {
+    warnings.push("flexiquiz_user_not_confirmed");
+  }
+
   const launchUrl = await buildFlexiQuizSsoUrl(env, email, quizId);
 
+  if (studentId && classSessionId) {
+    await ensureProgressParents(env, {
+      studentId,
+      classSessionId,
+      oemsId: oemsId || studentId,
+      firstName: firstName || "Unknown",
+      lastName: lastName || "Student",
+      email,
+      courseTitle,
+      courseDate
+    });
+    await writeProgress(env, {
+      studentId,
+      classSessionId,
+      didOpenQuiz: true,
+      deviceId
+    });
+  }
+
   await audit(env, "quiz.assign.requested", {
-    studentId: stringField(body, "studentId"),
-    classSessionId: stringField(body, "classSessionId"),
-    payload: { email, quizId }
+    studentId,
+    classSessionId,
+    deviceId,
+    payload: { email, quizId, flexiquizUserId: flexiquizUserId ?? null, warnings }
   });
 
   return json({
@@ -671,7 +725,78 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     email,
     quizId,
     launchUrl,
-    note: "FlexiQuiz user lookup/create/assign will be filled in after API field mapping is finalized."
+    flexiquizUserId,
+    warnings
+  });
+}
+
+async function flexiFindUserId(env: Env, userName: string): Promise<string | undefined> {
+  const response = await flexiPost(env, "/v1/users/find", {
+    user_name: userName
+  });
+
+  if (!response.ok) {
+    return undefined;
+  }
+
+  const data = await response.json<JsonRecord>().catch(() => ({}));
+  return stringField(data, "user_id");
+}
+
+async function flexiCreateUser(
+  env: Env,
+  input: {
+    userName: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    password: string;
+  }
+): Promise<string | undefined> {
+  const response = await flexiPost(env, "/v1/users", {
+    user_name: input.userName,
+    password: input.password,
+    user_type: "respondent",
+    email_address: input.email,
+    first_name: input.firstName,
+    last_name: input.lastName,
+    suspended: "false",
+    manage_users: "false",
+    manage_groups: "false",
+    edit_quizzes: "false",
+    send_welcome_email: "true"
+  });
+
+  if (!response.ok) {
+    return undefined;
+  }
+
+  const data = await response.json<JsonRecord>().catch(() => ({}));
+  return stringField(data, "user_id");
+}
+
+async function flexiAssignQuiz(env: Env, userId: string, quizId: string): Promise<boolean> {
+  const response = await flexiPost(env, `/v1/users/${encodeURIComponent(userId)}/quizzes`, {
+    quiz_id: quizId
+  });
+  return response.ok;
+}
+
+async function flexiPost(env: Env, path: string, fields: Record<string, string>): Promise<Response> {
+  const url = new URL(joinUrl(env.FLEXIQUIZ_API_BASE, path));
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(fields)) {
+    body.set(key, value);
+  }
+
+  return await fetch(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/x-www-form-urlencoded; charset=utf-8",
+      "x-api-key": env.FLEXIQUIZ_API_KEY ?? ""
+    },
+    body
   });
 }
 
