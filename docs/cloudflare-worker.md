@@ -59,7 +59,7 @@ printf 'reply-to@example.org' | npx wrangler secret put REPLY_TO_ADDRESS -c wran
 - `GET /progress/:classSessionId/:studentId`
 - `PATCH /progress/:classSessionId/:studentId`
 - `POST /quiz/assign`
-- `GET /quiz/review/:attemptId`
+- `GET /quiz/review/:quizId?email=student@example.org&studentId=...&classSessionId=...`
 - `POST /email/send`
 
-The initial Worker is intentionally a deployable backing skeleton. Jotform normalization, full FlexiQuiz lookup/create/assign, and native Swift API client wiring are the next implementation slices.
+The Worker owns Jotform lookup, attendance submission, FlexiQuiz assignment/JWT launch, and native FlexiQuiz review normalization so API keys and SSO secrets stay out of the iOS app.

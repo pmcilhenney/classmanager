@@ -43,6 +43,7 @@ struct MainMenuView: View {
     //FlexiQuiz State
     @State private var showingQuizzes = false
     @State private var selectedQuiz: QuizInfo? = nil
+    @State private var selectedReviewQuiz: QuizInfo? = nil
     @State private var completedQuizzes: Set<String> = []
     @State private var quizTracker = QuizCompletionTracker()
 
@@ -408,7 +409,13 @@ struct MainMenuView: View {
                 } else if showingElectiveQuiz, let url = electiveQuizURL {
                     WebViewContainer(url: url)
                 } else if showingQuizzes {
-                    if let quiz = selectedQuiz {
+                    if let quiz = selectedReviewQuiz {
+                        QuizReviewView(
+                            config: config,
+                            attendee: attendee,
+                            quiz: quiz
+                        )
+                    } else if let quiz = selectedQuiz {
                         FlexiQuizWebView(
                             quiz: quiz,
                             attendee: attendee,
@@ -470,6 +477,7 @@ struct MainMenuView: View {
                                     await MainActor.run {
                                         quizResultToast = QuizResultToast(quizId: quiz.id, result: finalResult ?? result ?? "Completed", reviewId: reviewId)
                                         pendingReviewId = nil
+                                        selectedReviewQuiz = nil
                                         // If the parsed/final result contains "pass" then close the webview; keep it open on fail so user may retake
                                         let r = (finalResult ?? result ?? "").lowercased()
                                         if r.contains("pass") { selectedQuiz = nil }
@@ -485,8 +493,9 @@ struct MainMenuView: View {
                             attendee: attendee,
                             quizURLs: getQuizzesForCourse().map { $0.asInfo() },
                             selectedQuiz: $selectedQuiz,
-                            completedQuizzes: $completedQuizzes
-                            , onBlocked: { msg in toast = msg }
+                            completedQuizzes: $completedQuizzes,
+                            onBlocked: { msg in toast = msg },
+                            onReview: { quiz in selectedReviewQuiz = quiz }
                         )
                     }
                 } else if showingPDF, let url = selectedMaterialURL {
@@ -667,9 +676,12 @@ struct MainMenuView: View {
     private func resetForNewScan() {
         showSkills = false
         showQuizWorkspace = false
+        showingQuizzes = false
         showingElectiveForm = false
         showingMaterials = false
         showingPDF = false
+        selectedQuiz = nil
+        selectedReviewQuiz = nil
         selectedMaterialURL = nil
         electiveFormURL = nil
         electiveFormTitle = ""
@@ -1147,6 +1159,8 @@ struct MainMenuView: View {
             let courseQuizIDs = Set(getQuizzesForCourse().map { $0.id })
             let ckIDs = Set(progressStore.progress.completedQuizIDs).intersection(courseQuizIDs)
             completedQuizzes.formUnion(ckIDs)
+            selectedReviewQuiz = nil
+            selectedQuiz = nil
             showingQuizzes = true
             showSkills = false
             showingElectiveForm = false

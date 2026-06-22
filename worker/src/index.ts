@@ -47,6 +47,30 @@ type SessionOption = {
   courseLocation?: string;
 };
 
+type QuizReviewQuestion = {
+  id?: string;
+  number: number;
+  prompt: string;
+  studentAnswer?: string;
+  correctAnswer?: string;
+  isCorrect?: boolean;
+  feedback?: string;
+  points?: string;
+};
+
+type QuizReviewPayload = {
+  ok: true;
+  quizId: string;
+  responseId?: string;
+  resultText?: string;
+  scoreText?: string;
+  passed?: boolean;
+  completedAt?: string;
+  reportUrl?: string;
+  questions: QuizReviewQuestion[];
+  warnings: string[];
+};
+
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store"
@@ -801,25 +825,380 @@ async function flexiPost(env: Env, path: string, fields: Record<string, string>)
 }
 
 async function quizReview(url: URL, env: Env): Promise<Response> {
-  const attemptId = decodeURIComponent(url.pathname.split("/").pop() ?? "");
-  if (!attemptId) {
-    return json({ error: "missing_attempt_id" }, 400);
+  const quizId = decodeURIComponent(url.pathname.split("/").pop() ?? "");
+  const email = url.searchParams.get("email")?.trim();
+  const studentId = url.searchParams.get("studentId")?.trim();
+  const classSessionId = url.searchParams.get("classSessionId")?.trim();
+  const deviceId = url.searchParams.get("deviceId")?.trim();
+
+  if (!quizId) {
+    return json({ error: "missing_quiz_id" }, 400);
   }
 
-  const row = await env.DB.prepare(
-    `SELECT id, quiz_id, result_text, score_text, passed, review_url, review_released, completed_at
-     FROM quiz_attempts WHERE id = ?1`
-  ).bind(attemptId).first();
+  if (!env.FLEXIQUIZ_API_KEY) {
+    return json({ error: "flexiquiz_not_configured" }, 503);
+  }
 
-  if (!row) {
+  if (!email) {
+    const cached = await cachedQuizReview(env, quizId);
+    if (cached) {
+      return json(cached);
+    }
+    return json({ error: "missing_email" }, 400);
+  }
+
+  const flexiquizUserId = await flexiFindUserId(env, email);
+  if (!flexiquizUserId) {
+    return json({ error: "flexiquiz_user_not_found" }, 404);
+  }
+
+  const responses = await flexiListResponses(env, flexiquizUserId, quizId);
+  const latest = responses.find((item) => responseLooksCompleted(item)) ?? responses[0];
+  if (!latest) {
     return json({ error: "review_not_found" }, 404);
   }
 
-  if (row.review_released !== 1) {
-    return json({ error: "review_not_released" }, 403);
+  const responseId = responseIdFrom(latest);
+  const warnings: string[] = [];
+  let detail: JsonRecord | undefined;
+
+  if (responseId) {
+    detail = await flexiResponseDetail(env, flexiquizUserId, quizId, responseId);
+    if (!detail) {
+      warnings.push("response_detail_unavailable");
+    }
+  } else {
+    warnings.push("response_id_unavailable");
   }
 
-  return json({ attempt: row });
+  const reportUrl = firstText([detail, latest], [
+    "response_report_url",
+    "responseReportUrl",
+    "report_url",
+    "review_url",
+    "reviewUrl"
+  ]);
+  let reportHtml: string | undefined;
+  if (reportUrl) {
+    reportHtml = await fetchTextLimited(reportUrl, 250_000).catch(() => undefined);
+    if (!reportHtml) {
+      warnings.push("response_report_unavailable");
+    }
+  }
+
+  const review = normalizeQuizReview({
+    quizId,
+    latest,
+    detail,
+    reportHtml,
+    fallbackResponseId: responseId,
+    fallbackReportUrl: reportUrl,
+    warnings
+  });
+
+  if (studentId && classSessionId) {
+    await audit(env, "quiz.review.requested", {
+      studentId,
+      classSessionId,
+      deviceId,
+      payload: {
+        quizId,
+        responseId: review.responseId ?? null,
+        questionCount: review.questions.length,
+        warnings: review.warnings
+      }
+    });
+  }
+
+  return json(review);
+}
+
+async function cachedQuizReview(env: Env, attemptId: string): Promise<QuizReviewPayload | undefined> {
+  const row = await env.DB.prepare(
+    `SELECT id, quiz_id, response_id, result_text, score_text, passed, review_url, review_released, completed_at
+     FROM quiz_attempts WHERE id = ?1 OR response_id = ?1`
+  ).bind(attemptId).first<JsonRecord>();
+
+  if (!row || row.review_released !== 1) {
+    return undefined;
+  }
+
+  return {
+    ok: true,
+    quizId: stringField(row, "quiz_id") ?? attemptId,
+    responseId: stringField(row, "response_id") ?? stringField(row, "id"),
+    resultText: stringField(row, "result_text"),
+    scoreText: stringField(row, "score_text"),
+    passed: boolFromUnknown(row.passed),
+    completedAt: stringField(row, "completed_at"),
+    reportUrl: stringField(row, "review_url"),
+    questions: [],
+    warnings: ["cached_attempt_has_no_question_detail"]
+  };
+}
+
+async function flexiListResponses(env: Env, userId: string, quizId: string): Promise<JsonRecord[]> {
+  const response = await flexiPost(env, `/v1/users/${encodeURIComponent(userId)}/responses`, {
+    quiz_id: quizId,
+    limit: "10",
+    order: "desc"
+  });
+
+  if (!response.ok) {
+    throw new HttpError(502, "flexiquiz_responses_failed");
+  }
+
+  const payload = await response.json<unknown>().catch(() => undefined);
+  return recordsFromPayload(payload);
+}
+
+async function flexiResponseDetail(
+  env: Env,
+  userId: string,
+  quizId: string,
+  responseId: string
+): Promise<JsonRecord | undefined> {
+  const paths = [
+    `/v1/users/${encodeURIComponent(userId)}/responses/${encodeURIComponent(responseId)}`,
+    `/v1/quizzes/${encodeURIComponent(quizId)}/responses/${encodeURIComponent(responseId)}`,
+    `/v1/responses/${encodeURIComponent(responseId)}`
+  ];
+
+  for (const path of paths) {
+    const response = await flexiGet(env, path);
+    if (!response.ok) {
+      continue;
+    }
+    const payload = await response.json<unknown>().catch(() => undefined);
+    const record = recordFromPayload(payload);
+    if (record) {
+      return record;
+    }
+  }
+
+  return undefined;
+}
+
+async function flexiGet(env: Env, path: string): Promise<Response> {
+  const url = new URL(joinUrl(env.FLEXIQUIZ_API_BASE, path));
+  return await fetch(url, {
+    method: "GET",
+    headers: {
+      accept: "application/json",
+      "x-api-key": env.FLEXIQUIZ_API_KEY ?? ""
+    }
+  });
+}
+
+function normalizeQuizReview(input: {
+  quizId: string;
+  latest: JsonRecord;
+  detail?: JsonRecord;
+  reportHtml?: string;
+  fallbackResponseId?: string;
+  fallbackReportUrl?: string;
+  warnings: string[];
+}): QuizReviewPayload {
+  const sources = [input.detail, recordField(input.detail, "content"), recordField(input.detail, "response"), input.latest, recordField(input.latest, "content")]
+    .filter(isJsonRecord);
+  const questions = normalizeQuestionRecords(questionRecordsFromSources(sources));
+  const htmlQuestions = questions.length > 0 ? [] : parseQuestionsFromReportHtml(input.reportHtml);
+
+  if (questions.length === 0 && htmlQuestions.length === 0) {
+    input.warnings.push("question_detail_unavailable");
+  }
+
+  const resultText = firstText(sources, ["result_text", "resultText", "result", "status", "pass_fail", "outcome"]);
+  const scoreText = firstText(sources, ["score_text", "scoreText", "score", "percentage", "percent", "grade"]);
+  const passed = boolFromUnknown(firstValue(sources, ["passed", "pass", "is_passed", "isPassed", "success"])) ??
+    passStatusFromText(resultText ?? scoreText);
+
+  return {
+    ok: true,
+    quizId: input.quizId,
+    responseId: firstText(sources, ["response_id", "responseId", "id", "response_guid", "responseGuid"]) ?? input.fallbackResponseId,
+    resultText,
+    scoreText,
+    passed,
+    completedAt: firstText(sources, ["completed_at", "completedAt", "date_completed", "submitted_at", "submit_date", "finished_at"]),
+    reportUrl: input.fallbackReportUrl,
+    questions: questions.length > 0 ? questions : htmlQuestions,
+    warnings: input.warnings
+  };
+}
+
+function responseLooksCompleted(response: JsonRecord): boolean {
+  const status = firstText([response], ["status", "state", "result", "result_text"])?.toLowerCase() ?? "";
+  if (/(complete|completed|submitted|finished|pass|fail)/.test(status)) {
+    return true;
+  }
+  return Boolean(firstText([response], ["completed_at", "completedAt", "date_completed", "submitted_at", "submit_date"]));
+}
+
+function responseIdFrom(response: JsonRecord): string | undefined {
+  return firstText([response], ["response_id", "responseId", "id", "response_guid", "responseGuid"]);
+}
+
+function recordsFromPayload(payload: unknown): JsonRecord[] {
+  if (Array.isArray(payload)) {
+    return payload.filter(isJsonRecord);
+  }
+  if (!isJsonRecord(payload)) {
+    return [];
+  }
+  const arrays = [
+    payload.content,
+    payload.responses,
+    payload.data,
+    payload.items,
+    recordField(payload, "content")?.responses,
+    recordField(payload, "content")?.items
+  ];
+  for (const value of arrays) {
+    if (Array.isArray(value)) {
+      return value.filter(isJsonRecord);
+    }
+  }
+  return [payload];
+}
+
+function recordFromPayload(payload: unknown): JsonRecord | undefined {
+  if (isJsonRecord(payload)) {
+    return recordField(payload, "content") ?? recordField(payload, "data") ?? recordField(payload, "response") ?? payload;
+  }
+  if (Array.isArray(payload)) {
+    return payload.find(isJsonRecord);
+  }
+  return undefined;
+}
+
+function questionRecordsFromSources(sources: JsonRecord[]): JsonRecord[] {
+  for (const source of sources) {
+    const direct = [
+      source.questions,
+      source.answers,
+      source.question_answers,
+      source.questionAnswers,
+      source.responses,
+      source.items,
+      source.results
+    ];
+    for (const value of direct) {
+      if (Array.isArray(value)) {
+        const records = value.filter(isJsonRecord);
+        if (records.some(looksLikeQuestionRecord)) {
+          return records;
+        }
+      }
+    }
+
+    const deep = deepQuestionRecords(source, 0);
+    if (deep.length > 0) {
+      return deep;
+    }
+  }
+  return [];
+}
+
+function deepQuestionRecords(value: unknown, depth: number): JsonRecord[] {
+  if (depth > 4) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    const records = value.filter(isJsonRecord);
+    if (records.length > 0 && records.some(looksLikeQuestionRecord)) {
+      return records;
+    }
+    for (const item of value) {
+      const nested = deepQuestionRecords(item, depth + 1);
+      if (nested.length > 0) {
+        return nested;
+      }
+    }
+    return [];
+  }
+  if (!isJsonRecord(value)) {
+    return [];
+  }
+  for (const item of Object.values(value)) {
+    const nested = deepQuestionRecords(item, depth + 1);
+    if (nested.length > 0) {
+      return nested;
+    }
+  }
+  return [];
+}
+
+function looksLikeQuestionRecord(record: JsonRecord): boolean {
+  return Boolean(firstText([record], ["question", "question_text", "questionText", "prompt", "title", "text", "name"])) &&
+    Boolean(firstValue([record], ["answer", "user_answer", "userAnswer", "student_answer", "selected_answer", "correct_answer", "correctAnswer", "is_correct", "isCorrect"]));
+}
+
+function normalizeQuestionRecords(records: JsonRecord[]): QuizReviewQuestion[] {
+  return records.map((record, index) => {
+    const prompt = firstText([record], ["question_text", "questionText", "question", "prompt", "title", "text", "name"]) ?? `Question ${index + 1}`;
+    const studentAnswer = answerText(firstValue([record], ["user_answer", "userAnswer", "student_answer", "studentAnswer", "selected_answer", "selectedAnswer", "response", "answer"]));
+    const correctAnswer = answerText(firstValue([record], ["correct_answer", "correctAnswer", "right_answer", "rightAnswer", "expected_answer", "expectedAnswer"]));
+    const isCorrect = boolFromUnknown(firstValue([record], ["is_correct", "isCorrect", "correct", "was_correct", "wasCorrect", "passed", "result"])) ??
+      correctnessFromText(firstText([record], ["result", "status"]));
+    return {
+      id: firstText([record], ["id", "question_id", "questionId"]),
+      number: intFromUnknown(firstValue([record], ["number", "question_number", "questionNumber", "order", "position"])) ?? index + 1,
+      prompt: cleanText(prompt),
+      studentAnswer,
+      correctAnswer,
+      isCorrect,
+      feedback: firstText([record], ["feedback", "feedback_text", "feedbackText", "comment", "comments", "explanation", "rationale"])?.trim(),
+      points: firstText([record], ["points", "score", "mark", "marks"])
+    };
+  });
+}
+
+function parseQuestionsFromReportHtml(html?: string): QuizReviewQuestion[] {
+  if (!html) {
+    return [];
+  }
+  const plain = cleanText(stripTags(html));
+  if (!plain.toLowerCase().includes("question")) {
+    return [];
+  }
+  const chunks = plain.split(/\bQuestion\s+\d+[:.)-]?\s*/i).slice(1);
+  return chunks.slice(0, 100).map((chunk, index) => {
+    const isCorrect = correctnessFromText(chunk);
+    const feedback = regexValue(chunk, /Feedback\s*[:\-]\s*([^]+?)(?=\s*(?:Question\s+\d+|Correct Answer|Your Answer|$))/i);
+    return {
+      number: index + 1,
+      prompt: cleanText(chunk.split(/Your Answer|Correct Answer|Feedback/i)[0] ?? `Question ${index + 1}`),
+      studentAnswer: regexValue(chunk, /Your Answer\s*[:\-]\s*([^]+?)(?=\s*(?:Correct Answer|Feedback|Question\s+\d+|$))/i),
+      correctAnswer: regexValue(chunk, /Correct Answer\s*[:\-]\s*([^]+?)(?=\s*(?:Feedback|Question\s+\d+|$))/i),
+      isCorrect,
+      feedback
+    };
+  }).filter((question) => question.prompt.length > 0);
+}
+
+async function fetchTextLimited(url: string, limit: number): Promise<string | undefined> {
+  const response = await fetch(url, { headers: { accept: "text/html, text/plain;q=0.9" } });
+  if (!response.ok || !response.body) {
+    return undefined;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = "";
+
+  while (received < limit) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    received += value.byteLength;
+    text += decoder.decode(value, { stream: true });
+  }
+  text += decoder.decode();
+  await reader.cancel().catch(() => undefined);
+  return text;
 }
 
 async function sendEmailEndpoint(request: Request, env: Env): Promise<Response> {
@@ -1075,6 +1454,134 @@ function answerString(answers: JsonRecord, qid: string): string {
 
 function firstNonEmpty(...values: Array<string | undefined>): string {
   return values.find((value) => value !== undefined && value.trim().length > 0)?.trim() ?? "";
+}
+
+function firstValue(sources: JsonRecord[], keys: string[]): unknown {
+  for (const source of sources) {
+    for (const key of keys) {
+      if (source[key] !== undefined && source[key] !== null && source[key] !== "") {
+        return source[key];
+      }
+    }
+  }
+  return undefined;
+}
+
+function firstText(sources: Array<JsonRecord | undefined>, keys: string[]): string | undefined {
+  return textFromUnknown(firstValue(sources.filter(isJsonRecord), keys));
+}
+
+function textFromUnknown(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const clean = cleanText(value);
+    return clean.length > 0 ? clean : undefined;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const joined = value.map(textFromUnknown).filter(Boolean).join(", ");
+    return joined || undefined;
+  }
+  if (isJsonRecord(value)) {
+    return firstText([value], ["text", "label", "name", "value", "answer", "title", "full"]);
+  }
+  return undefined;
+}
+
+function answerText(value: unknown): string | undefined {
+  if (isJsonRecord(value)) {
+    const direct = firstText([value], ["text", "label", "name", "value", "answer", "title", "full"]);
+    if (direct) {
+      return direct;
+    }
+    const joined = Object.values(value).map(textFromUnknown).filter(Boolean).join(", ");
+    return joined || undefined;
+  }
+  return textFromUnknown(value);
+}
+
+function boolFromUnknown(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return value === 1 ? true : value === 0 ? false : undefined;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "yes", "y", "1", "pass", "passed", "correct"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "no", "n", "0", "fail", "failed", "incorrect"].includes(normalized)) {
+      return false;
+    }
+  }
+  return undefined;
+}
+
+function intFromUnknown(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function passStatusFromText(text?: string): boolean | undefined {
+  if (!text) {
+    return undefined;
+  }
+  const normalized = text.toLowerCase();
+  if (/\bpass(?:ed)?\b/.test(normalized)) {
+    return true;
+  }
+  if (/\bfail(?:ed)?\b/.test(normalized)) {
+    return false;
+  }
+  return undefined;
+}
+
+function correctnessFromText(text?: string): boolean | undefined {
+  if (!text) {
+    return undefined;
+  }
+  const normalized = text.toLowerCase();
+  if (/\bincorrect\b|\bwrong\b/.test(normalized)) {
+    return false;
+  }
+  if (/\bcorrect\b|\bright\b/.test(normalized)) {
+    return true;
+  }
+  return undefined;
+}
+
+function cleanText(value: string): string {
+  return htmlDecode(value)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stripTags(value: string): string {
+  return value
+    .replace(/<script\b[^>]*>[^]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[^]*?<\/style>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+}
+
+function htmlDecode(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#39;/gi, "'");
 }
 
 function parseDescriptionFields(description: string): { date?: string; time?: string; courseId?: string; ceuValue?: string } {

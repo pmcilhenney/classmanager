@@ -58,6 +58,27 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func fetchQuizReview(
+        attendee: RosterAttendee,
+        quizId: String,
+        email: String
+    ) async throws -> QuizReviewResponse {
+        let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? attendee.submissionId
+            : attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/quiz/review/\(Self.pathEncode(quizId))",
+            method: "GET",
+            queryItems: [
+                URLQueryItem(name: "email", value: email),
+                URLQueryItem(name: "studentId", value: studentId),
+                URLQueryItem(name: "classSessionId", value: classSessionId),
+                URLQueryItem(name: "deviceId", value: UIDevice.current.identifierForVendor?.uuidString)
+            ]
+        )
+    }
+
     @discardableResult
     func submitAttendance(
         formId: String,
@@ -145,6 +166,19 @@ final class ClassManagerAPIClient {
         return try await perform(request)
     }
 
+    private func send<T: Decodable>(
+        path: String,
+        method: String,
+        queryItems: [URLQueryItem]
+    ) async throws -> T {
+        var request = URLRequest(url: makeURL(path: path, queryItems: queryItems))
+        request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return try await perform(request)
+    }
+
     private func perform<T: Decodable>(_ request: URLRequest) async throws -> T {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
@@ -166,9 +200,16 @@ final class ClassManagerAPIClient {
     }
 
     private func makeURL(path: String) -> URL {
+        makeURL(path: path, queryItems: [])
+    }
+
+    private func makeURL(path: String, queryItems: [URLQueryItem]) -> URL {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         let cleanPath = path.hasPrefix("/") ? path : "/\(path)"
         components.path = cleanPath
+        if !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
         return components.url!
     }
 
@@ -244,6 +285,45 @@ extension ClassManagerAPIClient {
         let launchUrl: URL
         let flexiquizUserId: String?
         let warnings: [String]
+    }
+
+    struct QuizReviewResponse: Decodable {
+        let ok: Bool
+        let quizId: String
+        let responseId: String?
+        let resultText: String?
+        let scoreText: String?
+        let passed: Bool?
+        let completedAt: String?
+        let reportUrl: URL?
+        let questions: [QuizReviewQuestion]
+        let warnings: [String]
+    }
+
+    struct QuizReviewQuestion: Decodable, Identifiable {
+        let questionId: String?
+        let number: Int
+        let prompt: String
+        let studentAnswer: String?
+        let correctAnswer: String?
+        let isCorrect: Bool?
+        let feedback: String?
+        let points: String?
+
+        var id: String {
+            questionId ?? "\(number)-\(prompt)"
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case questionId = "id"
+            case number
+            case prompt
+            case studentAnswer
+            case correctAnswer
+            case isCorrect
+            case feedback
+            case points
+        }
     }
 
     struct ProgressEnvelope: Decodable {

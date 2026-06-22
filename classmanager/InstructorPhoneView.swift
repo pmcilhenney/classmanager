@@ -10,6 +10,7 @@ struct InstructorPhoneView: View {
     @State private var sessionOptions: [RegistrationOption] = []
     @State private var attendee: RosterAttendee?
     @State private var selectedQuiz: QuizInfo?
+    @State private var selectedReviewQuiz: QuizInfo?
     @State private var busy = false
     @State private var notice: String?
     @StateObject private var progressStore = CKProgressStore()
@@ -64,12 +65,17 @@ struct InstructorPhoneView: View {
                                 .foregroundStyle(.secondary)
                         } else {
                             ForEach(quizzes) { quiz in
+                                let isCompleted = progressStore.progress.completedQuizIDs.contains(quiz.id)
                                 Button {
-                                    selectedQuiz = quiz
+                                    if isCompleted {
+                                        selectedReviewQuiz = quiz
+                                    } else {
+                                        selectedQuiz = quiz
+                                    }
                                 } label: {
                                     HStack(spacing: 12) {
-                                        Image(systemName: progressStore.progress.completedQuizIDs.contains(quiz.id) ? "checkmark.seal.fill" : "doc.text")
-                                            .foregroundStyle(progressStore.progress.completedQuizIDs.contains(quiz.id) ? .green : .blue)
+                                        Image(systemName: isCompleted ? "checkmark.seal.fill" : "doc.text")
+                                            .foregroundStyle(isCompleted ? .green : .blue)
                                             .frame(width: 24)
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(quiz.title)
@@ -80,6 +86,10 @@ struct InstructorPhoneView: View {
                                                     .foregroundStyle(.secondary)
                                             }
                                         }
+                                        Spacer()
+                                        Text(isCompleted ? "Review" : "Open")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
                                     }
                                 }
                             }
@@ -141,6 +151,15 @@ struct InstructorPhoneView: View {
                     )
                 }
             }
+            .sheet(item: $selectedReviewQuiz) { quiz in
+                if let attendee {
+                    QuizReviewView(
+                        config: config,
+                        attendee: attendee,
+                        quiz: quiz
+                    )
+                }
+            }
             .alert(notice ?? "", isPresented: Binding(
                 get: { notice != nil },
                 set: { if !$0 { notice = nil } }
@@ -166,6 +185,8 @@ struct InstructorPhoneView: View {
         await MainActor.run {
             busy = true
             notice = nil
+            selectedQuiz = nil
+            selectedReviewQuiz = nil
         }
         defer { Task { @MainActor in busy = false } }
 
@@ -198,6 +219,8 @@ struct InstructorPhoneView: View {
         current.courseImageURL = option.courseImageURL
         current.courseLocation = option.courseLocation
         attendee = current
+        selectedQuiz = nil
+        selectedReviewQuiz = nil
         Task { await loadProgress(for: current) }
     }
 

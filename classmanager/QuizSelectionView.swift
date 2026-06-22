@@ -13,6 +13,7 @@ struct QuizSelectionView: View {
     @Binding var completedQuizzes: Set<String>
     // Called when selection is blocked (e.g., previous quiz not completed)
     var onBlocked: (String) -> Void = { _ in }
+    var onReview: (QuizInfo) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,63 +30,78 @@ struct QuizSelectionView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     ForEach(quizURLs) { quiz in
-                        Button(action: {
-                            attemptSelect(quiz)
-                        }) {
-                            HStack(spacing: 16) {
-                                // Left badge: when completed show green check, otherwise white badge with accent-colored number
-                                ZStack {
-                                    if completedQuizzes.contains(quiz.id) {
-                                        Circle()
-                                            .fill(Color.green)
-                                            .frame(width: 50, height: 50)
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 20, weight: .bold))
+                        VStack(alignment: .leading, spacing: 10) {
+                            Button(action: {
+                                attemptSelect(quiz)
+                            }) {
+                                HStack(spacing: 16) {
+                                    // Left badge: when completed show green check, otherwise white badge with accent-colored number
+                                    ZStack {
+                                        if completedQuizzes.contains(quiz.id) {
+                                            Circle()
+                                                .fill(Color.green)
+                                                .frame(width: 50, height: 50)
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 20, weight: .bold))
+                                                .foregroundColor(.white)
+                                        } else {
+                                            Circle()
+                                                .fill(Color.white)
+                                                .frame(width: 50, height: 50)
+                                            Text("\(quiz.number)")
+                                                .font(.system(size: 20, weight: .bold))
+                                                .foregroundColor(Color.accentColor)
+                                        }
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(quiz.title)
+                                            .font(.headline)
                                             .foregroundColor(.white)
-                                    } else {
-                                        Circle()
-                                            .fill(Color.white)
-                                            .frame(width: 50, height: 50)
-                                        Text("\(quiz.number)")
-                                            .font(.system(size: 20, weight: .bold))
-                                            .foregroundColor(Color.accentColor)
+
+                                        // If we have a parsed result from CloudKit, show it as a contrasting "chip" (Pass/Fail or score).
+                                        if let result = progressStore.progress.quizResults[quiz.id] {
+                                            let lower = result.lowercased()
+                                            Text(result)
+                                                .font(.subheadline).bold()
+                                                .foregroundColor(lower.contains("pass") ? .green : (lower.contains("fail") ? .red : .primary))
+                                                .padding(.vertical, 6)
+                                                .padding(.horizontal, 10)
+                                                .background(Color.white)
+                                                .clipShape(Capsule())
+                                        } else {
+                                            Text("Tap to start")
+                                                .font(.subheadline)
+                                                .foregroundColor(Color.white.opacity(0.85))
+                                        }
                                     }
+
+                                    Spacer()
+
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(.white.opacity(0.9))
                                 }
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(quiz.title)
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-
-                                    // If we have a parsed result from CloudKit, show it as a contrasting "chip" (Pass/Fail or score).
-                                    if let result = progressStore.progress.quizResults[quiz.id] {
-                                        let lower = result.lowercased()
-                                        Text(result)
-                                            .font(.subheadline).bold()
-                                            .foregroundColor(lower.contains("pass") ? .green : (lower.contains("fail") ? .red : .primary))
-                                            .padding(.vertical, 6)
-                                            .padding(.horizontal, 10)
-                                            .background(Color.white)
-                                            .clipShape(Capsule())
-                                    } else {
-                                        Text("Tap to start")
-                                            .font(.subheadline)
-                                            .foregroundColor(Color.white.opacity(0.85))
-                                    }
-                                }
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .foregroundColor(.white.opacity(0.9))
                             }
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.accentColor)
-                                    .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
-                            )
+                            .buttonStyle(.plain)
+
+                            if completedQuizzes.contains(quiz.id) {
+                                Button {
+                                    onReview(quiz)
+                                } label: {
+                                    Label("Review Answers", systemImage: "doc.text.magnifyingglass")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundColor(.white)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.leading, 66)
+                            }
                         }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.accentColor)
+                                .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+                        )
                         .buttonStyle(AccentButtonStyle())
                     }
                 }
