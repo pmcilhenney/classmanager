@@ -6,6 +6,7 @@ struct QuizWorkspaceView: View {
     let attendee: RosterAttendee
     let jotform: JotFormClient
     let flexi: FlexiQuizClient
+    var quiz: QuizInfo?
     var onSSOLoaded: (() -> Void)?
 
     @State private var isLoading = false
@@ -63,6 +64,9 @@ struct QuizWorkspaceView: View {
         #endif
 
         let resolvedQuizId: String? = {
+            if let quiz {
+                return quiz.id
+            }
             if isPEPP {
                 if let id = Bundle.main.object(forInfoDictionaryKey: "PEPP_QUIZ_ID") as? String,
                    !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

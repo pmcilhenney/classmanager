@@ -79,11 +79,19 @@ struct classmanagerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            WelcomeView(
-                config: config,
-                jotform: jotform,
-                flexi: flexi
-            )
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                InstructorPhoneView(
+                    config: config,
+                    jotform: jotform,
+                    flexi: flexi
+                )
+            } else {
+                WelcomeView(
+                    config: config,
+                    jotform: jotform,
+                    flexi: flexi
+                )
+            }
         }
     }
 }
