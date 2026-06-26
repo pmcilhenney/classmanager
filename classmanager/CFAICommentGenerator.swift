@@ -181,13 +181,18 @@ actor CFAICommentGenerator {
                 return comment
             }
             
-            print("[CFAICommentGenerator] ⚠️  Attempt \(attempt + 1) failed validation, retrying...")
+            print("[CFAICommentGenerator] ⚠️  Generated comment failed validation, using local fallback")
+            return guaranteedFallback(studentName: studentName, courseTitle: courseTitle)
         }
         
         // Final fallback - guaranteed to include name and course
         print("[CFAICommentGenerator] ⚠️  All attempts exhausted, using guaranteed fallback")
-        let fallback = "\(studentName) successfully completed \(courseTitle) with excellent participation and engagement. Their professional attitude and dedication to learning were exemplary throughout the course."
+        let fallback = guaranteedFallback(studentName: studentName, courseTitle: courseTitle)
         print("[CFAICommentGenerator] 💬 Final fallback: \(fallback)")
         return fallback
+    }
+
+    private static func guaranteedFallback(studentName: String, courseTitle: String) -> String {
+        "\(studentName) successfully completed \(courseTitle) with excellent participation and engagement. Their professional attitude and dedication to learning were exemplary throughout the course."
     }
 }

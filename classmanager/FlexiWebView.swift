@@ -109,18 +109,20 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // If the incoming URL is different, load it
-        if webView.url != url {
+        if context.coordinator.loadedRequestURL != url {
+            context.coordinator.loadedRequestURL = url
             webView.load(URLRequest(url: url))
         }
     }
 
     class Coordinator: NSObject, WKNavigationDelegate {
         var parent: FlexiSimpleWebViewRepresentable
+        var loadedRequestURL: URL?
         private var hasReportedResult = false
 
         init(_ parent: FlexiSimpleWebViewRepresentable) {
             self.parent = parent
+            self.loadedRequestURL = parent.url
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
