@@ -31,6 +31,19 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func authenticateInstructor(instructorId: String) async throws -> InstructorAuthService.Instructor {
+        let response: InstructorAuthResponse = try await send(
+            path: "/instructor/auth",
+            method: "POST",
+            body: InstructorAuthRequest(instructorId: instructorId)
+        )
+        return InstructorAuthService.Instructor(
+            fullName: response.instructor.fullName,
+            email: response.instructor.email,
+            oemsId: response.instructor.oemsId
+        )
+    }
+
     func assignQuiz(
         attendee: RosterAttendee,
         email: String,
@@ -249,6 +262,21 @@ extension ClassManagerAPIClient {
         let submissionId: String
     }
 
+    struct InstructorAuthRequest: Encodable {
+        let instructorId: String
+    }
+
+    struct InstructorAuthResponse: Decodable {
+        let ok: Bool
+        let instructor: InstructorPayload
+    }
+
+    struct InstructorPayload: Decodable {
+        let fullName: String
+        let email: String
+        let oemsId: String
+    }
+
     struct AttendanceSubmitRequest: Encodable {
         let formId: String
         let inOut: String
@@ -307,6 +335,7 @@ extension ClassManagerAPIClient {
         let questionId: String?
         let number: Int
         let prompt: String
+        let choices: [String]?
         let studentAnswer: String?
         let correctAnswer: String?
         let isCorrect: Bool?
@@ -321,6 +350,7 @@ extension ClassManagerAPIClient {
             case questionId = "id"
             case number
             case prompt
+            case choices
             case studentAnswer
             case correctAnswer
             case isCorrect

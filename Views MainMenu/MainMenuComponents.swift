@@ -106,7 +106,7 @@ struct EmptyStateView: View {
             Text("Select an action from the left menu")
                 .font(.title3.weight(.semibold))
             
-            Text("You can check in/out, validate skills, open the mini-quiz workspace, or access course materials.")
+            Text("You can check in/out, validate skills, or open the mini-quiz workspace.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

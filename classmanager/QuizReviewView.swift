@@ -68,6 +68,11 @@ struct QuizReviewView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    if review.passed == false {
+                        Label("Review and retest required for scores below 70%.", systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.red)
+                    }
                 }
                 .padding(.vertical, 4)
             }
@@ -155,6 +160,25 @@ private struct QuestionReviewRow: View {
                     Text(question.prompt)
                         .font(.body.weight(.semibold))
                 }
+            }
+
+            if let choices = question.choices, !choices.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Choices")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(choices, id: \.self) { choice in
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: choice == question.correctAnswer ? "checkmark.circle.fill" : "circle")
+                                .font(.caption)
+                                .foregroundStyle(choice == question.correctAnswer ? .green : .secondary)
+                            Text(choice)
+                                .font(.subheadline)
+                                .foregroundStyle(choice == question.correctAnswer ? .green : .primary)
+                        }
+                    }
+                }
+                .padding(.leading, 34)
             }
 
             answerBlock(title: "Your Answer", value: question.studentAnswer, color: question.isCorrect == false ? .red : .green)

@@ -15,6 +15,7 @@ struct QuizWorkspaceView: View {
     @State private var currentURL: URL?
     @State private var lastURL: URL?
     @State private var toast: String?
+    @State private var showingReview = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,10 +44,25 @@ struct QuizWorkspaceView: View {
             Divider()
 
             ZStack {
-                if let url = currentURL {
-                    FlexiWebView(url: url, lastURL: $lastURL, loading: $isLoading)
+                if showingReview, let quiz {
+                    QuizReviewView(
+                        config: config,
+                        attendee: attendee,
+                        quiz: quiz
+                    )
+                } else if let url = currentURL {
+                    FlexiWebView(
+                        url: url,
+                        lastURL: $lastURL,
+                        loading: $isLoading,
+                        onResultDetected: {
+                            isLoading = false
+                            showingReview = true
+                        }
+                    )
                     .onChange(of: lastURL) { _ in
                         // Called once when real content is visible in the webview
+                        isLoading = false
                         onSSOLoaded?()
                     }
                 } else {

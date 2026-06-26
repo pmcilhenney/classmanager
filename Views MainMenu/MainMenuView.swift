@@ -295,19 +295,6 @@ struct MainMenuView: View {
                     }
                 }
                 
-                Button { loadCourseMaterials() } label: {
-                    HStack {
-                        Image(systemName: "books.vertical")
-                        Text("Course Materials")
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
-                    }
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 12)
-                    .foregroundColor(.white)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.accentColor))
-                }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -615,15 +602,10 @@ struct MainMenuView: View {
             await progressStore.load(oemsId: attendee.oemsId, courseDate: attendee.courseDate ?? "")
             // Ensure we also fetch latest server progress and merge so UI is up-to-date
             await progressStore.fetchLatestAndMerge()
-            // Also attempt to load course materials on appear so Accept/Continue from
-            // the welcome/review flow immediately wires elective quiz/skills links.
-            await materialsManager.loadMaterials(for: attendee.courseType)
-            let (skills, quizzes) = electiveExtrasFromCandidates()
-            electiveQuizLinks = quizzes
-            electiveSkillsLink = skills
-                // Ensure we don't auto-show any elective quiz that might have been open
-                showingElectiveQuiz = false
-                electiveQuizURL = nil
+            electiveQuizLinks = []
+            electiveSkillsLink = nil
+            showingElectiveQuiz = false
+            electiveQuizURL = nil
         }
     }
 
@@ -681,13 +663,8 @@ struct MainMenuView: View {
                     let ckIDs = Set(progressStore.progress.completedQuizIDs).intersection(courseQuizIDs)
                     completedQuizzes.formUnion(ckIDs)
 
-                    // Load elective materials (if any) so we can surface elective quiz/skills
-                    // quick actions immediately after scanning an elective student.
-                    await materialsManager.loadMaterials(for: newAttendee.courseType)
-                    // Extract elective extras from any candidates the manager found
-                    let (skills, quizzes) = electiveExtrasFromCandidates()
-                    electiveQuizLinks = quizzes
-                    electiveSkillsLink = skills
+                    electiveQuizLinks = []
+                    electiveSkillsLink = nil
                 }
                 toast = "Loaded new student: \(newAttendee.firstName) \(newAttendee.lastName)"
             }
@@ -1137,7 +1114,15 @@ struct MainMenuView: View {
     }
 
     private func getQuizzesForCourse() -> [QuizInfo] {
-        QuizInfo.activeCourseExam(courseType: cleanCourseName(attendee.courseType), flexi: flexi)
+        let courseType = cleanCourseName(attendee.courseType).uppercased()
+        if courseType.contains("REFRESHER A") {
+            return QuizInfo.refresherAQuizzes()
+        } else if courseType.contains("REFRESHER B") {
+            return QuizInfo.refresherBQuizzes()
+        } else if courseType.contains("REFRESHER C") {
+            return QuizInfo.refresherCQuizzes()
+        }
+        return []
     }
 
     // MARK: - Course Materials
@@ -1188,7 +1173,7 @@ struct MainMenuView: View {
         busy = true
         defer { busy = false }
         do {
-            let instr = try await InstructorAuthService.authenticate(instructorId: instructorIdInput)
+            let instr = try await ClassManagerAPIClient.shared.authenticateInstructor(instructorId: instructorIdInput)
             authenticatedInstructor = instr
             showingInstructorGate = false
             openSkills()

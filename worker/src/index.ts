@@ -53,6 +53,7 @@ type QuizReviewQuestion = {
   id?: string;
   number: number;
   prompt: string;
+  choices?: string[];
   studentAnswer?: string;
   correctAnswer?: string;
   isCorrect?: boolean;
@@ -103,6 +104,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/session/lookup") {
         return await sessionLookup(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/instructor/auth") {
+        return await instructorAuth(request, env);
       }
 
       if (request.method === "GET" && url.pathname.startsWith("/progress/")) {
@@ -190,6 +195,58 @@ async function sessionLookup(request: Request, env: Env): Promise<Response> {
     attendee,
     options: normalized.options
   });
+}
+
+async function instructorAuth(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const instructorId = stringField(body, "instructorId");
+
+  if (!instructorId) {
+    return json({ error: "missing_instructor_id" }, 400);
+  }
+
+  if (!env.JOTFORM_API_KEY) {
+    return json({ error: "jotform_not_configured" }, 503);
+  }
+
+  const url = new URL(joinUrl(env.JOTFORM_BASE_URL, "/form/242266064536154/submissions"));
+  url.searchParams.set("apiKey", env.JOTFORM_API_KEY);
+  url.searchParams.set("limit", "1000");
+
+  const response = await fetch(url, {
+    headers: { accept: "application/json" }
+  });
+
+  if (!response.ok) {
+    return json({ error: "instructor_lookup_failed" }, 502);
+  }
+
+  const data = await response.json<JsonRecord>().catch(() => ({}));
+  const submissions = arrayField(data, "content").filter(isJsonRecord);
+  const normalizedId = instructorId.trim();
+
+  for (const submission of submissions) {
+    const answers = recordField(submission, "answers");
+    if (!answers) {
+      continue;
+    }
+
+    const oemsId = answerString(answers, "15").trim();
+    if (oemsId !== normalizedId) {
+      continue;
+    }
+
+    return json({
+      ok: true,
+      instructor: {
+        fullName: answerString(answers, "3"),
+        email: answerString(answers, "5"),
+        oemsId
+      }
+    });
+  }
+
+  return json({ error: "instructor_not_authorized" }, 404);
 }
 
 async function fetchJotformSubmission(env: Env, submissionId: string): Promise<JsonRecord> {
@@ -792,13 +849,13 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     if (!alreadyAssigned) {
       const assigned = await flexiAssignQuiz(env, flexiquizUserId, quizId);
       if (!assigned.ok) {
+        warnings.push("flexiquiz_assign_failed");
         await audit(env, "quiz.assign.failed", {
           studentId,
           classSessionId,
           deviceId,
           payload: { email, quizId, flexiquizUserId, status: assigned.status, body: assigned.body }
         });
-        return json({ error: "flexiquiz_assign_failed", status: assigned.status, warnings }, 502);
       }
     }
   } else {
@@ -863,7 +920,7 @@ async function flexiQuizStatus(env: Env, quizId: string): Promise<{ ok: boolean;
     return { ok: false, status: response.status, body: text };
   }
 
-  const data = text ? JSON.parse(text) as JsonRecord : {};
+  const data = text ? parseJsonRecord(text) ?? {} : {};
   const status = stringField(data, "status")?.toLowerCase();
   if (status && status !== "open") {
     return { ok: false, status: 409, body: text };
@@ -1022,13 +1079,65 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
       payload: {
         quizId,
         responseId: review.responseId ?? null,
+        scoreText: review.scoreText ?? null,
+        passed: review.passed ?? null,
         questionCount: review.questions.length,
         warnings: review.warnings
       }
     });
+    await saveQuizAttempt(env, {
+      studentId,
+      classSessionId,
+      flexiquizUserId,
+      review
+    }).catch((error) => console.warn("quiz attempt save failed", error));
   }
 
   return json(review);
+}
+
+async function saveQuizAttempt(
+  env: Env,
+  input: {
+    studentId: string;
+    classSessionId: string;
+    flexiquizUserId?: string;
+    review: QuizReviewPayload;
+  }
+): Promise<void> {
+  const now = new Date().toISOString();
+  const attemptId = input.review.responseId ?? crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO quiz_attempts (
+      id, student_id, class_session_id, flexiquiz_user_id, quiz_id, response_id,
+      result_text, score_text, passed, review_url, review_released, completed_at,
+      created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12, ?12)
+    ON CONFLICT(id) DO UPDATE SET
+      flexiquiz_user_id = excluded.flexiquiz_user_id,
+      quiz_id = excluded.quiz_id,
+      response_id = excluded.response_id,
+      result_text = excluded.result_text,
+      score_text = excluded.score_text,
+      passed = excluded.passed,
+      review_url = excluded.review_url,
+      review_released = 1,
+      completed_at = excluded.completed_at,
+      updated_at = excluded.updated_at`
+  ).bind(
+    attemptId,
+    input.studentId,
+    input.classSessionId,
+    input.flexiquizUserId ?? null,
+    input.review.quizId,
+    input.review.responseId ?? null,
+    input.review.resultText ?? null,
+    input.review.scoreText ?? null,
+    input.review.passed === undefined ? null : boolInt(input.review.passed),
+    input.review.reportUrl ?? null,
+    input.review.completedAt ?? now,
+    now
+  ).run();
 }
 
 async function cachedQuizReview(env: Env, attemptId: string): Promise<QuizReviewPayload | undefined> {
@@ -1129,7 +1238,8 @@ function normalizeQuizReview(input: {
   const resultText = firstText(sources, ["result_text", "resultText", "result", "status", "pass_fail", "outcome"]);
   const scoreText = firstText(sources, ["score_text", "scoreText", "score", "percentage", "percent", "grade"]);
   const passed = boolFromUnknown(firstValue(sources, ["passed", "pass", "is_passed", "isPassed", "success"])) ??
-    passStatusFromText(resultText ?? scoreText);
+    passStatusFromText(resultText ?? scoreText) ??
+    passStatusFromScore(scoreText);
 
   return {
     ok: true,
@@ -1263,6 +1373,7 @@ function normalizeQuestionRecords(records: JsonRecord[]): QuizReviewQuestion[] {
       id: firstText([record], ["id", "question_id", "questionId"]),
       number: intFromUnknown(firstValue([record], ["number", "question_number", "questionNumber", "order", "position"])) ?? index + 1,
       prompt: cleanText(prompt),
+      choices: stringArrayFromUnknown(firstValue([record], ["choices", "options", "possible_answers", "possibleAnswers", "answers"])),
       studentAnswer,
       correctAnswer,
       isCorrect,
@@ -1619,6 +1730,14 @@ function answerText(value: unknown): string | undefined {
   return textFromUnknown(value);
 }
 
+function stringArrayFromUnknown(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const values = value.map(answerText).filter((item): item is string => Boolean(item && item.trim().length > 0));
+  return values.length > 0 ? values : undefined;
+}
+
 function boolFromUnknown(value: unknown): boolean | undefined {
   if (typeof value === "boolean") {
     return value;
@@ -1661,6 +1780,18 @@ function passStatusFromText(text?: string): boolean | undefined {
     return false;
   }
   return undefined;
+}
+
+function passStatusFromScore(text?: string): boolean | undefined {
+  if (!text) {
+    return undefined;
+  }
+  const match = text.match(/(\d+(?:\.\d+)?)\s*%?/);
+  if (!match) {
+    return undefined;
+  }
+  const score = Number.parseFloat(match[1]);
+  return Number.isFinite(score) ? score >= 70 : undefined;
 }
 
 function correctnessFromText(text?: string): boolean | undefined {

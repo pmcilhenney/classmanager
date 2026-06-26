@@ -100,34 +100,3 @@ struct QuizInfo: Identifiable {
         ]
     }
 }
-
-extension QuizInfo {
-    static func activeCourseExam(courseType: String, flexi: FlexiQuizClient) -> [QuizInfo] {
-        let cleaned = courseType.replacingOccurrences(of: #"\s*\([^)]*\)$"#, with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let quizId = flexi.quizId(for: cleaned), !quizId.isEmpty else {
-            return []
-        }
-
-        let normalized = cleaned.lowercased()
-        let label: String
-        if normalized.contains("refresher a") {
-            label = "EMT Refresher A Exam"
-        } else if normalized.contains("refresher b") {
-            label = "EMT Refresher B Exam"
-        } else if normalized.contains("refresher c") {
-            label = "EMT Refresher C Exam"
-        } else {
-            label = "\(cleaned) Exam"
-        }
-
-        return [
-            QuizInfo(
-                id: quizId,
-                number: 1,
-                title: label,
-                url: URL(string: "https://www.flexiquiz.com/SC/N/\(quizId)")!
-            )
-        ]
-    }
-}

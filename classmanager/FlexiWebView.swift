@@ -78,9 +78,15 @@ struct FlexiWebView: View {
     let url: URL
     @Binding var lastURL: URL?
     @Binding var loading: Bool
+    var onResultDetected: (() -> Void)?
 
     var body: some View {
-        FlexiSimpleWebViewRepresentable(url: url, lastURL: $lastURL, isLoading: $loading)
+        FlexiSimpleWebViewRepresentable(
+            url: url,
+            lastURL: $lastURL,
+            isLoading: $loading,
+            onResultDetected: onResultDetected
+        )
             .edgesIgnoringSafeArea(.all)
     }
 }
@@ -89,6 +95,7 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
     let url: URL
     @Binding var lastURL: URL?
     @Binding var isLoading: Bool
+    var onResultDetected: (() -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -110,6 +117,7 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
 
     class Coordinator: NSObject, WKNavigationDelegate {
         var parent: FlexiSimpleWebViewRepresentable
+        private var hasReportedResult = false
 
         init(_ parent: FlexiSimpleWebViewRepresentable) {
             self.parent = parent
@@ -117,6 +125,18 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             DispatchQueue.main.async { self.parent.isLoading = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) {
+                if webView.url != nil {
+                    self.parent.isLoading = false
+                }
+            }
+        }
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            DispatchQueue.main.async {
+                self.parent.isLoading = false
+                self.parent.lastURL = webView.url
+            }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -124,10 +144,54 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
                 self.parent.isLoading = false
                 self.parent.lastURL = webView.url
             }
+            detectResults(webView)
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             DispatchQueue.main.async { self.parent.isLoading = false }
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            DispatchQueue.main.async { self.parent.isLoading = false }
+        }
+
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            DispatchQueue.main.async { self.parent.isLoading = false }
+        }
+
+        private func detectResults(_ webView: WKWebView) {
+            guard !hasReportedResult else { return }
+            let detectResultsJS = #"""
+            (function() {
+                try {
+                    var marker = "6e0a9b0f6f6d5a0d2d3d2c88c97e7b1a";
+                    var html = (document.documentElement && document.documentElement.outerHTML) ? document.documentElement.outerHTML : '';
+                    var url = (window.location && window.location.href) ? window.location.href : '';
+                    var lowerUrl = url.toLowerCase();
+                    var markerFound = (html.indexOf(marker) !== -1) || (url.indexOf(marker) !== -1) || lowerUrl.indexOf('/sc/rt') !== -1;
+                    return JSON.stringify({found: markerFound});
+                } catch(e) {
+                    return JSON.stringify({found: false});
+                }
+            })();
+            """#
+
+            webView.evaluateJavaScript(detectResultsJS) { result, _ in
+                guard
+                    let json = result as? String,
+                    let data = json.data(using: .utf8),
+                    let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                    let found = object["found"] as? Bool,
+                    found
+                else { return }
+
+                DispatchQueue.main.async {
+                    guard !self.hasReportedResult else { return }
+                    self.hasReportedResult = true
+                    self.parent.isLoading = false
+                    self.parent.onResultDetected?()
+                }
+            }
         }
     }
 }
