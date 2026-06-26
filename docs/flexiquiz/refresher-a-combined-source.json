@@ -1,0 +1,2090 @@
+{
+  "title": "Refresher A Combined Exam",
+  "generatedAt": "2026-06-26T23:14:44.699Z",
+  "source": "Academy RMS flexiquiz_exam_results.response_questions_json",
+  "totalQuestions": 50,
+  "segments": [
+    {
+      "page": 1,
+      "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+      "sourceQuizName": "Refresher A - 1",
+      "questionCount": 12,
+      "questions": [
+        {
+          "page": 1,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 1,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "bba52518-204b-48a3-8713-d696a68c35cd",
+          "questionType": "radio_button",
+          "text": "What is the sound of the soft tissue of the upper airway creating impedance or partial obstruction to the flow of air?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Stridor",
+              "correct": false,
+              "sourceOptionId": "0fa618cd-66a5-44a5-9135-e9aa9fcc936a"
+            },
+            {
+              "label": "B",
+              "text": "Snoring",
+              "correct": true,
+              "sourceOptionId": "5dcf6c06-92ae-478a-b374-a3148a7721a4"
+            },
+            {
+              "label": "C",
+              "text": "Gurgling",
+              "correct": false,
+              "sourceOptionId": "70fa706e-4f0d-437a-a408-65e77d47b1f1"
+            },
+            {
+              "label": "D",
+              "text": "Hoarseness",
+              "correct": false,
+              "sourceOptionId": "e3e8a23b-6f9a-4750-bf50-68354e4ed882"
+            }
+          ],
+          "correctAnswers": [
+            "B"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 2,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "d6b73ea8-4869-4a8a-95ea-f9e166f70178",
+          "questionType": "radio_button",
+          "text": "Which of the following structures is NOT found in the upper airway?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Oropharynx",
+              "correct": false,
+              "sourceOptionId": "14b64759-aee4-4390-aab3-6cc22f20246a"
+            },
+            {
+              "label": "B",
+              "text": "Pharynx",
+              "correct": false,
+              "sourceOptionId": "5422d1ea-82d1-454b-a46a-c840d51a11a1"
+            },
+            {
+              "label": "C",
+              "text": "Larynx",
+              "correct": false,
+              "sourceOptionId": "79553e99-5c52-4921-a310-5d533645bcfb"
+            },
+            {
+              "label": "D",
+              "text": "Bronchus",
+              "correct": true,
+              "sourceOptionId": "b63e7753-3bd7-4923-8597-b35564f89821"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 3,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "69df4422-dbad-4429-95ec-ef3615b45946",
+          "questionType": "radio_button",
+          "text": "You are ventilating an 85-year-old male without difficulty. A nurse tells you that the patient has dentures. To ensure a good mask seal, you should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "use an infant mask over the nose.",
+              "correct": false,
+              "sourceOptionId": "71a53833-885c-4d37-bd8b-b0641462ba6e"
+            },
+            {
+              "label": "B",
+              "text": "remove the dentures.",
+              "correct": false,
+              "sourceOptionId": "2bbaee0d-99a0-4653-ac5b-7ac58b389cc3"
+            },
+            {
+              "label": "C",
+              "text": "tape the dentures in place.",
+              "correct": false,
+              "sourceOptionId": "231c66e4-f306-47bd-8449-50899575333b"
+            },
+            {
+              "label": "D",
+              "text": "leave the dentures in place.",
+              "correct": true,
+              "sourceOptionId": "221bd852-524e-4525-846c-bb663864d457"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 4,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "66ef216f-6da1-4478-8487-c469d011d73c",
+          "questionType": "radio_button",
+          "text": "Your patient is breathing 4 shallow breaths per minute due to overdosing on his pain medication but he has a palpable radial pulse. He vomited prior to your arrival and is choking. You should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "insert an oropharyngeal airway and ventilate.",
+              "correct": false,
+              "sourceOptionId": "41ce701d-20d9-4326-acd5-9975111e269c"
+            },
+            {
+              "label": "B",
+              "text": "move the patient to the ambulance and suction.",
+              "correct": false,
+              "sourceOptionId": "d47cbbed-a390-447a-a615-2d4cb8f325e3"
+            },
+            {
+              "label": "C",
+              "text": "perform chest thrusts to clear the lungs.",
+              "correct": false,
+              "sourceOptionId": "a041909a-f64f-464a-a4d2-40fe5885ab11"
+            },
+            {
+              "label": "D",
+              "text": "roll him onto his side to clear the airway.",
+              "correct": true,
+              "sourceOptionId": "6aa09475-c0e0-4544-85d3-3040042d3e19"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 5,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "1b4d2d27-8995-41e6-8780-8de70984f475",
+          "questionType": "radio_button",
+          "text": "Which of the following is a disadvantage of oropharyngeal airways (OPAs)?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "They do not come in pediatric sizes.",
+              "correct": false,
+              "sourceOptionId": "58dfb81e-8159-4fba-9e5e-3cc8a669bed7"
+            },
+            {
+              "label": "B",
+              "text": "They cannot be used in patients with a suspected skull fracture.",
+              "correct": false,
+              "sourceOptionId": "ccc7a1de-2553-4cae-bb48-9b163888d46a"
+            },
+            {
+              "label": "C",
+              "text": "They cannot be used in a patient with a gag reflex.",
+              "correct": true,
+              "sourceOptionId": "895294eb-1eb1-43eb-9684-b9f353646950"
+            },
+            {
+              "label": "D",
+              "text": "They require the use of a water-soluble lubricant.",
+              "correct": false,
+              "sourceOptionId": "34d00eda-6fb5-473b-a283-12eb6feb19cc"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 6,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "18458bac-c68a-4056-ba28-ee44a5d16e20",
+          "questionType": "radio_button",
+          "text": "The high-pitched sound caused by an upper airway obstruction is known as:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "gurgling.",
+              "correct": false,
+              "sourceOptionId": "03403319-5435-48fb-a29d-067e69f64b43"
+            },
+            {
+              "label": "B",
+              "text": "stridor.",
+              "correct": true,
+              "sourceOptionId": "fcd35a12-53c4-4e4d-94c3-383016d004f2"
+            },
+            {
+              "label": "C",
+              "text": "snoring.",
+              "correct": false,
+              "sourceOptionId": "fb9fd79d-90c3-4a58-bf13-48bc62a8649f"
+            },
+            {
+              "label": "D",
+              "text": "hoarseness.",
+              "correct": false,
+              "sourceOptionId": "2a9c63bf-63e9-45bf-bf5f-c06d9a4b9ba4"
+            }
+          ],
+          "correctAnswers": [
+            "B"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 7,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "8130c2c1-99fb-4b8b-b3df-80a393d3f8e6",
+          "questionType": "radio_button",
+          "text": "Which of the following structures is found in the lower airway?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Tonsils",
+              "correct": false,
+              "sourceOptionId": "02f1f1bc-ff52-4414-8c6a-80e52ba9c338"
+            },
+            {
+              "label": "B",
+              "text": "Bronchi",
+              "correct": true,
+              "sourceOptionId": "df786ba4-ac2a-4948-aa15-f761585ed254"
+            },
+            {
+              "label": "C",
+              "text": "Uvula",
+              "correct": false,
+              "sourceOptionId": "b9a32a37-96c0-4089-8893-7bcecd7db7d2"
+            },
+            {
+              "label": "D",
+              "text": "Pharynx",
+              "correct": false,
+              "sourceOptionId": "557f7e33-88a8-4d71-81a1-21ba6eba69d8"
+            }
+          ],
+          "correctAnswers": [
+            "B"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 8,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "90ac7538-5254-47ea-b2df-286e93df5fb9",
+          "questionType": "radio_button",
+          "text": "You have performed a head tilt-chin lift maneuver on a 17-month-old boy and are attempting to ventilate him with a bag-valve mask. You are experiencing a lot of resistance with each breath and the chest is barely rising. Prior to attempting ventilations again, you should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "finger sweep the airway.",
+              "correct": false,
+              "sourceOptionId": "421579bc-6caf-4380-9bea-76b89df185f3"
+            },
+            {
+              "label": "B",
+              "text": "perform chest thrusts.",
+              "correct": false,
+              "sourceOptionId": "5d638be7-40a9-4913-9bbb-04a3cd04ae61"
+            },
+            {
+              "label": "C",
+              "text": "tilt the head back further.",
+              "correct": false,
+              "sourceOptionId": "bd25f796-2254-4298-a8e4-c5391152a5e9"
+            },
+            {
+              "label": "D",
+              "text": "ease the head forward a little to re-position the airway.",
+              "correct": true,
+              "sourceOptionId": "452fc84d-9d91-4464-9a28-a5b1db6734f8"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 9,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "c652d659-a117-4df3-a415-7fc1ecf9305b",
+          "questionType": "radio_button",
+          "text": "Which of the following gases increases during respiratory failure?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Carbon monoxide",
+              "correct": false,
+              "sourceOptionId": "5a21a374-80fd-4acd-a6a9-dca2c0531b80"
+            },
+            {
+              "label": "B",
+              "text": "Nitrogen",
+              "correct": false,
+              "sourceOptionId": "c5eec205-95a1-44c2-9351-b59bfdcaf7ad"
+            },
+            {
+              "label": "C",
+              "text": "Oxygen",
+              "correct": false,
+              "sourceOptionId": "72f3f76b-120b-49b1-9b6c-1f089a4c8c96"
+            },
+            {
+              "label": "D",
+              "text": "Carbon dioxide",
+              "correct": true,
+              "sourceOptionId": "6dd7cc4e-7a86-4fd1-816b-1a6c6f4719bc"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 10,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "3a2d3fd4-b0f0-421d-9038-5df1ea31511f",
+          "questionType": "radio_button",
+          "text": "On which of the following types of calls should you bring your portable suction unit to the patient's side upon arrival on the scene?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Cardiac arrest",
+              "correct": false,
+              "sourceOptionId": "f2a76e36-2e96-40ed-a652-803ecfc9afbb"
+            },
+            {
+              "label": "B",
+              "text": "Motor vehicle collision",
+              "correct": false,
+              "sourceOptionId": "89794d1e-c912-4d1a-912e-e0cd3c086689"
+            },
+            {
+              "label": "C",
+              "text": "Seizure",
+              "correct": false,
+              "sourceOptionId": "f8734845-b230-499e-89b1-837a543ea194"
+            },
+            {
+              "label": "D",
+              "text": "All of the above",
+              "correct": true,
+              "sourceOptionId": "c50901b6-980e-4433-8caa-7427fa383075"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 11,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "99e3edc9-236c-4b9e-87d0-2aa4099f9010",
+          "questionType": "radio_button",
+          "text": "Which of the following is the correct method of suctioning?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Insert the catheter or tip to the desired depth prior to applying suction.",
+              "correct": true,
+              "sourceOptionId": "65e87a29-491b-4624-ac00-12a17ae63db5"
+            },
+            {
+              "label": "B",
+              "text": "Begin suctioning as you insert the suction tip or catheter into the mouth.",
+              "correct": false,
+              "sourceOptionId": "f38be6ca-cc82-40e2-bbde-920bd522af5b"
+            },
+            {
+              "label": "C",
+              "text": "Suction continuously, both while inserting and withdrawing the suction tip or catheter.",
+              "correct": false,
+              "sourceOptionId": "bee6f9d9-01b7-4a7c-8d02-c77aed6944c2"
+            },
+            {
+              "label": "D",
+              "text": "Suction intermittently, both while inserting and withdrawing the suction tip or catheter.",
+              "correct": false,
+              "sourceOptionId": "b3089f8d-2f6b-4d3c-8a01-be88e91ff976"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 12,
+          "sourceQuizId": "66564166-9de9-4b17-9c2d-6f76bc186970",
+          "sourceQuizName": "Refresher A - 1",
+          "sourceQuestionId": "9f692207-d270-4e0e-8ed3-830b5ca7cc0a",
+          "questionType": "radio_button",
+          "text": "When inserting an oropharyngeal airway, how many degrees do you need to rotate the airway so the tip is pointing down into the patient’s pharynx?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "180",
+              "correct": true,
+              "sourceOptionId": "efea00a1-4f5b-4c8f-b166-49f7527dbe3d"
+            },
+            {
+              "label": "B",
+              "text": "270",
+              "correct": false,
+              "sourceOptionId": "7479b53d-4142-41b8-90c7-ebb71bcad08e"
+            },
+            {
+              "label": "C",
+              "text": "45",
+              "correct": false,
+              "sourceOptionId": "d0364afd-d2de-4f1b-8133-33634ed47b59"
+            },
+            {
+              "label": "D",
+              "text": "60",
+              "correct": false,
+              "sourceOptionId": "68d559e8-5f5e-43c2-abb7-b7b90f5ca399"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        }
+      ]
+    },
+    {
+      "page": 2,
+      "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+      "sourceQuizName": "Refresher A - 2",
+      "questionCount": 13,
+      "questions": [
+        {
+          "page": 2,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 13,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "54517cda-a70d-4c1f-b398-c7ca55f96be4",
+          "questionType": "radio_button",
+          "text": "Your patient is a 55-year-old man with a history of chronic bronchitis. You have been called to his home today because of an increase in his level of respiratory distress. The patient is on 2 liters per minute of oxygen by nasal cannula at home. Your assessment reveals difficulty speaking due to shortness of breath, leaning forward to breathe, a productive cough, and a respiratory rate of 32 per minute. Which of the following is true concerning the best course of action for this patient?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Because increased blood levels of carbon dioxide are the primary stimulus to breathe, you should encourage the patient to rebreathe his exhaled air from a paper bag.",
+              "correct": false,
+              "sourceOptionId": "5ff85c80-3c4b-4b33-91c8-a265d9cea67b"
+            },
+            {
+              "label": "B",
+              "text": "You should not increase the patient's oxygen flow rate because of his likely dependence on a hypoxic drive to stimulate breathing.",
+              "correct": false,
+              "sourceOptionId": "a82cb8f0-e547-46bb-b485-8c901133502f"
+            },
+            {
+              "label": "C",
+              "text": "You should increase the patient's oxygen flow rate until his respiratory rate decreases and then resume oxygen administration at 2 liters per minute.",
+              "correct": false,
+              "sourceOptionId": "b6c0cb67-fc88-40f8-9a32-da20c8b3907f"
+            },
+            {
+              "label": "D",
+              "text": "You should increase the patient's oxygen flow rate to deliver adequate amounts of oxygen to his tissues.",
+              "correct": true,
+              "sourceOptionId": "d4fb5920-1efd-4cd6-a56c-6e92216be40d"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 14,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "9da1b4b9-dbe0-4af9-973f-b0ca3f1b0332",
+          "questionType": "radio_button",
+          "text": "What is the danger that an altered mental status can pose to a patient's breathing?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Depressed alveolar function",
+              "correct": false,
+              "sourceOptionId": "fed33622-0cf4-4892-95c7-4f7149af976a"
+            },
+            {
+              "label": "B",
+              "text": "Hyperoxia",
+              "correct": false,
+              "sourceOptionId": "705b5577-b958-4f49-80f1-a686aed3d47f"
+            },
+            {
+              "label": "C",
+              "text": "Bronchospasms",
+              "correct": false,
+              "sourceOptionId": "0a2cc35a-f559-4ac7-abc3-d963f7ee9353"
+            },
+            {
+              "label": "D",
+              "text": "Loss of muscle tone and airway collapse",
+              "correct": true,
+              "sourceOptionId": "d7201b54-2f8c-4491-a199-4697ecb5a9f6"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 15,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "e0327298-a317-41c4-b964-202939e3b1cd",
+          "questionType": "radio_button",
+          "text": "What device is used to perform mouth-to-mask ventilation?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Stoma",
+              "correct": false,
+              "sourceOptionId": "4453da9c-c4dd-4022-bf42-95e353eb0c2f"
+            },
+            {
+              "label": "B",
+              "text": "Bag-valve mask",
+              "correct": false,
+              "sourceOptionId": "27403c88-25d6-4daf-85e3-562b4bc953b5"
+            },
+            {
+              "label": "C",
+              "text": "Pocket face mask",
+              "correct": true,
+              "sourceOptionId": "d5c57180-29bc-4897-ba0c-36376bb94e6f"
+            },
+            {
+              "label": "D",
+              "text": "Automatic transport ventilator",
+              "correct": false,
+              "sourceOptionId": "8a012958-90f8-4490-9512-8748de9b20e2"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 16,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "46b21cda-53a5-42b4-a29c-9091c713bc52",
+          "questionType": "radio_button",
+          "text": "A 16-year-old patient presents with labored breathing and increased respiratory rate, increased heart rate, and leaning forward with his hands on his knees. His skin is a normal color and his pulse oximetry is 96. This patient is suffering from respiratory:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "arrest.",
+              "correct": false,
+              "sourceOptionId": "bd2d350d-481d-44f9-8bb5-80c6a460d021"
+            },
+            {
+              "label": "B",
+              "text": "failure.",
+              "correct": false,
+              "sourceOptionId": "ac6aa343-135b-4e78-86b5-acb9931a0d75"
+            },
+            {
+              "label": "C",
+              "text": "distress.",
+              "correct": true,
+              "sourceOptionId": "ab566a0b-9993-427d-9a02-fa5a000f971d"
+            },
+            {
+              "label": "D",
+              "text": "hypoxia.",
+              "correct": false,
+              "sourceOptionId": "f9c6d8d3-771a-4b05-8c2a-31a07725e9ca"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 17,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "943991e1-6210-4c73-b45a-3aea92832cf9",
+          "questionType": "radio_button",
+          "text": "When does respiratory distress change to respiratory failure?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "When continuation of a respiratory challenge results in the systems being unable to keep up with the demand, and the skin color and mental status change.",
+              "correct": true,
+              "sourceOptionId": "7f8180e1-d2c8-4d07-9538-9eabddde96c2"
+            },
+            {
+              "label": "B",
+              "text": "When continuation of a respiratory challenge causes the systems to fail, the pupils to dilate, and the skin to become hot and dry due to the demand for oxygen.",
+              "correct": false,
+              "sourceOptionId": "2fb16357-07a0-48d6-9f38-dbebd7a458ef"
+            },
+            {
+              "label": "C",
+              "text": "When a patient who is short of breath presents in the tripod position with noisy respirations that suddenly clear up and return to normal.",
+              "correct": false,
+              "sourceOptionId": "087cb36d-64f8-481d-a4e4-72097850da2e"
+            },
+            {
+              "label": "D",
+              "text": "When a compensatory mechanism is no longer needed and the patient goes into respiratory arrest.",
+              "correct": false,
+              "sourceOptionId": "db7a1fe2-37f8-4bcf-8042-dba593978898"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 18,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "62fd0fd1-4b1f-4fe6-9559-13a01199fd69",
+          "questionType": "radio_button",
+          "text": "You have arrived at the scene of a call for a \"man down.\" As you enter the residence you note that your patient is a male in his mid-60s who is awake but does not seem to acknowledge your presence. He is perspiring profusely, has cyanosis of his ears and lips, and has rapid, shallow respirations. Which of the following should you do first?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Assist ventilations with a bag-valve mask and supplemental oxygen.",
+              "correct": true,
+              "sourceOptionId": "b4dc1c6c-f29d-472f-9aa3-d46178f3a236"
+            },
+            {
+              "label": "B",
+              "text": "Check for a radial pulse.",
+              "correct": false,
+              "sourceOptionId": "97a9639d-ddfd-4c16-a499-7e73b518449b"
+            },
+            {
+              "label": "C",
+              "text": "Listen to his lung sounds.",
+              "correct": false,
+              "sourceOptionId": "85621efb-c147-4831-a3df-8bb7a408322d"
+            },
+            {
+              "label": "D",
+              "text": "Obtain the patient's medical history.",
+              "correct": false,
+              "sourceOptionId": "bb5f6a65-7d1f-4029-aea9-146a7517984d"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 19,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "266bd48d-2039-45bd-bd26-169abd25b287",
+          "questionType": "radio_button",
+          "text": "When you question an edlerly woman with a respiratory complaint, she speaks in short two- or 3 word-sentences. Is this signifigant?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Yes, she is probably very short of breath",
+              "correct": true,
+              "sourceOptionId": "b67d82a9-2a6d-4ab2-9d53-804cbcfe0ed9"
+            },
+            {
+              "label": "B",
+              "text": "No, she probably always speaks that way",
+              "correct": false,
+              "sourceOptionId": "8c083248-7a9d-4bc8-af82-0933f4949fdc"
+            },
+            {
+              "label": "C",
+              "text": "Yes, she must have a completely blocked airway",
+              "correct": false,
+              "sourceOptionId": "52f495f0-13dd-4755-999b-fb5da4120236"
+            },
+            {
+              "label": "D",
+              "text": "No, elderly people always talk slowly",
+              "correct": false,
+              "sourceOptionId": "e62579e0-43e9-4a38-b97a-1327818e55d5"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 20,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "6d564955-583e-401b-a21b-c0b3c645e61e",
+          "questionType": "radio_button",
+          "text": "CPAP is indicated for patients who:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "have pulmonary edema and can follow verbal commands.",
+              "correct": true,
+              "sourceOptionId": "03b2c509-faec-41b1-b284-2fead099d88f"
+            },
+            {
+              "label": "B",
+              "text": "are unresponsive and have signs of inadequate ventilation.",
+              "correct": false,
+              "sourceOptionId": "2bfa4c02-6b98-4bf2-b9f2-f9b37a021a89"
+            },
+            {
+              "label": "C",
+              "text": "are hypotensive and have a marked reduction in tidal volume.",
+              "correct": false,
+              "sourceOptionId": "993d64b7-4d95-4560-bf27-8f24b862c90e"
+            },
+            {
+              "label": "D",
+              "text": "have signs of pneumonia but are breathing adequately.",
+              "correct": false,
+              "sourceOptionId": "adef823b-f507-4f75-8d43-e585f00aeda2"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 21,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "ec3c1319-cd37-4eb7-85f5-fe4ae584a810",
+          "questionType": "radio_button",
+          "text": "How does CPAP improve oxygenation and ventilation in patients with certain respiratory problems?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "It forces the alveoli open and decreases the concentration of oxygen in the alveoli.",
+              "correct": false,
+              "sourceOptionId": "74a2bf6c-c743-47c8-95e8-55cc2dd0cce6"
+            },
+            {
+              "label": "B",
+              "text": "It pushes thick, infected pulmonary secretions into isolated areas of the lung.",
+              "correct": false,
+              "sourceOptionId": "2e65b539-1074-440f-9635-a7b1c6185913"
+            },
+            {
+              "label": "C",
+              "text": "It prevents alveolar collapse by pushing air into the lungs during inhalation.",
+              "correct": true,
+              "sourceOptionId": "2d0e2ccc-c7c6-4e58-b690-bfa97678acb9"
+            },
+            {
+              "label": "D",
+              "text": "It decreases intrathoracic pressure, which allows more room for lung expansion.",
+              "correct": false,
+              "sourceOptionId": "84fd2133-d2b4-49a7-ac1f-200ec85271b4"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 22,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "bf2c2823-23ee-482e-b9ee-d50d6f009b48",
+          "questionType": "radio_button",
+          "text": "For which of the following conditions is albuterol prescribed?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Asthma",
+              "correct": true,
+              "sourceOptionId": "ca45e5d7-846a-47f9-bc92-b5eb7b45e5a4"
+            },
+            {
+              "label": "B",
+              "text": "Allergic reactions",
+              "correct": false,
+              "sourceOptionId": "3e64902a-5a10-439c-8849-ebee5b29790b"
+            },
+            {
+              "label": "C",
+              "text": "Hypertension",
+              "correct": false,
+              "sourceOptionId": "c79537b9-071b-47d2-8d96-c20e18f4c450"
+            },
+            {
+              "label": "D",
+              "text": "Heart disease",
+              "correct": false,
+              "sourceOptionId": "055560fb-2e8e-4a75-bd86-1fc61277b8b4"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 23,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "2068c691-a24e-4767-a6aa-1ebb00a044e9",
+          "questionType": "radio_button",
+          "text": "Typically, the highest continuous positive airway pressure (CPAP) pressure used by the EMT without special permission from medical direction is:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "5 cmH2O",
+              "correct": false,
+              "sourceOptionId": "2f348920-1623-42e8-98ef-f33e1cc95db3"
+            },
+            {
+              "label": "B",
+              "text": "20 cmH2O",
+              "correct": false,
+              "sourceOptionId": "d8d505ec-954f-462d-998f-74e120f5fa92"
+            },
+            {
+              "label": "C",
+              "text": "10 cmH2O",
+              "correct": true,
+              "sourceOptionId": "04366272-19ad-438e-a163-a40b3f40445c"
+            },
+            {
+              "label": "D",
+              "text": "2 cmH2O",
+              "correct": false,
+              "sourceOptionId": "2bb44746-98d2-43b4-8eee-c026869aeac8"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 24,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "ca3f5715-cdd8-437d-a259-182d14ae4b42",
+          "questionType": "radio_button",
+          "text": "A 12-year-old female patient is having an asthma attack after participating in some strenuous activity during recess at school. She's taken several doses of her own bronchodilator with little relief. Your partner immediately administers oxygen. Providing supplemental oxygen will increase the amount of oxygen molecules carried by the ________ in her blood, helping oxygenate critical organs like the brain.",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "plasma",
+              "correct": false,
+              "sourceOptionId": "32864e81-c502-4d6b-adeb-a6fcea34e341"
+            },
+            {
+              "label": "B",
+              "text": "albumin",
+              "correct": false,
+              "sourceOptionId": "199efe39-d462-4ad4-9936-2f4877686e39"
+            },
+            {
+              "label": "C",
+              "text": "white blood cells",
+              "correct": false,
+              "sourceOptionId": "0ced4a01-47fd-4a38-98f3-778bbc9a926c"
+            },
+            {
+              "label": "D",
+              "text": "hemoglobin",
+              "correct": true,
+              "sourceOptionId": "c407171b-29a8-4abf-97ec-408ed391bd07"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 13,
+          "combinedQuestionNumber": 25,
+          "sourceQuizId": "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+          "sourceQuizName": "Refresher A - 2",
+          "sourceQuestionId": "fd56c47e-6ed5-4ccc-9370-ddd33a918d68",
+          "questionType": "radio_button",
+          "text": "You are ventilating an adult patient with a bag-valve mask when you notice that his abdomen is getting bigger. You should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "decrease the flow of oxygen.",
+              "correct": false,
+              "sourceOptionId": "3a9dbbac-a5a7-4d61-8f21-e94d7aba9ddb"
+            },
+            {
+              "label": "B",
+              "text": "apply pressure to the abdomen.",
+              "correct": false,
+              "sourceOptionId": "c1623689-aacb-4626-8b35-bf69727898af"
+            },
+            {
+              "label": "C",
+              "text": "apply cricoid pressure.",
+              "correct": true,
+              "sourceOptionId": "76fa25a6-5a20-4962-97d4-bb93d1322702"
+            },
+            {
+              "label": "D",
+              "text": "suction the airway.",
+              "correct": false,
+              "sourceOptionId": "fb2d09e9-34e9-46c7-9c61-8ab863e74781"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        }
+      ]
+    },
+    {
+      "page": 3,
+      "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+      "sourceQuizName": "Refresher A - 3",
+      "questionCount": 13,
+      "questions": [
+        {
+          "page": 3,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 26,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "dd332a6e-2b43-4c4f-af79-ac8be9c035ac",
+          "questionType": "radio_button",
+          "text": "The first rule of safe lifting is to:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "always lift with your palms facing down.",
+              "correct": false,
+              "sourceOptionId": "ff782971-3288-4c52-83d6-f127292e767b"
+            },
+            {
+              "label": "B",
+              "text": "spread your legs approximately 20″ apart.",
+              "correct": false,
+              "sourceOptionId": "0eaa76f8-47d9-4ee0-af9e-54f52c621d54"
+            },
+            {
+              "label": "C",
+              "text": "keep your back in a slightly curved position.",
+              "correct": false,
+              "sourceOptionId": "51ab1d28-cd07-4d7b-bd7a-2ed7c58f7210"
+            },
+            {
+              "label": "D",
+              "text": "keep your back in a straight, vertical position.",
+              "correct": true,
+              "sourceOptionId": "97500311-7861-4dee-a7f5-2a3f0f5685d6"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 27,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "aa7aaebb-f9f3-4293-9363-2a8c5a41f187",
+          "questionType": "radio_button",
+          "text": "Which of the following best describes body mechanics?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Proper use of the body to facilitate lifting and moving objects",
+              "correct": true,
+              "sourceOptionId": "303203de-55f7-405f-8e66-2b076eeb1a31"
+            },
+            {
+              "label": "B",
+              "text": "Equipment that mimics the human body's functions",
+              "correct": false,
+              "sourceOptionId": "62b0139e-c4f2-460a-8db0-50d0e76bc1dd"
+            },
+            {
+              "label": "C",
+              "text": "Equipment designed to minimize stress on the user's body",
+              "correct": false,
+              "sourceOptionId": "935cb430-0226-4564-961f-b410f3a13af2"
+            },
+            {
+              "label": "D",
+              "text": "Proper use of the body to protect patient safety",
+              "correct": false,
+              "sourceOptionId": "e31db397-ef6c-485e-8deb-ebbc8a45bb31"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 28,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "d6806a8a-6c2e-488f-a58d-1955b397f1d6",
+          "questionType": "radio_button",
+          "text": "During an emergency move, which of the following techniques should be used, whenever possible, to minimize the possibility of further aggravating a possible spinal injury?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Roll the patient over.",
+              "correct": false,
+              "sourceOptionId": "9776d392-f827-49c4-ae96-fed9e4bc16ab"
+            },
+            {
+              "label": "B",
+              "text": "Move the patient in the direction of the long axis of the body.",
+              "correct": true,
+              "sourceOptionId": "6831c424-e4e4-4162-abff-b0907eee274e"
+            },
+            {
+              "label": "C",
+              "text": "Move the patient sideways, alternating between moving the shoulders, then the hips.",
+              "correct": false,
+              "sourceOptionId": "e5ecdb7d-21dd-4dfc-aefd-9a74ebf3a43a"
+            },
+            {
+              "label": "D",
+              "text": "Pull the patient from the feet, not the shoulders.",
+              "correct": false,
+              "sourceOptionId": "67c2bd83-04d1-49c2-b089-a1cbea0e360d"
+            }
+          ],
+          "correctAnswers": [
+            "B"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 29,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "400d875b-7018-473c-b7b8-0f5d674c3046",
+          "questionType": "radio_button",
+          "text": "When moving a conscious, weak patient down a flight of stairs, you should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "assist the patient in walking down the stairs and place him or her on the wheeled stretcher at the bottom of the stairs.",
+              "correct": false,
+              "sourceOptionId": "7d052fd1-582f-4b8a-8722-dee75cf2221c"
+            },
+            {
+              "label": "B",
+              "text": "secure the patient to a scoop stretcher and carry him or her headfirst down the stairs to the awaiting stretcher.",
+              "correct": false,
+              "sourceOptionId": "580568e0-44b5-4bab-9e9d-bc4cd7cb0b9f"
+            },
+            {
+              "label": "C",
+              "text": "collapse the undercarriage of the wheeled stretcher and carefully carry the patient down the stairs on the stretcher.",
+              "correct": false,
+              "sourceOptionId": "2ce4cd12-9f79-498e-888e-08ce2bc2b700"
+            },
+            {
+              "label": "D",
+              "text": "secure the patient to a scoop stretcher and carry him or her feet first down the stairs to the awaiting stretcher.",
+              "correct": true,
+              "sourceOptionId": "af65ca4f-adc8-4869-a260-232cb4a3286e"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 30,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "becda2ff-c411-4ea6-9b59-00e4ccf28475",
+          "questionType": "radio_button",
+          "text": "When transporting a patient to the hospital, you should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "be safe and get the patient to the hospital in the shortest practical time.",
+              "correct": true,
+              "sourceOptionId": "040e4505-b52a-47e0-915d-1bce9b3dab40"
+            },
+            {
+              "label": "B",
+              "text": "secure the patient to the ambulance stretcher with at least two straps.",
+              "correct": false,
+              "sourceOptionId": "db2b9ca6-fd19-45b1-aa20-25f8e826b8f5"
+            },
+            {
+              "label": "C",
+              "text": "generally exceed the posted speed limit by 10 to 20 mph.",
+              "correct": false,
+              "sourceOptionId": "8d13099c-923e-4f3e-a5e1-65ff46b8b3c5"
+            },
+            {
+              "label": "D",
+              "text": "place the patient on a long backboard, even if no trauma is involved.",
+              "correct": false,
+              "sourceOptionId": "0f0ba187-3e80-4149-b0ab-35337fdcfbac"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 31,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "50e9469c-ed32-4cf2-9ade-84c46548cce3",
+          "questionType": "radio_button",
+          "text": "The term body mechanics describes the proper use of your body to lift without injury. What are the three considerations to review before any lift?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Equipment, patient injury, and communication",
+              "correct": false,
+              "sourceOptionId": "02eddb36-dd2a-422f-ac92-d38772ce8407"
+            },
+            {
+              "label": "B",
+              "text": "The object, your limitations, and communication",
+              "correct": true,
+              "sourceOptionId": "0e5a2e71-1a8a-49f3-bc19-c8d76b0f59f7"
+            },
+            {
+              "label": "C",
+              "text": "Environment, physical limitations, and communication",
+              "correct": false,
+              "sourceOptionId": "079c852d-3bea-44b8-8f3a-e5e275425f0c"
+            },
+            {
+              "label": "D",
+              "text": "The object, patient injury, and communication",
+              "correct": false,
+              "sourceOptionId": "caec8ab6-4791-4ee0-b1e2-1f80db8dafdb"
+            }
+          ],
+          "correctAnswers": [
+            "B"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 32,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "9ae373d3-b406-4ab1-823c-a34acc78e5ea",
+          "questionType": "radio_button",
+          "text": "When a stretcher with a patient secured to it is elevated, what occurs?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "The stretcher is more stable and easily pushed.",
+              "correct": false,
+              "sourceOptionId": "0d1b36b7-bd8a-4e9d-b9da-85673f43ffea"
+            },
+            {
+              "label": "B",
+              "text": "The EMTs lessen the possibility of injury from being bent over the patient.",
+              "correct": false,
+              "sourceOptionId": "b4cf38fe-44fb-44ec-bb37-9d6fc2584f21"
+            },
+            {
+              "label": "C",
+              "text": "The center of gravity is raised and this increases the tip hazard.",
+              "correct": true,
+              "sourceOptionId": "a9808558-1c29-4c19-934b-2a587a569ecc"
+            },
+            {
+              "label": "D",
+              "text": "The patient feels more comfortable being at near normal height.",
+              "correct": false,
+              "sourceOptionId": "d4a147ab-d7eb-4cee-8e47-7317450de9ca"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 33,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "0424e5d2-eb10-4f77-a6f4-d28c882be4c4",
+          "questionType": "radio_button",
+          "text": "Which of the following devices should be used to carry a patient down the stairs whenever possible?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Basket stretcher",
+              "correct": false,
+              "sourceOptionId": "2d8bf998-0022-4d31-a0ef-1388fa40771e"
+            },
+            {
+              "label": "B",
+              "text": "Scoop stretcher",
+              "correct": false,
+              "sourceOptionId": "64bd1b27-fa8e-4bcd-a2a4-5def5355deda"
+            },
+            {
+              "label": "C",
+              "text": "Stair chair",
+              "correct": true,
+              "sourceOptionId": "53573c76-ad16-4f04-a963-e5db4e9c769b"
+            },
+            {
+              "label": "D",
+              "text": "Wheeled ambulance stretcher",
+              "correct": false,
+              "sourceOptionId": "aa016cb4-3343-4edd-a7b3-51b78c6380da"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 34,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "d63d4ee2-8ff2-44cb-a337-987d53a7bcb3",
+          "questionType": "radio_button",
+          "text": "Why do you hear rales when you auscultate the lungs of a patient who has pulmonary edema?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "The alveoli pop open with each inspiration.",
+              "correct": true,
+              "sourceOptionId": "061df0b9-9013-498a-ad2a-69f937d11f6b"
+            },
+            {
+              "label": "B",
+              "text": "Air trapped by bronchoconstriction is escaping the alveoli.",
+              "correct": false,
+              "sourceOptionId": "61c4f8fb-b27d-476d-9442-e0b69aef2d1f"
+            },
+            {
+              "label": "C",
+              "text": "Inflammation and pus cause turbulence as air fills the alveoli.",
+              "correct": false,
+              "sourceOptionId": "3075f116-9fa3-41bd-abe4-0f25a55377bb"
+            },
+            {
+              "label": "D",
+              "text": "Mucus plugs and inflammation decrease the diameter of the bronchioles, causing turbulence.",
+              "correct": false,
+              "sourceOptionId": "dd8e7f86-b95d-461e-b6aa-3d45c8771c20"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 35,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "c7748a1d-3cbb-45e7-ba1c-568de4d36ac8",
+          "questionType": "radio_button",
+          "text": "An unresponsive 94-year-old female was found by her husband in bed. He tells you that she has a history of diabetes. You do not observe chest rise or air movement, but she has a pulse. You should first:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "assess her vital signs.",
+              "correct": false,
+              "sourceOptionId": "00aa48f9-5eb6-453e-85e0-b42786375bfd"
+            },
+            {
+              "label": "B",
+              "text": "assess her blood glucose level.",
+              "correct": false,
+              "sourceOptionId": "39de9fbe-03fe-4bf6-86c3-e4d78f2b9d7c"
+            },
+            {
+              "label": "C",
+              "text": "administer oxygen by non-rebreather mask.",
+              "correct": false,
+              "sourceOptionId": "20395e36-1a3b-4e73-bbda-8493e373c196"
+            },
+            {
+              "label": "D",
+              "text": "ventilate her with a BVM.",
+              "correct": true,
+              "sourceOptionId": "cbc98cb7-71b2-4650-94a3-042c902dcf84"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 36,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "2d67b1b7-39db-443d-9e62-66a1e6fad861",
+          "questionType": "radio_button",
+          "text": "You are moving an elderly patient down the stairs using a stair chair. The patient is alert and very anxious. What should you do prior to moving the patient to prevent her from grabbing the railing and causing you to fall?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Explain to the patient what you are doing and advise her to hold her hands together and not let go until you are finished moving her.",
+              "correct": true,
+              "sourceOptionId": "3d31b787-77e3-4b4d-a092-2062254670e1"
+            },
+            {
+              "label": "B",
+              "text": "Use a strap to safely secure the patient's arms to the chair without causing any loss of circulation to the patient's extremities.",
+              "correct": false,
+              "sourceOptionId": "d6c730b4-8e8c-41bf-a702-91a4afaaf7a1"
+            },
+            {
+              "label": "C",
+              "text": "Gently tie the patient's hands together until you are downstairs to prevent her from unconsciously grabbing the railing.",
+              "correct": false,
+              "sourceOptionId": "6d1ec811-da49-4462-9279-09f6cf66289c"
+            },
+            {
+              "label": "D",
+              "text": "Place the patient on oxygen during the move to calm her down.",
+              "correct": false,
+              "sourceOptionId": "f84096f5-1511-478d-8183-812380ef7f39"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 37,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "231603d0-b9c1-48ba-b253-23028a1ddf9b",
+          "questionType": "radio_button",
+          "text": "You and your partner arrive on the scene of a 400-pound patient lying in bed. He complains of nausea and vomiting for the past 3 days. When he tries to sit up, he gets very dizzy and has a syncopal episode. Realizing that he cannot assist you in getting on the stretcher, you decide to do which of the following?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Call for additional manpower to safely move the patient.",
+              "correct": true,
+              "sourceOptionId": "c05006f2-1e95-48a4-bbaa-5a1703dac205"
+            },
+            {
+              "label": "B",
+              "text": "Place the patient on a backboard to provide better gripping points to move the patient.",
+              "correct": false,
+              "sourceOptionId": "c81848f9-ebc3-48c4-99c7-62c9f24bf918"
+            },
+            {
+              "label": "C",
+              "text": "Use the patient's sheets to slide him over to the stretcher.",
+              "correct": false,
+              "sourceOptionId": "ae95936a-9a4e-4a0e-9e4d-3b49e153bb72"
+            },
+            {
+              "label": "D",
+              "text": "Use the power lift technique to carefully and safely lift the patient to the stretcher.",
+              "correct": false,
+              "sourceOptionId": "25b73081-da4f-4995-92ba-b87638a6f119"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 13,
+          "combinedQuestionNumber": 38,
+          "sourceQuizId": "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+          "sourceQuizName": "Refresher A - 3",
+          "sourceQuestionId": "63f1e83f-00b8-465d-938d-ea4c677e7919",
+          "questionType": "radio_button",
+          "text": "Which device is appropriate for moving a patient with a suspected pelvic injury?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Long board",
+              "correct": false,
+              "sourceOptionId": "dd5f601b-541e-40b4-b81a-fd23e20ef2b2"
+            },
+            {
+              "label": "B",
+              "text": "Stair chair",
+              "correct": false,
+              "sourceOptionId": "b1b716ed-8f80-4134-9a1b-4188a3c9bd5f"
+            },
+            {
+              "label": "C",
+              "text": "Mega mover",
+              "correct": false,
+              "sourceOptionId": "2de2162e-1692-4a26-ad5e-4751c29b78b4"
+            },
+            {
+              "label": "D",
+              "text": "Scoop stretcher",
+              "correct": true,
+              "sourceOptionId": "c84d17e6-a60f-49b2-ac14-519f1f3d6936"
+            }
+          ],
+          "correctAnswers": [
+            "D"
+          ],
+          "feedback": ""
+        }
+      ]
+    },
+    {
+      "page": 4,
+      "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+      "sourceQuizName": "Refresher A - 4",
+      "questionCount": 12,
+      "questions": [
+        {
+          "page": 4,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 39,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "4651b9d0-9c81-4d54-9e4c-137849676bfd",
+          "questionType": "radio_button",
+          "text": "You are performing abdominal thrusts on a choking adult when they suddenly lose consciousness, you should next:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Begin CPR",
+              "correct": true,
+              "sourceOptionId": "5d9da847-cc26-4bf5-bebf-b98970157806"
+            },
+            {
+              "label": "B",
+              "text": "Perform a blind finger sweep",
+              "correct": false,
+              "sourceOptionId": "e3ef48c5-c04f-47ea-bc7e-0a43008a600b"
+            },
+            {
+              "label": "C",
+              "text": "Provide manual ventilations",
+              "correct": false,
+              "sourceOptionId": "1892a3b2-f351-476a-b245-ab9ebea26ae5"
+            },
+            {
+              "label": "D",
+              "text": "Begin back blows",
+              "correct": false,
+              "sourceOptionId": "72dd50aa-4b55-439d-a3d8-78c82e21bae3"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 40,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "59bf9da7-530d-4aad-86ad-7ee02da49980",
+          "questionType": "radio_button",
+          "text": "During 2 rescuer Child CPR the compression to ventilation ratio should be:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "3:1",
+              "correct": false,
+              "sourceOptionId": "08477852-b2a6-4fe4-a1f9-e5d80464d614"
+            },
+            {
+              "label": "B",
+              "text": "30:2",
+              "correct": false,
+              "sourceOptionId": "6a9afd21-6ea8-44fc-affd-9cc0ae0dd2d3"
+            },
+            {
+              "label": "C",
+              "text": "15:2",
+              "correct": true,
+              "sourceOptionId": "00078e2d-d148-44ff-80aa-1f4435e8142a"
+            },
+            {
+              "label": "D",
+              "text": "15:1",
+              "correct": false,
+              "sourceOptionId": "3d95373c-de1a-4f61-85d7-e43da75b4b8f"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 41,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "a553486a-a196-4c49-b5bc-b505605a6851",
+          "questionType": "radio_button",
+          "text": "During 1 rescuer Adult CPR, the compression rate should be:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "100-150",
+              "correct": false,
+              "sourceOptionId": "88907551-e639-4493-aeed-7a07c29d24e2"
+            },
+            {
+              "label": "B",
+              "text": "100-120",
+              "correct": true,
+              "sourceOptionId": "fa7b6584-86a8-4370-b20a-5597e3e1956d"
+            },
+            {
+              "label": "C",
+              "text": "60-100",
+              "correct": false,
+              "sourceOptionId": "4aec55ab-7a6f-422c-9dae-18716e5a672f"
+            },
+            {
+              "label": "D",
+              "text": "90-110",
+              "correct": false,
+              "sourceOptionId": "de092f57-72e8-4845-ae7d-726753be401b"
+            }
+          ],
+          "correctAnswers": [
+            "B"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 42,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "e30da7e2-f311-4073-bcb4-fb2da7af66f9",
+          "questionType": "radio_button",
+          "text": "You and your EMT partner are preparing to ventilate an elderly non-trauma patient who has a stoma. Your partner performs the head-tilt, chin-lift maneuver and you ask him to return the patient's head to a neutral position. \"Why? This is not a pediatric patient!\" your partner protests. What would you say?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "It is not necessary to position the airway of a stoma breather when providing ventilations.",
+              "correct": true,
+              "sourceOptionId": "80f96a0e-106e-4bd6-818b-a49b74970c30"
+            },
+            {
+              "label": "B",
+              "text": "Using the head-tilt, chin-lift prior to clearing any mucus plugs from the stoma can cause airway occlusion.",
+              "correct": false,
+              "sourceOptionId": "d2573273-9c95-43c1-8e6d-e7bac2cb766a"
+            },
+            {
+              "label": "C",
+              "text": "Stoma breathers should only have their airways positioned after placement of the ventilation device.",
+              "correct": false,
+              "sourceOptionId": "7ded4a0f-2535-4ce8-9fba-6bc00971da54"
+            },
+            {
+              "label": "D",
+              "text": "Elderly patients should never have their heads tilted back because spinal curvatures are common and can prevent airway positioning.",
+              "correct": false,
+              "sourceOptionId": "cb20ba49-4dee-4280-849b-191d55670b79"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 43,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "d4a93de9-d66f-4c9d-a3bf-c534fb8c1bf0",
+          "questionType": "radio_button",
+          "text": "You are transporting a 44-year-old female with chest pain and sudden respiratory distress. She is agitated, anxious, and refuses to have a nonrebreather mask applied. Which of the following is the best option?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Do not make further attempts to administer oxygen as it will only agitate the patient further.",
+              "correct": false,
+              "sourceOptionId": "4d254978-dc42-4611-b03d-427e84f36cf5"
+            },
+            {
+              "label": "B",
+              "text": "Have her breathe into a paper bag to control her hyperventilation.",
+              "correct": false,
+              "sourceOptionId": "8d1c4755-34ec-4783-83ee-e6578418dbd8"
+            },
+            {
+              "label": "C",
+              "text": "Use a nasal cannula instead.",
+              "correct": true,
+              "sourceOptionId": "edabafc6-1fe3-412e-98a8-1842a137c913"
+            },
+            {
+              "label": "D",
+              "text": "Consult with medical control about restraining the patient.",
+              "correct": false,
+              "sourceOptionId": "5dc276dd-1c5b-403d-8c6e-7fa34dc2abf9"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 44,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "a8455f37-7b37-4232-9399-806e4f5d902d",
+          "questionType": "radio_button",
+          "text": "Which of these patients would require a tracheostomy mask for supplemental oxygen administration?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "A patient with chronic bronchitis",
+              "correct": false,
+              "sourceOptionId": "10a35c32-3961-4692-9eed-0ac3fec855d7"
+            },
+            {
+              "label": "B",
+              "text": "A patient with quadriplegia",
+              "correct": false,
+              "sourceOptionId": "16263862-8366-4037-b9ba-cd661d99fdbf"
+            },
+            {
+              "label": "C",
+              "text": "A patient with a stoma",
+              "correct": true,
+              "sourceOptionId": "25574430-b154-44da-8cd1-fef6f1e97960"
+            },
+            {
+              "label": "D",
+              "text": "A patient with upper airway inflammation",
+              "correct": false,
+              "sourceOptionId": "486db8db-aa90-4f6d-a42c-8d8a9db52bf9"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 45,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "fbdd08cc-1cc8-41d9-8eb0-469ffb692f77",
+          "questionType": "radio_button",
+          "text": "After establishing that an adult patient is unresponsive, you should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "manually open the airway.",
+              "correct": false,
+              "sourceOptionId": "4c6ed4a1-7fd5-489d-bf9a-24f1a1ebdd0c"
+            },
+            {
+              "label": "B",
+              "text": "immediately begin chest compressions.",
+              "correct": false,
+              "sourceOptionId": "10556cc3-f3f8-481e-999a-e15d8d8b1eee"
+            },
+            {
+              "label": "C",
+              "text": "assess for breathing and a pulse.",
+              "correct": true,
+              "sourceOptionId": "0e14d079-eb5b-4ed3-87e7-bd7a9372ca02"
+            },
+            {
+              "label": "D",
+              "text": "apply the AED and deliver a shock, if needed.",
+              "correct": false,
+              "sourceOptionId": "744c8bdb-5e01-4cd6-8f29-26ad2e61391e"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 46,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "e67e7081-e6fe-4adf-8c36-bd1cd1df5ab9",
+          "questionType": "radio_button",
+          "text": "During the primary assessment of an unresponsive two-month-old infant, which pulse should be palpated?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Umbilical",
+              "correct": false,
+              "sourceOptionId": "7a040866-b049-4471-96d8-9606a438df83"
+            },
+            {
+              "label": "B",
+              "text": "Brachial",
+              "correct": true,
+              "sourceOptionId": "2804d0e9-d7af-4b94-8c9c-31eb92707888"
+            },
+            {
+              "label": "C",
+              "text": "Carotid",
+              "correct": false,
+              "sourceOptionId": "3cd39cfb-17a9-42b6-8038-0b753846718e"
+            },
+            {
+              "label": "D",
+              "text": "Radial",
+              "correct": false,
+              "sourceOptionId": "1875f1d4-6126-4dce-94c0-e7c3513efb24"
+            }
+          ],
+          "correctAnswers": [
+            "B"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 47,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "195dd21a-8297-4e99-a3a6-5baacf122e5c",
+          "questionType": "radio_button",
+          "text": "A 60-year-old man is found to be unresponsive, pulseless, and apneic. You should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "determine if he has a valid living will.",
+              "correct": false,
+              "sourceOptionId": "5f042fb3-fc0d-42a7-a1fa-efbbcf4ae378"
+            },
+            {
+              "label": "B",
+              "text": "withhold CPR until he is defibrillated.",
+              "correct": false,
+              "sourceOptionId": "6c9b01ab-94c9-419a-a650-7ff91fde16be"
+            },
+            {
+              "label": "C",
+              "text": "begin CPR immediately and use an AED as soon as it becomes available",
+              "correct": true,
+              "sourceOptionId": "2cb1e3e2-17fd-4c47-ac2f-b631dced4606"
+            },
+            {
+              "label": "D",
+              "text": "start CPR and transport immediately.",
+              "correct": false,
+              "sourceOptionId": "649e9cb7-26a3-43dc-8718-65466c366fc8"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 48,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "4f979838-b569-4045-8e6e-08efa6b5165a",
+          "questionType": "radio_button",
+          "text": "CPR will NOT be effective if the patient is:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Horizontal",
+              "correct": false,
+              "sourceOptionId": "52c3317f-c09a-4505-9ea0-660796d786bc"
+            },
+            {
+              "label": "B",
+              "text": "supine",
+              "correct": false,
+              "sourceOptionId": "f1a6ea7e-1605-4d9d-a8e2-db47707a55ce"
+            },
+            {
+              "label": "C",
+              "text": "Prone",
+              "correct": true,
+              "sourceOptionId": "39cb044b-c700-482c-82ba-7690cd119768"
+            },
+            {
+              "label": "D",
+              "text": "On a firm surface",
+              "correct": false,
+              "sourceOptionId": "d53f4e02-6389-4f11-a107-88efc36115b3"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 49,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "21200dca-c01f-4a16-baee-e92fc32ede94",
+          "questionType": "radio_button",
+          "text": "In most cases, cardiopulmonary arrest in infants and children is caused by:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "a drug overdose.",
+              "correct": false,
+              "sourceOptionId": "27fbce41-da63-44d5-927b-985a5969be69"
+            },
+            {
+              "label": "B",
+              "text": "severe chest trauma.",
+              "correct": false,
+              "sourceOptionId": "c98f7a70-1aaf-49f2-abab-256a55f467d1"
+            },
+            {
+              "label": "C",
+              "text": "respiratory arrest.",
+              "correct": true,
+              "sourceOptionId": "26a0e155-3daf-4675-a12b-6af619f12db1"
+            },
+            {
+              "label": "D",
+              "text": "a cardiac dysrhythmia.",
+              "correct": false,
+              "sourceOptionId": "4af4bbed-796d-4dc3-9d1f-8598171a9b62"
+            }
+          ],
+          "correctAnswers": [
+            "C"
+          ],
+          "feedback": ""
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 50,
+          "sourceQuizId": "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+          "sourceQuizName": "Refresher A - 4",
+          "sourceQuestionId": "1336ac29-fd3c-4307-aba1-eafc5a48b09d",
+          "questionType": "radio_button",
+          "text": "What is the correct ratio of compressions to ventilations when performing two-rescuer adult CPR?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "30:2",
+              "correct": true,
+              "sourceOptionId": "b58c16bf-e294-4745-8632-1f4d8da38366"
+            },
+            {
+              "label": "B",
+              "text": "5:1",
+              "correct": false,
+              "sourceOptionId": "e2ad4f06-c320-4f6d-b13f-25372749d705"
+            },
+            {
+              "label": "C",
+              "text": "15:1",
+              "correct": false,
+              "sourceOptionId": "18d3980b-67c7-46de-8a6d-d423f75e9529"
+            },
+            {
+              "label": "D",
+              "text": "3:1",
+              "correct": false,
+              "sourceOptionId": "127ba808-cce9-44bd-8935-999786864a03"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": ""
+        }
+      ]
+    }
+  ]
+}
