@@ -1301,12 +1301,21 @@ async function flexiListResponses(env: Env, userId: string, quizId: string): Pro
     order: "desc"
   });
 
-  if (!response.ok) {
-    throw new HttpError(502, "flexiquiz_responses_failed");
+  if (response.ok) {
+    const payload = await response.json<unknown>().catch(() => undefined);
+    return recordsFromPayload(payload);
   }
 
-  const payload = await response.json<unknown>().catch(() => undefined);
-  return recordsFromPayload(payload);
+  const profile = await flexiGetUserProfile(env, userId);
+  const profileResponses = (profile?.quizzes ?? []).filter((record) =>
+    stringField(record, "quiz_id") === quizId ||
+    stringField(record, "quizId") === quizId
+  );
+  if (profileResponses.length > 0) {
+    return profileResponses;
+  }
+
+  throw new HttpError(502, "flexiquiz_responses_failed");
 }
 
 async function flexiResponseDetail(
@@ -1365,8 +1374,8 @@ function normalizeQuizReview(input: {
     input.warnings.push("question_detail_unavailable");
   }
 
-  const resultText = firstText(sources, ["result_text", "resultText", "result", "status", "pass_fail", "outcome"]);
-  const scoreText = firstText(sources, ["score_text", "scoreText", "score", "percentage", "percent", "grade"]);
+  const resultText = firstText(sources, ["result_text", "resultText", "result", "grade", "pass_fail", "outcome", "status"]);
+  const scoreText = scoreTextFromSources(sources);
   const passed = boolFromUnknown(firstValue(sources, ["passed", "pass", "is_passed", "isPassed", "success"])) ??
     passStatusFromText(resultText ?? scoreText) ??
     passStatusFromScore(scoreText);
@@ -1383,6 +1392,23 @@ function normalizeQuizReview(input: {
     questions: questions.length > 0 ? questions : htmlQuestions,
     warnings: input.warnings
   };
+}
+
+function scoreTextFromSources(sources: JsonRecord[]): string | undefined {
+  const direct = firstText(sources, ["score_text", "scoreText", "score"]);
+  if (direct) {
+    return direct;
+  }
+  const percentage = firstNumber(sources, ["percentage_score", "percentageScore", "percentage", "percent"]);
+  if (percentage !== undefined) {
+    return `${Math.round(percentage)}%`;
+  }
+  const points = firstNumber(sources, ["points"]);
+  const available = firstNumber(sources, ["available_points", "availablePoints"]);
+  if (points !== undefined && available !== undefined && available > 0) {
+    return `${Math.round((points / available) * 100)}% (${points}/${available})`;
+  }
+  return firstText(sources, ["grade"]);
 }
 
 function responseLooksCompleted(response: JsonRecord): boolean {
@@ -1974,6 +2000,18 @@ function stringField(source: JsonRecord, key: string): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function numberField(source: JsonRecord, key: string): number | undefined {
+  const value = source[key];
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
 function recordField(source: JsonRecord | undefined, key: string): JsonRecord | undefined {
   if (!source) {
     return undefined;
@@ -2050,6 +2088,18 @@ function firstValue(sources: JsonRecord[], keys: string[]): unknown {
 
 function firstText(sources: Array<JsonRecord | undefined>, keys: string[]): string | undefined {
   return textFromUnknown(firstValue(sources.filter(isJsonRecord), keys));
+}
+
+function firstNumber(sources: Array<JsonRecord | undefined>, keys: string[]): number | undefined {
+  for (const source of sources.filter(isJsonRecord)) {
+    for (const key of keys) {
+      const value = numberField(source, key);
+      if (value !== undefined) {
+        return value;
+      }
+    }
+  }
+  return undefined;
 }
 
 function textFromUnknown(value: unknown): string | undefined {
