@@ -111,6 +111,7 @@ export default {
           ok: true,
           service: "classmanager-api",
           environment: env.ENVIRONMENT,
+          build: "rms-review-debug-2026-06-26",
           bindings: {
             d1: db?.ok === 1,
             r2: true,
@@ -1130,6 +1131,7 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   const studentId = url.searchParams.get("studentId")?.trim();
   const classSessionId = url.searchParams.get("classSessionId")?.trim();
   const deviceId = url.searchParams.get("deviceId")?.trim();
+  const debug = url.searchParams.get("debug") === "1";
 
   if (!quizId) {
     return json({ error: "missing_quiz_id" }, 400);
@@ -1195,19 +1197,28 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
     fallbackReportUrl: reportUrl,
     warnings
   });
+  if (debug) {
+    review.warnings.push("debug_seen");
+  }
 
   try {
     const rmsReview = await fetchRmsQuizReview(env, {
       responseId: review.responseId ?? responseId,
       quizId,
       email,
-      flexiquizUserId
+      flexiquizUserId,
+      debug
     });
     if (rmsReview) {
       const rmsWarning = firstText([rmsReview], ["__rmsLookupWarning"]);
       if (rmsWarning) {
         review.warnings.push(rmsWarning);
       } else {
+        if (debug) {
+          const rows = Array.isArray(rmsReview.question_rows) ? rmsReview.question_rows.length : -1;
+          const count = firstText([recordField(rmsReview, "result")], ["question_count"]);
+          review.warnings.push(`rms_review_rows_${rows}${count ? `_count_${count}` : ""}`);
+        }
         review = mergeRmsQuizReview(review, rmsReview);
       }
     }
@@ -1297,10 +1308,11 @@ async function fetchRmsQuizReview(
     quizId: string;
     email?: string;
     flexiquizUserId?: string;
+    debug?: boolean;
   }
 ): Promise<JsonRecord | undefined> {
   if (!env.ACADEMY_RMS_BASE_URL || !env.ACADEMY_RMS_ATTENDANCE_SECRET) {
-    return undefined;
+    return input.debug ? { __rmsLookupWarning: "rms_review_not_configured" } : undefined;
   }
   const params = new URLSearchParams();
   if (input.responseId) params.set("response_id", input.responseId);
@@ -1332,7 +1344,9 @@ async function fetchRmsQuizReview(
     payload = JSON.parse(text) as unknown;
   } catch (error) {
     console.warn("RMS quiz review returned non-JSON response", { body: text.slice(0, 500), error });
-    return undefined;
+    const contentType = res.headers.get("content-type") ?? "unknown";
+    const bodyPrefix = cleanText(text.slice(0, 80)).replace(/[^a-zA-Z0-9._:/ -]/g, "").slice(0, 60).replace(/\s+/g, "-");
+    return input.debug ? { __rmsLookupWarning: `rms_review_non_json_${res.status}_${contentType}_${bodyPrefix}` } : undefined;
   }
   return isJsonRecord(payload) ? payload : undefined;
 }
