@@ -2,6 +2,7 @@ export interface Env {
   DB: D1Database;
   ARTIFACTS: R2Bucket;
   ASSETS: Fetcher;
+  AI?: Ai;
   ENVIRONMENT: string;
   JOTFORM_BASE_URL: string;
   JOTFORM_API_KEY?: string;
@@ -74,6 +75,15 @@ type QuizReviewPayload = {
   warnings: string[];
 };
 
+type StudentCommentAnalytics = {
+  averageScore?: number;
+  completedQuizCount: number;
+  passedQuizCount: number;
+  strongestTopics: string[];
+  growthTopics: string[];
+  quizSummaries: string[];
+};
+
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store"
@@ -132,6 +142,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/email/send") {
         return await sendEmailEndpoint(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/aicomments") {
+        return await aiCommentsEndpoint(request, env);
       }
 
       return json({ error: "not_found" }, 404);
@@ -1120,6 +1134,11 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
         scoreText: review.scoreText ?? null,
         passed: review.passed ?? null,
         questionCount: review.questions.length,
+        questions: review.questions.slice(0, 100).map((question) => ({
+          prompt: question.prompt,
+          isCorrect: question.isCorrect ?? null,
+          feedback: question.feedback ?? null
+        })),
         warnings: review.warnings
       }
     });
@@ -1489,6 +1508,229 @@ async function sendEmailEndpoint(request: Request, env: Env): Promise<Response> 
   });
 
   return json(result);
+}
+
+async function aiCommentsEndpoint(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const studentName = stringField(body, "studentName") ?? "The student";
+  const courseTitle = stringField(body, "courseTitle") ?? "the course";
+  const context = stringField(body, "context") ?? "course completion";
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+
+  const analytics = studentId && classSessionId
+    ? await buildStudentCommentAnalytics(env, studentId, classSessionId)
+    : emptyCommentAnalytics();
+
+  const fallback = studentCommentFallback(studentName, courseTitle, analytics);
+  if (!env.AI) {
+    return json({
+      success: true,
+      comment: fallback,
+      usedFallback: true,
+      reason: "workers_ai_not_configured",
+      analytics
+    });
+  }
+
+  try {
+    const response = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fp8", {
+      messages: [
+        {
+          role: "system",
+          content: [
+            "You write concise EMS academy instructor comments for skills validation and course completion records.",
+            "Write one polished paragraph, 55 to 85 words.",
+            "Return only the paragraph text. Do not introduce it or explain it.",
+            "Use the student's first name naturally and avoid gendered pronouns unless provided.",
+            "Be specific, positive, and professional.",
+            "If analytics include growth topics, frame them as continued review or reinforcement, not failure.",
+            "Do not invent exam scores, certifications, attendance, or clinical facts not provided.",
+            "Do not mention AI, analytics, payloads, quizzes, or raw data."
+          ].join(" ")
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            studentName,
+            courseTitle,
+            context,
+            analytics,
+            fallbackToneExamples: [
+              `${studentName} demonstrated steady engagement throughout ${courseTitle}, contributed appropriately during class activities, and showed a professional approach to continued EMS development.`,
+              `${studentName} completed ${courseTitle} with a positive attitude and consistent participation. Continued review of targeted course topics will help reinforce the material covered today.`
+            ]
+          })
+        }
+      ],
+      max_tokens: 180,
+      temperature: 0.55
+    });
+
+    const comment = cleanGeneratedComment(textFromUnknown(response.response));
+    if (comment && comment.includes(studentName.split(/\s+/)[0] ?? studentName) && comment.length >= 50) {
+      return json({
+        success: true,
+        comment,
+        usedFallback: false,
+        analytics
+      });
+    }
+
+    return json({
+      success: true,
+      comment: fallback,
+      usedFallback: true,
+      reason: "ai_response_failed_validation",
+      analytics
+    });
+  } catch (error) {
+    console.warn("aicomments failed", error);
+    return json({
+      success: true,
+      comment: fallback,
+      usedFallback: true,
+      reason: "ai_generation_failed",
+      analytics
+    });
+  }
+}
+
+async function buildStudentCommentAnalytics(
+  env: Env,
+  studentId: string,
+  classSessionId: string
+): Promise<StudentCommentAnalytics> {
+  const attemptsResult = await env.DB.prepare(
+    `SELECT quiz_id, result_text, score_text, passed, completed_at, updated_at
+     FROM quiz_attempts
+     WHERE student_id = ?1 AND class_session_id = ?2
+     ORDER BY COALESCE(completed_at, updated_at) ASC`
+  ).bind(studentId, classSessionId).all<JsonRecord>();
+
+  const attempts = attemptsResult.results ?? [];
+  const scores = attempts.map((attempt) => numericScore(stringField(attempt, "score_text"))).filter((score): score is number => score !== undefined);
+  const averageScore = scores.length > 0
+    ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10
+    : undefined;
+  const passedQuizCount = attempts.filter((attempt) => boolFromUnknown(attempt.passed) === true).length;
+  const quizSummaries = attempts.slice(0, 8).map((attempt, index) => {
+    const score = stringField(attempt, "score_text");
+    const result = quizResultSummary(attempt);
+    return `Quiz ${index + 1}: ${[result, score && !result.includes(score) ? score : undefined].filter(Boolean).join(" ")}`;
+  });
+
+  const reviewEvents = await env.DB.prepare(
+    `SELECT payload_json
+     FROM audit_events
+     WHERE student_id = ?1
+       AND class_session_id = ?2
+       AND event_type = 'quiz.review.requested'
+     ORDER BY created_at DESC
+     LIMIT 25`
+  ).bind(studentId, classSessionId).all<JsonRecord>();
+
+  const strengths = new Map<string, number>();
+  const growth = new Map<string, number>();
+  for (const row of reviewEvents.results ?? []) {
+    const payload = parseJsonRecord(stringField(row, "payload_json") ?? "");
+    const questions = Array.isArray(payload?.questions) ? payload.questions.filter(isJsonRecord) : [];
+    for (const question of questions) {
+      const topic = topicFromQuestion(question);
+      if (!topic) {
+        continue;
+      }
+      const correct = boolFromUnknown(question.isCorrect);
+      if (correct === true) {
+        strengths.set(topic, (strengths.get(topic) ?? 0) + 1);
+      } else if (correct === false) {
+        growth.set(topic, (growth.get(topic) ?? 0) + 1);
+      }
+    }
+  }
+
+  return {
+    averageScore,
+    completedQuizCount: attempts.length,
+    passedQuizCount,
+    strongestTopics: topMapKeys(strengths, 3),
+    growthTopics: topMapKeys(growth, 3),
+    quizSummaries
+  };
+}
+
+function emptyCommentAnalytics(): StudentCommentAnalytics {
+  return {
+    completedQuizCount: 0,
+    passedQuizCount: 0,
+    strongestTopics: [],
+    growthTopics: [],
+    quizSummaries: []
+  };
+}
+
+function studentCommentFallback(studentName: string, courseTitle: string, analytics: StudentCommentAnalytics): string {
+  const firstName = studentName.split(/\s+/)[0] || studentName;
+  if (analytics.strongestTopics.length > 0 || analytics.growthTopics.length > 0) {
+    const strength = analytics.strongestTopics[0] ?? "core EMS concepts";
+    const growth = analytics.growthTopics[0] ?? "continued review of course material";
+    return `${firstName} completed ${courseTitle} with engaged participation and a professional approach to the training day. Their exam review showed solid performance in ${strength}, and continued reinforcement of ${growth} will help strengthen retention moving forward. ${firstName} remained attentive, receptive to feedback, and focused on improving throughout the course.`;
+  }
+  if (analytics.averageScore !== undefined && analytics.completedQuizCount > 0) {
+    const performance = analytics.averageScore >= 85 ? "strong" : analytics.averageScore >= 70 ? "satisfactory" : "developing";
+    return `${firstName} completed ${courseTitle} with ${performance} progress across the day's assessments and consistent participation in class activities. They remained professional, attentive, and receptive to feedback throughout the session. Continued review of the course objectives will help reinforce the material and support confident application in the field.`;
+  }
+  return `${firstName} completed ${courseTitle} with consistent participation, a positive attitude, and a professional approach to the learning environment. They remained engaged with the course material and receptive to instructor feedback throughout the session. Continued review of the day's key objectives will help reinforce understanding and support future EMS practice.`;
+}
+
+function cleanGeneratedComment(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return value
+    .replace(/^["'\s]+|["'\s]+$/g, "")
+    .replace(/^here(?:'s| is)\s+(?:a|the)?\s*(?:polished\s+)?(?:paragraph|comment)[^:]*:\s*/i, "")
+    .replace(/^comment:\s*/i, "")
+    .trim();
+}
+
+function numericScore(value?: string): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const match = value.match(/(\d+(?:\.\d+)?)/);
+  if (!match) {
+    return undefined;
+  }
+  const score = Number.parseFloat(match[1]);
+  return Number.isFinite(score) ? score : undefined;
+}
+
+function topicFromQuestion(question: JsonRecord): string | undefined {
+  const source = [
+    firstText([question], ["topic", "category", "objective", "tag"]),
+    firstText([question], ["prompt", "question", "questionText", "question_text"]),
+    firstText([question], ["feedback", "feedbackText", "feedback_text"])
+  ].filter(Boolean).join(" ");
+  const normalized = source.toLowerCase();
+  const topicPatterns: Array<[string, RegExp]> = [
+    ["airway management", /\bairway|ventilat|oxygen|breath|respirat|bag.?valve|bvm\b/],
+    ["cardiology", /\bcardiac|heart|chest pain|ecg|ekg|stroke|shock|aed\b/],
+    ["trauma assessment", /\btrauma|bleed|hemorrhage|fracture|spinal|burn|head injury\b/],
+    ["medical assessment", /\bdiabetes|seizure|allerg|overdose|poison|medical assessment|altered mental\b/],
+    ["communication skills", /\bcommunicat|handoff|report|radio|documentation|consent|scene size.?up\b/],
+    ["operations and safety", /\bsafety|hazmat|incident command|triage|lifting|ppe|scene\b/],
+    ["pediatric care", /\bpediatric|child|infant|newborn|pepp\b/],
+    ["obstetrics", /\bobstetric|pregnan|delivery|newborn\b/]
+  ];
+  return topicPatterns.find(([, pattern]) => pattern.test(normalized))?.[0];
+}
+
+function topMapKeys(map: Map<string, number>, count: number): string[] {
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, count)
+    .map(([key]) => key);
 }
 
 async function buildFlexiQuizSsoUrl(env: Env, userName: string, quizId: string): Promise<string> {

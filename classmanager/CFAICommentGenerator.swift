@@ -9,27 +9,27 @@ import Foundation
 
 actor CFAICommentGenerator {
     
-    // Your Cloudflare Worker URL
-    private static let workerURL = "https://alertsapp.gcemstrainingacademy.org/aicomments"
-    
     /// Generate a positive performance comment using Cloudflare AI
     static func generateComment(
         studentName: String,
         courseTitle: String,
-        context: String = "completion"
+        context: String = "completion",
+        studentId: String? = nil,
+        classSessionId: String? = nil
     ) async -> String {
         
         print("[CFAICommentGenerator] 🚀 Starting AI comment generation")
         print("[CFAICommentGenerator] Student: \(studentName)")
         print("[CFAICommentGenerator] Course: \(courseTitle)")
         print("[CFAICommentGenerator] Context: \(context)")
-        print("[CFAICommentGenerator] Worker URL: \(workerURL)")
         
         do {
             let comment = try await callCloudflareAI(
                 studentName: studentName,
                 courseTitle: courseTitle,
-                context: context
+                context: context,
+                studentId: studentId,
+                classSessionId: classSessionId
             )
             print("[CFAICommentGenerator] ✅ AI generation successful!")
             print("[CFAICommentGenerator] Generated: \(comment)")
@@ -47,17 +47,14 @@ actor CFAICommentGenerator {
     private static func callCloudflareAI(
         studentName: String,
         courseTitle: String,
-        context: String
+        context: String,
+        studentId: String?,
+        classSessionId: String?
     ) async throws -> String {
         
         print("[CFAICommentGenerator] 📡 Calling Cloudflare Worker API...")
         
-        guard let url = URL(string: workerURL) else {
-            print("[CFAICommentGenerator] ❌ Invalid worker URL: \(workerURL)")
-            throw NSError(domain: "CFAICommentGenerator", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Invalid worker URL"
-            ])
-        }
+        let url = classManagerAPIBaseURL().appendingPathComponent("aicomments")
         
         print("[CFAICommentGenerator] ✓ URL validated: \(url.absoluteString)")
         
@@ -66,11 +63,17 @@ actor CFAICommentGenerator {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 30
         
-        let requestBody: [String: Any] = [
+        var requestBody: [String: Any] = [
             "studentName": studentName,
             "courseTitle": courseTitle,
             "context": context
         ]
+        if let studentId, !studentId.isEmpty {
+            requestBody["studentId"] = studentId
+        }
+        if let classSessionId, !classSessionId.isEmpty {
+            requestBody["classSessionId"] = classSessionId
+        }
         
         print("[CFAICommentGenerator] 📦 Request body: \(requestBody)")
         
@@ -155,6 +158,8 @@ actor CFAICommentGenerator {
         studentName: String,
         courseTitle: String,
         context: String = "completion",
+        studentId: String? = nil,
+        classSessionId: String? = nil,
         maxRetries: Int = 2
     ) async -> String {
         
@@ -166,7 +171,9 @@ actor CFAICommentGenerator {
             let comment = await generateComment(
                 studentName: studentName,
                 courseTitle: courseTitle,
-                context: context
+                context: context,
+                studentId: studentId,
+                classSessionId: classSessionId
             )
             
             // Validate that comment includes required elements
@@ -194,5 +201,13 @@ actor CFAICommentGenerator {
 
     private static func guaranteedFallback(studentName: String, courseTitle: String) -> String {
         "\(studentName) successfully completed \(courseTitle) with excellent participation and engagement. Their professional attitude and dedication to learning were exemplary throughout the course."
+    }
+
+    private static func classManagerAPIBaseURL() -> URL {
+        if let raw = Bundle.main.object(forInfoDictionaryKey: "CLASSMANAGER_API_BASE_URL") as? String,
+           let url = URL(string: raw), !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return url
+        }
+        return URL(string: "https://classmanagerapp.gcemstrainingacademy.org")!
     }
 }

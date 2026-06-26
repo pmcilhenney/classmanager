@@ -1036,7 +1036,19 @@ struct MainMenuView: View {
             defer { busy = false; generatingComment = false }
             let studentName = "\(attendee.firstName) \(attendee.lastName)"
             let courseTitle = cleanCourseName(attendee.courseType)
-            let aiComment = await CFAICommentGenerator.generateCommentWithRetry(studentName: studentName, courseTitle: courseTitle, context: "skills validation")
+            let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? attendee.submissionId
+                : attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+            let classSessionId = (attendee.courseDate ?? attendee.submissionId)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "/", with: "-")
+            let aiComment = await CFAICommentGenerator.generateCommentWithRetry(
+                studentName: studentName,
+                courseTitle: courseTitle,
+                context: "skills validation",
+                studentId: studentId,
+                classSessionId: classSessionId
+            )
             if let url = buildSkillsURL(aiComment: aiComment) {
                 skillsURL = url
                 showSkills = true
