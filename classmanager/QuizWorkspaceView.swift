@@ -17,6 +17,8 @@ struct QuizWorkspaceView: View {
     @State private var lastURL: URL?
     @State private var toast: String?
     @State private var showingReview = false
+    @State private var webViewError: String?
+    @State private var webViewReloadToken = UUID()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,19 +57,38 @@ struct QuizWorkspaceView: View {
                         }
                     )
                 } else if let url = currentURL {
-                    FlexiWebView(
-                        url: url,
-                        lastURL: $lastURL,
-                        loading: $isLoading,
-                        onResultDetected: {
-                            isLoading = false
-                            showingReview = true
+                    if let webViewError {
+                        ContentUnavailableView {
+                            Label("Exam Web View Stopped", systemImage: "exclamationmark.triangle")
+                        } description: {
+                            Text(webViewError)
+                        } actions: {
+                            Button("Reload Exam") {
+                                self.webViewError = nil
+                                webViewReloadToken = UUID()
+                                isLoading = true
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
-                    )
-                    .onChange(of: lastURL) { _ in
-                        // Called once when real content is visible in the webview
-                        isLoading = false
-                        onSSOLoaded?()
+                    } else {
+                        FlexiWebView(
+                            url: url,
+                            lastURL: $lastURL,
+                            loading: $isLoading,
+                            onResultDetected: {
+                                isLoading = false
+                                showingReview = true
+                            },
+                            onProcessTerminated: {
+                                webViewError = "FlexiQuiz stopped responding inside the embedded exam window. Reloading the exam usually restores the session."
+                            }
+                        )
+                        .id(webViewReloadToken)
+                        .onChange(of: lastURL) { _ in
+                            // Called once when real content is visible in the webview
+                            isLoading = false
+                            onSSOLoaded?()
+                        }
                     }
                 } else {
                     VStack(spacing: 12) {
@@ -170,6 +191,8 @@ struct QuizWorkspaceView: View {
         #endif
 
         await MainActor.run {
+            webViewError = nil
+            webViewReloadToken = UUID()
             currentURL = launch.launchUrl
             // isLoading stays true; FlexiWebView will turn it false on finish/fail/timeout
         }
