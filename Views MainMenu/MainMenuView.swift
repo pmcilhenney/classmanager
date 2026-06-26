@@ -47,7 +47,6 @@ struct MainMenuView: View {
     @State private var selectedQuiz: QuizInfo? = nil
     @State private var selectedReviewQuiz: QuizInfo? = nil
     @State private var completedQuizzes: Set<String> = []
-    @State private var quizTracker = QuizCompletionTracker()
 
     // Currently selected PDF
     @State private var selectedMaterialURL: URL? = nil
@@ -1114,15 +1113,10 @@ struct MainMenuView: View {
         busy = true
         Task { @MainActor in
             defer { busy = false }
-            do {
-                completedQuizzes = try await quizTracker.fetchCompletedQuizzes(submissionId: attendee.submissionId)
-            } catch {
-                completedQuizzes = []
-            }
-            // Merge any CK-synced completions, but only for quizzes that belong to this course
+            completedQuizzes = []
             let courseQuizIDs = Set(getQuizzesForCourse().map { $0.id })
-            let ckIDs = Set(progressStore.progress.completedQuizIDs).intersection(courseQuizIDs)
-            completedQuizzes.formUnion(ckIDs)
+            let workerIDs = Set(progressStore.progress.completedQuizIDs).intersection(courseQuizIDs)
+            completedQuizzes.formUnion(workerIDs)
             selectedReviewQuiz = nil
             selectedQuiz = nil
             showingQuizzes = true
@@ -1136,20 +1130,9 @@ struct MainMenuView: View {
 
     private func markQuizComplete(quizId: String) {
         Task { @MainActor in
-            do {
-                try await quizTracker.markComplete(
-                    submissionId: attendee.submissionId,
-                    quizId: quizId,
-                    studentName: "\(attendee.firstName) \(attendee.lastName)",
-                    courseTitle: attendee.courseType
-                )
-                completedQuizzes.insert(quizId)
-                // Persist to CloudKit progress store for cross-device sync
-                progressStore.markQuizComplete(quizId)
-                selectedQuiz = nil
-            } catch {
-                // swallow
-            }
+            completedQuizzes.insert(quizId)
+            progressStore.markQuizComplete(quizId)
+            selectedQuiz = nil
         }
     }
 

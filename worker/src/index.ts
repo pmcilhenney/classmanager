@@ -436,9 +436,9 @@ async function patchProgress(request: Request, url: URL, env: Env): Promise<Resp
     boolInt(body.didCheckOut),
     boolInt(body.didOpenSkills),
     boolInt(body.didOpenQuiz),
-    stringField(body, "checkInAt"),
-    stringField(body, "checkOutAt"),
-    stringField(body, "deviceId"),
+    stringField(body, "checkInAt") ?? null,
+    stringField(body, "checkOutAt") ?? null,
+    stringField(body, "deviceId") ?? null,
     now
   ).run();
 
@@ -777,12 +777,21 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
   }
 
   if (flexiquizUserId) {
-    const assigned = await flexiAssignQuiz(env, flexiquizUserId, quizId);
-    if (!assigned) {
-      warnings.push("flexiquiz_assign_failed");
+    const alreadyAssigned = await flexiUserHasQuiz(env, flexiquizUserId, quizId);
+    if (!alreadyAssigned) {
+      const assigned = await flexiAssignQuiz(env, flexiquizUserId, quizId);
+      if (!assigned.ok) {
+        await audit(env, "quiz.assign.failed", {
+          studentId,
+          classSessionId,
+          deviceId,
+          payload: { email, quizId, flexiquizUserId, status: assigned.status, body: assigned.body }
+        });
+        return json({ error: "flexiquiz_assign_failed", status: assigned.status, warnings }, 502);
+      }
     }
   } else {
-    warnings.push("flexiquiz_user_not_confirmed");
+    return json({ error: "flexiquiz_user_not_confirmed", warnings }, 502);
   }
 
   const launchUrl = await buildFlexiQuizSsoUrl(env, email, quizId);
@@ -868,11 +877,24 @@ async function flexiCreateUser(
   return stringField(data, "user_id");
 }
 
-async function flexiAssignQuiz(env: Env, userId: string, quizId: string): Promise<boolean> {
+async function flexiUserHasQuiz(env: Env, userId: string, quizId: string): Promise<boolean> {
+  const response = await flexiGet(env, `/v1/users/${encodeURIComponent(userId)}/quizzes`);
+  if (!response.ok) {
+    return false;
+  }
+  const payload = await response.json<unknown>().catch(() => undefined);
+  return recordsFromPayload(payload).some((record) => stringField(record, "quiz_id") === quizId || stringField(record, "quizId") === quizId);
+}
+
+async function flexiAssignQuiz(env: Env, userId: string, quizId: string): Promise<{ ok: boolean; status: number; body?: string }> {
   const response = await flexiPost(env, `/v1/users/${encodeURIComponent(userId)}/quizzes`, {
     quiz_id: quizId
   });
-  return response.ok;
+  return {
+    ok: response.ok,
+    status: response.status,
+    body: response.ok ? undefined : await response.text().catch(() => undefined)
+  };
 }
 
 async function flexiPost(env: Env, path: string, fields: Record<string, string>): Promise<Response> {

@@ -127,46 +127,6 @@ final class CKProgressStore: ObservableObject {
         }
 
         await fetchLatestFromWorker()
-
-        // Check iCloud health
-        self.iCloudOK = await checkAccountAndContainer()
-        guard iCloudOK else { return } // stay local-only for now
-
-        // Try to fetch from CK and merge
-        let rid = recordID(oemsId: oemsId, courseDate: cd)
-        self.currentRecordID = rid
-
-        // Perform sequential fetches to avoid using `await` with `??` (autoclosure)
-        var fetched: CKRecord? = await fetchRecord(id: rid, from: dbPublic)
-        if fetched == nil {
-            fetched = await fetchRecord(id: rid, from: dbPrivate)
-        }
-
-        if let rec = fetched {
-            self.currentRecord = rec
-            if let fromCK = decode(rec) {
-                if let local = loadLocal(), local.updatedAt > fromCK.updatedAt {
-                    // Local newer → keep local and push up
-                    self.progress = local
-                    Task { await self.saveToCloud(local) }
-                } else {
-                    // Cloud newer → adopt cloud and cache locally
-                    self.progress = fromCK
-                    saveLocal(fromCK)
-                }
-            }
-
-            // Ensure we have a subscription for realtime updates for this attendee/date
-            Task { await self.ensureSubscriptionIfNeeded() }
-        }
-        else {
-            // No record found yet — still create subscription so we receive notifications
-            Task { await self.ensureSubscriptionIfNeeded() }
-            // Also attempt an immediate save of local state if present so server record exists
-            if let local = loadLocal() {
-                Task { await self.saveToCloud(local) }
-            }
-        }
     }
 
     /// Create a CKQuerySubscription (silent push) scoped to this `oemsId` + `courseDate` so
@@ -243,7 +203,7 @@ final class CKProgressStore: ObservableObject {
 
     /// Called by AppDelegate/Scene when a CK notification arrives. We don't rely on payload parsing; just fetch latest.
     func handleRemoteNotification(_ userInfo: [AnyHashable: Any]) {
-        Task { await self.fetchLatestAndMerge() }
+        Task { await self.fetchLatestFromWorker() }
     }
 
     /// Markers
@@ -291,39 +251,7 @@ final class CKProgressStore: ObservableObject {
     /// value is encoded into the saved record. This helps in cases where optimistic
     /// lock conflicts keep an older server value present.
     private func forceSaveQuizResult(quizId: String) async {
-        guard iCloudOK, let cd = courseDate, !cd.isEmpty else { return }
-
-        let rid = self.currentRecordID ?? recordID(oemsId: self.oemsId, courseDate: cd)
-        self.currentRecordID = rid
-
-        // Start with the current in-memory record or a fresh one
-        let baseRec = self.currentRecord ?? CKRecord(recordType: "Progress", recordID: rid)
-
-        // Try to fetch authoritative server record (public then private)
-        var serverRec: CKRecord? = await fetchRecord(id: rid, from: dbPublic)
-        if serverRec == nil { serverRec = await fetchRecord(id: rid, from: dbPrivate) }
-
-        // Merge server and local (local overlay), then ensure the single quizId uses
-        // the latest local value (defensive guarantee)
-        var mergedRec = baseRec
-        if let server = serverRec {
-            mergedRec = merge(local: baseRec, server: server)
-        }
-
-        // Decode merged into model, force the quiz value from our local progress, and re-encode
-        if var model = decode(mergedRec) {
-            if let localVal = self.progress.quizResults[quizId] {
-                model.quizResults[quizId] = localVal
-                model.updatedAt = Date()
-                let outRec = CKRecord(recordType: mergedRec.recordType, recordID: mergedRec.recordID)
-                encode(model, into: outRec)
-
-                // Try to save aggressively (public then private)
-                if await save(outRec, to: dbPublic) == false {
-                    _ = await save(outRec, to: dbPrivate)
-                }
-            }
-        }
+        await saveToWorker(progress)
     }
     @MainActor func markQuizReviewId(_ quizId: String, reviewId: String) {
         mutate { p in
@@ -350,8 +278,6 @@ final class CKProgressStore: ObservableObject {
         progress = next
         // Always write locally
         saveLocal(next)
-        // Try cloud, if available (no illegal await here)
-        Task { await self.saveToCloud(next) }
         Task { await self.saveToWorker(next) }
     }
 

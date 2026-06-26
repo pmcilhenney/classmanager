@@ -3,10 +3,6 @@ import UIKit
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        // Register for remote notifications so CloudKit subscriptions can deliver silent pushes.
-        DispatchQueue.main.async {
-            UIApplication.shared.registerForRemoteNotifications()
-        }
         return true
     }
 
@@ -24,9 +20,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        // Forward to interested parties via NotificationCenter
-        NotificationCenter.default.post(name: .ckRemoteNotificationReceived, object: nil, userInfo: userInfo)
-        completionHandler(.newData)
+        completionHandler(.noData)
     }
 }
 

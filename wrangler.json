@@ -29,6 +29,7 @@
     {
       "binding": "DB",
       "database_name": "classmanager-db",
+      "database_id": "18ca25db-0718-4861-9fbb-1c18b09a5f99",
       "migrations_dir": "worker/migrations"
     }
   ],
