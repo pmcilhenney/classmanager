@@ -84,6 +84,13 @@ type StudentCommentAnalytics = {
   quizSummaries: string[];
 };
 
+type FlexiUserProfile = {
+  userId: string;
+  userName: string;
+  email?: string;
+  quizzes: JsonRecord[];
+};
+
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store"
@@ -881,6 +888,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
   }
 
   let flexiquizUserId = await flexiFindUserId(env, email);
+  let flexiUserProfile: FlexiUserProfile | undefined;
 
   if (!flexiquizUserId) {
     flexiquizUserId = await flexiCreateUser(env, {
@@ -897,7 +905,13 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
   }
 
   if (flexiquizUserId) {
-    const alreadyAssigned = await flexiUserHasQuiz(env, flexiquizUserId, quizId);
+    flexiUserProfile = await flexiGetUserProfile(env, flexiquizUserId);
+    if (!flexiUserProfile) {
+      warnings.push("flexiquiz_user_profile_unavailable");
+    }
+    const alreadyAssigned = flexiUserProfile
+      ? flexiUserHasQuiz(flexiUserProfile, quizId)
+      : await flexiUserHasQuizByEndpoint(env, flexiquizUserId, quizId);
     if (!alreadyAssigned) {
       const assigned = await flexiAssignQuiz(env, flexiquizUserId, quizId);
       if (!assigned.ok) {
@@ -909,12 +923,14 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
           payload: { email, quizId, flexiquizUserId, status: assigned.status, body: assigned.body }
         });
       }
+      flexiUserProfile = await flexiGetUserProfile(env, flexiquizUserId) ?? flexiUserProfile;
     }
   } else {
     return json({ error: "flexiquiz_user_not_confirmed", warnings }, 502);
   }
 
-  const launchUrl = await buildFlexiQuizSsoUrl(env, email, quizId);
+  const flexiquizUserName = flexiUserProfile?.userName || email;
+  const launchUrl = await buildFlexiQuizSsoUrl(env, flexiquizUserName, quizId);
 
   if (studentId && classSessionId) {
     await ensureProgressParents(env, {
@@ -939,7 +955,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     studentId,
     classSessionId,
     deviceId,
-    payload: { email, quizId, flexiquizUserId: flexiquizUserId ?? null, warnings }
+    payload: { email, quizId, flexiquizUserId: flexiquizUserId ?? null, flexiquizUserName, warnings }
   });
 
   return json({
@@ -948,6 +964,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     quizId,
     launchUrl,
     flexiquizUserId,
+    flexiquizUserName,
     warnings
   });
 }
@@ -1013,7 +1030,37 @@ async function flexiCreateUser(
   return stringField(data, "user_id");
 }
 
-async function flexiUserHasQuiz(env: Env, userId: string, quizId: string): Promise<boolean> {
+async function flexiGetUserProfile(env: Env, userId: string): Promise<FlexiUserProfile | undefined> {
+  const response = await flexiGet(env, `/v1/users/${encodeURIComponent(userId)}`);
+  if (!response.ok) {
+    return undefined;
+  }
+  const payload = await response.json<unknown>().catch(() => undefined);
+  const record = recordFromPayload(payload);
+  if (!record) {
+    return undefined;
+  }
+  const userName = stringField(record, "user_name");
+  const resolvedUserId = stringField(record, "user_id") ?? userId;
+  if (!userName) {
+    return undefined;
+  }
+  return {
+    userId: resolvedUserId,
+    userName,
+    email: stringField(record, "email_address"),
+    quizzes: arrayField(record, "quizzes").filter(isJsonRecord)
+  };
+}
+
+function flexiUserHasQuiz(profile: FlexiUserProfile, quizId: string): boolean {
+  return profile.quizzes.some((record) =>
+    stringField(record, "quiz_id") === quizId ||
+    stringField(record, "quizId") === quizId
+  );
+}
+
+async function flexiUserHasQuizByEndpoint(env: Env, userId: string, quizId: string): Promise<boolean> {
   const response = await flexiGet(env, `/v1/users/${encodeURIComponent(userId)}/quizzes`);
   if (!response.ok) {
     return false;
@@ -1746,7 +1793,6 @@ async function buildFlexiQuizSsoUrl(env: Env, userName: string, quizId: string):
   url.searchParams.set("cla", "t");
   url.searchParams.set("jwt", jwt);
   url.searchParams.set("quiz_id", quizId);
-  url.searchParams.set("cb", Math.floor(Date.now() / 1000).toString());
   return url.toString();
 }
 
