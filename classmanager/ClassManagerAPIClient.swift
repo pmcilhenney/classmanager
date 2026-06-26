@@ -431,9 +431,48 @@ extension ClassManagerAPIClient {
         let courseTitle: String
     }
 
-    enum APIError: Error {
+    struct WorkerErrorResponse: Decodable {
+        let error: String
+        let warnings: [String]?
+    }
+
+    enum APIError: Error, LocalizedError {
         case invalidResponse
         case httpStatus(Int, String?)
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidResponse:
+                return "The server response was not valid."
+            case .httpStatus(let status, let body):
+                if let message = Self.message(for: status, body: body) {
+                    return message
+                }
+                return "Server request failed with status \(status)."
+            }
+        }
+
+        private static func message(for status: Int, body: String?) -> String? {
+            guard let body,
+                  let data = body.data(using: .utf8),
+                  let payload = try? JSONDecoder().decode(WorkerErrorResponse.self, from: data) else {
+                return nil
+            }
+            switch payload.error {
+            case "flexiquiz_quiz_not_assigned":
+                return "FlexiQuiz did not assign this quiz to the student. Check the quiz assignment/API settings in FlexiQuiz."
+            case "flexiquiz_quiz_unavailable":
+                return "FlexiQuiz reports this quiz is not available."
+            case "flexiquiz_user_not_confirmed":
+                return "FlexiQuiz could not find or create the student account."
+            case "flexiquiz_not_configured":
+                return "FlexiQuiz is not configured on the classmanager server."
+            default:
+                return payload.error
+                    .replacingOccurrences(of: "_", with: " ")
+                    .capitalized
+            }
+        }
     }
 }
 

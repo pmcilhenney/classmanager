@@ -181,7 +181,7 @@ struct QuizWorkspaceView: View {
             #endif
             await MainActor.run {
                 isLoading = false
-                toast = "Couldn’t prepare quiz."
+                toast = error.localizedDescription
             }
             return
         }

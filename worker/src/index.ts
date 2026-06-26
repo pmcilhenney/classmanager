@@ -912,18 +912,44 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     const alreadyAssigned = flexiUserProfile
       ? flexiUserHasQuiz(flexiUserProfile, quizId)
       : await flexiUserHasQuizByEndpoint(env, flexiquizUserId, quizId);
+    let assignmentStatus: { ok: boolean; status: number; body?: string } | undefined;
     if (!alreadyAssigned) {
-      const assigned = await flexiAssignQuiz(env, flexiquizUserId, quizId);
-      if (!assigned.ok) {
+      assignmentStatus = await flexiAssignQuiz(env, flexiquizUserId, quizId);
+      if (!assignmentStatus.ok) {
         warnings.push("flexiquiz_assign_failed");
         await audit(env, "quiz.assign.failed", {
           studentId,
           classSessionId,
           deviceId,
-          payload: { email, quizId, flexiquizUserId, status: assigned.status, body: assigned.body }
+          payload: { email, quizId, flexiquizUserId, status: assignmentStatus.status, body: assignmentStatus.body }
         });
       }
       flexiUserProfile = await flexiGetUserProfile(env, flexiquizUserId) ?? flexiUserProfile;
+    }
+
+    const hasQuizAccess = flexiUserProfile
+      ? flexiUserHasQuiz(flexiUserProfile, quizId)
+      : alreadyAssigned;
+    if (!hasQuizAccess) {
+      await audit(env, "quiz.assign.unavailable", {
+        studentId,
+        classSessionId,
+        deviceId,
+        payload: {
+          email,
+          quizId,
+          flexiquizUserId,
+          status: assignmentStatus?.status ?? null,
+          body: assignmentStatus?.body ?? null,
+          quizCount: flexiUserProfile?.quizzes.length ?? null,
+          warnings
+        }
+      });
+      return json({
+        error: "flexiquiz_quiz_not_assigned",
+        status: assignmentStatus?.status ?? null,
+        warnings
+      }, 502);
     }
   } else {
     return json({ error: "flexiquiz_user_not_confirmed", warnings }, 502);
