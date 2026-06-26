@@ -8,6 +8,7 @@ struct QuizWorkspaceView: View {
     let flexi: FlexiQuizClient
     var quiz: QuizInfo?
     var onSSOLoaded: (() -> Void)?
+    var onReviewLoaded: ((QuizInfo, ClassManagerAPIClient.QuizReviewResponse) -> Void)?
     var onBack: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
@@ -48,7 +49,10 @@ struct QuizWorkspaceView: View {
                     QuizReviewView(
                         config: config,
                         attendee: attendee,
-                        quiz: quiz
+                        quiz: quiz,
+                        onLoaded: { review in
+                            onReviewLoaded?(quiz, review)
+                        }
                     )
                 } else if let url = currentURL {
                     FlexiWebView(

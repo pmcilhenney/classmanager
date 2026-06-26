@@ -147,6 +147,9 @@ struct InstructorPhoneView: View {
                         quiz: quiz,
                         onSSOLoaded: {
                             progressStore.markQuiz()
+                        },
+                        onReviewLoaded: { quiz, review in
+                            recordQuizReview(quiz: quiz, review: review)
                         }
                     )
                 }
@@ -156,7 +159,10 @@ struct InstructorPhoneView: View {
                     QuizReviewView(
                         config: config,
                         attendee: attendee,
-                        quiz: quiz
+                        quiz: quiz,
+                        onLoaded: { review in
+                            recordQuizReview(quiz: quiz, review: review)
+                        }
                     )
                 }
             }
@@ -309,6 +315,24 @@ struct InstructorPhoneView: View {
             return QuizInfo.refresherCQuizzes()
         }
         return []
+    }
+
+    private func recordQuizReview(quiz: QuizInfo, review: ClassManagerAPIClient.QuizReviewResponse) {
+        progressStore.markQuizResult(quiz.id, result: quizResultSummary(review))
+    }
+
+    private func quizResultSummary(_ review: ClassManagerAPIClient.QuizReviewResponse) -> String {
+        let status: String? = {
+            if let passed = review.passed {
+                return passed ? "Passed" : "Failed"
+            }
+            return review.resultText
+        }()
+        let summary = [status, review.scoreText]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return summary.isEmpty ? "Completed" : summary
     }
 
     private func cleanCourseName(_ value: String) -> String {

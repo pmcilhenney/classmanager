@@ -372,6 +372,8 @@ extension ClassManagerAPIClient {
         let didOpenQuiz: Bool
         let checkInAt: Date?
         let updatedAt: Date?
+        let completedQuizIDs: [String]
+        let quizResults: [String: String]
 
         enum CodingKeys: String, CodingKey {
             case didCheckIn = "did_check_in"
@@ -380,6 +382,8 @@ extension ClassManagerAPIClient {
             case didOpenQuiz = "did_open_quiz"
             case checkInAt = "check_in_at"
             case updatedAt = "updated_at"
+            case completedQuizIDs = "completed_quiz_ids"
+            case quizResults = "quiz_results"
         }
 
         init(from decoder: Decoder) throws {
@@ -390,6 +394,8 @@ extension ClassManagerAPIClient {
             didOpenQuiz = try container.decodeFlexibleBool(forKey: .didOpenQuiz)
             checkInAt = try container.decodeDateIfPresent(forKey: .checkInAt)
             updatedAt = try container.decodeDateIfPresent(forKey: .updatedAt)
+            completedQuizIDs = try container.decodeIfPresent([String].self, forKey: .completedQuizIDs) ?? []
+            quizResults = try container.decodeIfPresent([String: String].self, forKey: .quizResults) ?? [:]
         }
     }
 

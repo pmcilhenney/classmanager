@@ -415,7 +415,10 @@ struct MainMenuView: View {
                         QuizReviewView(
                             config: config,
                             attendee: attendee,
-                            quiz: quiz
+                            quiz: quiz,
+                            onLoaded: { review in
+                                recordQuizReview(quiz: quiz, review: review)
+                            }
                         )
                     } else if let quiz = selectedQuiz {
                         QuizWorkspaceView(
@@ -426,6 +429,9 @@ struct MainMenuView: View {
                             quiz: quiz,
                             onSSOLoaded: {
                                 progressStore.markQuiz()
+                            },
+                            onReviewLoaded: { quiz, review in
+                                recordQuizReview(quiz: quiz, review: review)
                             },
                             onBack: { selectedQuiz = nil }
                         )
@@ -1111,6 +1117,26 @@ struct MainMenuView: View {
             progressStore.markQuizComplete(quizId)
             selectedQuiz = nil
         }
+    }
+
+    private func recordQuizReview(quiz: QuizInfo, review: ClassManagerAPIClient.QuizReviewResponse) {
+        let result = quizResultSummary(review)
+        completedQuizzes.insert(quiz.id)
+        progressStore.markQuizResult(quiz.id, result: result)
+    }
+
+    private func quizResultSummary(_ review: ClassManagerAPIClient.QuizReviewResponse) -> String {
+        let status: String? = {
+            if let passed = review.passed {
+                return passed ? "Passed" : "Failed"
+            }
+            return review.resultText
+        }()
+        let summary = [status, review.scoreText]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return summary.isEmpty ? "Completed" : summary
     }
 
     private func getQuizzesForCourse() -> [QuizInfo] {

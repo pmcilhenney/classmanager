@@ -4,6 +4,7 @@ struct QuizReviewView: View {
     let config: AppConfig
     let attendee: RosterAttendee
     let quiz: QuizInfo
+    var onLoaded: ((ClassManagerAPIClient.QuizReviewResponse) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var review: ClassManagerAPIClient.QuizReviewResponse?
@@ -110,6 +111,7 @@ struct QuizReviewView: View {
             await MainActor.run {
                 review = loaded
                 isLoading = false
+                onLoaded?(loaded)
             }
         } catch ClassManagerAPIClient.APIError.httpStatus(let status, _) {
             await MainActor.run {

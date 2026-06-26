@@ -440,9 +440,47 @@ async function getProgress(url: URL, env: Env): Promise<Response> {
 
   const row = await env.DB.prepare(
     `SELECT * FROM student_progress WHERE class_session_id = ?1 AND student_id = ?2`
-  ).bind(classSessionId, studentId).first();
+  ).bind(classSessionId, studentId).first<JsonRecord>();
 
-  return json({ classSessionId, studentId, progress: row ?? null });
+  const attempts = await env.DB.prepare(
+    `SELECT quiz_id, result_text, score_text, passed, completed_at, updated_at
+     FROM quiz_attempts
+     WHERE class_session_id = ?1 AND student_id = ?2
+     ORDER BY COALESCE(completed_at, updated_at) DESC`
+  ).bind(classSessionId, studentId).all<JsonRecord>();
+
+  const quizResults: Record<string, string> = {};
+  const completedQuizIds: string[] = [];
+  for (const attempt of attempts.results ?? []) {
+    const quizId = stringField(attempt, "quiz_id");
+    if (!quizId || quizResults[quizId]) {
+      continue;
+    }
+    completedQuizIds.push(quizId);
+    quizResults[quizId] = quizResultSummary(attempt);
+  }
+
+  const progress = row ? { ...row } : null;
+  if (progress || completedQuizIds.length > 0) {
+    return json({
+      classSessionId,
+      studentId,
+      progress: {
+        ...(progress ?? {
+          did_check_in: 0,
+          did_check_out: 0,
+          did_open_skills: 0,
+          did_open_quiz: completedQuizIds.length > 0 ? 1 : 0,
+          check_in_at: null,
+          updated_at: null
+        }),
+        completed_quiz_ids: completedQuizIds,
+        quiz_results: quizResults
+      }
+    });
+  }
+
+  return json({ classSessionId, studentId, progress: null });
 }
 
 async function patchProgress(request: Request, url: URL, env: Env): Promise<Response> {
@@ -1792,6 +1830,14 @@ function passStatusFromScore(text?: string): boolean | undefined {
   }
   const score = Number.parseFloat(match[1]);
   return Number.isFinite(score) ? score >= 70 : undefined;
+}
+
+function quizResultSummary(attempt: JsonRecord): string {
+  const score = stringField(attempt, "score_text");
+  const result = stringField(attempt, "result_text");
+  const passed = boolFromUnknown(attempt.passed) ?? passStatusFromText(result ?? score) ?? passStatusFromScore(score);
+  const status = passed === true ? "Passed" : passed === false ? "Failed" : result;
+  return [status, score].filter(Boolean).join(" ").trim() || "Completed";
 }
 
 function correctnessFromText(text?: string): boolean | undefined {

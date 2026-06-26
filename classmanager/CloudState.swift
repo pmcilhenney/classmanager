@@ -297,6 +297,10 @@ final class CKProgressStore: ObservableObject {
             merged.didOpenSkills = merged.didOpenSkills || remote.didOpenSkills
             merged.didOpenQuiz = merged.didOpenQuiz || remote.didOpenQuiz
             merged.checkInTime = merged.checkInTime ?? remote.checkInAt
+            merged.completedQuizIDs = Array(Set(merged.completedQuizIDs).union(remote.completedQuizIDs))
+            for (quizId, result) in remote.quizResults {
+                merged.quizResults[quizId] = result
+            }
             if let remoteUpdatedAt = remote.updatedAt {
                 merged.updatedAt = max(merged.updatedAt, remoteUpdatedAt)
             }
