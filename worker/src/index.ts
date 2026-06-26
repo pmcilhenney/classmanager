@@ -16,6 +16,8 @@ export interface Env {
   SM_PASSWORD?: string;
   FROM_ADDRESS?: string;
   REPLY_TO_ADDRESS?: string;
+  ACADEMY_RMS_BASE_URL?: string;
+  ACADEMY_RMS_ATTENDANCE_SECRET?: string;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -458,20 +460,59 @@ async function submitAttendance(request: Request, env: Env): Promise<Response> {
   const classSessionId = stringField(body, "classSessionId");
   const attendee = recordField(body, "attendee");
   const fields = recordField(body, "fields");
+  const attestation = recordField(body, "attestation");
   const deviceId = stringField(body, "deviceId");
 
   if (!formId || !inOut || !studentId || !classSessionId || !attendee || !fields) {
     return json({ error: "missing_attendance_fields" }, 400);
   }
 
-  if (!env.JOTFORM_API_KEY) {
-    return json({ error: "jotform_not_configured" }, 503);
+  if (!env.JOTFORM_API_KEY && !env.ACADEMY_RMS_BASE_URL) {
+    return json({ error: "attendance_destinations_not_configured" }, 503);
   }
 
-  const jotform = await postJotformSubmission(env, formId, fields);
   const now = new Date().toISOString();
   const didCheckIn = inOut === "Check-In";
   const didCheckOut = inOut === "Check-Out";
+  const warnings: string[] = [];
+  let rms: { ok: boolean; attestationId?: string } | undefined;
+  let jotform: { submissionId?: string } = {};
+
+  if (env.ACADEMY_RMS_BASE_URL && env.ACADEMY_RMS_ATTENDANCE_SECRET && attestation) {
+    try {
+      rms = await postAcademyRmsAttendance(env, {
+        formId,
+        inOut,
+        studentId,
+        classSessionId,
+        attendee,
+        fields,
+        attestation,
+        deviceId,
+        submittedAt: now
+      });
+    } catch (error) {
+      console.error("rms attendance submit failed", error);
+      warnings.push("rms_submit_failed");
+    }
+  } else {
+    warnings.push("rms_attendance_not_configured");
+  }
+
+  if (env.JOTFORM_API_KEY) {
+    try {
+      jotform = await postJotformSubmission(env, formId, fields);
+    } catch (error) {
+      console.error("jotform attendance submit failed", error);
+      warnings.push("jotform_submit_failed");
+    }
+  } else {
+    warnings.push("jotform_not_configured");
+  }
+
+  if (!rms?.ok && !jotform.submissionId) {
+    return json({ error: "attendance_submit_failed", warnings }, 502);
+  }
 
   await ensureProgressParents(env, {
     studentId,
@@ -504,7 +545,9 @@ async function submitAttendance(request: Request, env: Env): Promise<Response> {
     payload: {
       formId,
       inOut,
-      jotformSubmissionId: jotform.submissionId ?? null
+      jotformSubmissionId: jotform.submissionId ?? null,
+      rmsAttestationId: rms?.attestationId ?? null,
+      warnings
     }
   });
 
@@ -513,8 +556,34 @@ async function submitAttendance(request: Request, env: Env): Promise<Response> {
     formId,
     inOut,
     submissionId: jotform.submissionId,
+    rmsAttestationId: rms?.attestationId,
+    warnings,
     updatedAt: now
   });
+}
+
+async function postAcademyRmsAttendance(
+  env: Env,
+  payload: JsonRecord
+): Promise<{ ok: boolean; attestationId?: string }> {
+  const url = joinUrl(env.ACADEMY_RMS_BASE_URL ?? "", "/api/webhooks/classmanager-attendance");
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "x-classmanager-secret": env.ACADEMY_RMS_ATTENDANCE_SECRET ?? ""
+    },
+    body: JSON.stringify(payload)
+  });
+  const parsed: JsonRecord = await response.json<JsonRecord>().catch(() => ({}));
+  if (!response.ok || parsed.ok === false) {
+    throw new HttpError(response.status || 502, stringField(parsed, "error") ?? "rms_submit_failed");
+  }
+  return {
+    ok: true,
+    attestationId: stringField(parsed, "attestation_id") ?? stringField(parsed, "attestationId")
+  };
 }
 
 async function postJotformSubmission(

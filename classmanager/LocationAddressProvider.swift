@@ -7,9 +7,17 @@
 import Foundation
 import CoreLocation
 
+struct AttendanceLocationSnapshot {
+    let latitude: Double
+    let longitude: Double
+    let horizontalAccuracy: Double
+    let address: String?
+}
+
 final class LocationAddressProvider: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var completion: ((String?) -> Void)?
+    private var locationCompletion: ((AttendanceLocationSnapshot?) -> Void)?
 
     func getCurrentAddress(completion: @escaping (String?) -> Void) {
         self.completion = completion
@@ -24,10 +32,24 @@ final class LocationAddressProvider: NSObject, CLLocationManagerDelegate {
         manager.requestLocation()
     }
 
+    func getCurrentLocation(completion: @escaping (AttendanceLocationSnapshot?) -> Void) {
+        self.locationCompletion = completion
+        manager.delegate = self
+
+        let status = CLLocationManager.authorizationStatus()
+        if status == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        }
+
+        manager.requestLocation()
+    }
+
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let loc = locations.last else {
             completion?(nil)
             completion = nil
+            locationCompletion?(nil)
+            locationCompletion = nil
             return
         }
 
@@ -56,16 +78,35 @@ final class LocationAddressProvider: NSObject, CLLocationManagerDelegate {
 
                 let address = parts.joined(separator: ", ")
                 self.completion?(address.isEmpty ? nil : address)
+                self.locationCompletion?(
+                    AttendanceLocationSnapshot(
+                        latitude: loc.coordinate.latitude,
+                        longitude: loc.coordinate.longitude,
+                        horizontalAccuracy: loc.horizontalAccuracy,
+                        address: address.isEmpty ? nil : address
+                    )
+                )
             } else {
                 self.completion?(nil)
+                self.locationCompletion?(
+                    AttendanceLocationSnapshot(
+                        latitude: loc.coordinate.latitude,
+                        longitude: loc.coordinate.longitude,
+                        horizontalAccuracy: loc.horizontalAccuracy,
+                        address: nil
+                    )
+                )
             }
 
             self.completion = nil
+            self.locationCompletion = nil
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         completion?(nil)
         completion = nil
+        locationCompletion?(nil)
+        locationCompletion = nil
     }
 }

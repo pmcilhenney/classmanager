@@ -84,7 +84,8 @@ final class ClassManagerAPIClient {
         formId: String,
         inOut: String,
         attendee: RosterAttendee,
-        fields: [String: String]
+        fields: [String: String],
+        attestation: AttendanceAttestation? = nil
     ) async throws -> AttendanceSubmitResponse {
         let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? attendee.submissionId
@@ -100,6 +101,7 @@ final class ClassManagerAPIClient {
                 classSessionId: classSessionId,
                 attendee: attendee,
                 fields: fields,
+                attestation: attestation,
                 deviceId: UIDevice.current.identifierForVendor?.uuidString
             )
         )
@@ -254,6 +256,7 @@ extension ClassManagerAPIClient {
         let classSessionId: String
         let attendee: RosterAttendee
         let fields: [String: String]
+        let attestation: AttendanceAttestation?
         let deviceId: String?
     }
 
@@ -364,6 +367,20 @@ extension ClassManagerAPIClient {
         let ok: Bool
         let id: String
         let updatedAt: String
+    }
+
+    struct AttendanceLocation: Encodable {
+        let latitude: Double?
+        let longitude: Double?
+        let horizontalAccuracy: Double?
+        let address: String?
+    }
+
+    struct AttendanceAttestation: Encodable {
+        let signatureDataUrl: String
+        let signedAt: String
+        let attestationText: String
+        let location: AttendanceLocation?
     }
 
     struct ProgressPatchRequest: Encodable {

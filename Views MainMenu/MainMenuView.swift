@@ -4,6 +4,7 @@ import PDFKit
 import Combine
 import WebKit
 import CloudKit
+import PencilKit
 
 struct MainMenuView: View {
     let config: AppConfig
@@ -39,6 +40,7 @@ struct MainMenuView: View {
     @State private var showingMaterials = false
     @State private var showingCheckoutSurvey = false
     @State private var checkoutSurveyURL: URL? = URL(string: "https://form.jotform.com/240184388762060")
+    @State private var attendanceCaptureAction: String?
 
     //FlexiQuiz State
     @State private var showingQuizzes = false
@@ -64,7 +66,7 @@ struct MainMenuView: View {
     // Called when the checkout survey flow completes (thank-you page detected).
     private func checkoutSurveyCompleted() {
         showingCheckoutSurvey = false
-        submitNativeAttendance(inOut: "Check-Out")
+        beginAttendanceCapture(inOut: "Check-Out")
     }
     @State private var instructorIdInput: String = ""
     @State private var authenticatedInstructor: InstructorAuthService.Instructor?
@@ -174,6 +176,20 @@ struct MainMenuView: View {
             } else {
                 Text("Invalid survey URL")
             }
+        }
+        .sheet(item: Binding(
+            get: { attendanceCaptureAction.map { AttendanceCaptureAction(id: $0) } },
+            set: { if $0 == nil { attendanceCaptureAction = nil } }
+        )) { action in
+            AttendanceCaptureSheet(
+                attendee: attendee,
+                inOut: action.id,
+                onCancel: { attendanceCaptureAction = nil },
+                onSubmit: { attestation in
+                    attendanceCaptureAction = nil
+                    submitNativeAttendance(inOut: action.id, attestation: attestation)
+                }
+            )
         }
     }
 
@@ -701,15 +717,15 @@ struct MainMenuView: View {
         }
 
         if isElective {
-            submitNativeAttendance(inOut: inOut)
+            beginAttendanceCapture(inOut: inOut)
         } else {
-            submitNativeAttendance(inOut: inOut)
+            beginAttendanceCapture(inOut: inOut)
         }
     }
 
     private func canCheckOut() -> Bool { true }
 
-    private func submitNativeAttendance(inOut: String) {
+    private func beginAttendanceCapture(inOut: String) {
         if inOut == "Check-Out" && !canCheckOut() {
             toast = "You cannot check out until the class is over."
             return
@@ -721,6 +737,13 @@ struct MainMenuView: View {
             toast = isElective ? "Elective form ID not configured." : "Refresher check-in/out form not configured."
             return
         }
+
+        attendanceCaptureAction = inOut
+    }
+
+    private func submitNativeAttendance(inOut: String, attestation: ClassManagerAPIClient.AttendanceAttestation) {
+        let isElective = attendee.productCategories?.contains("2002") ?? false
+        let formId = isElective ? electiveFormId : refresherCheckInOutFormId
 
         let fields = isElective
             ? electiveAttendanceFields(inOut: inOut)
@@ -734,7 +757,8 @@ struct MainMenuView: View {
                     formId: formId,
                     inOut: inOut,
                     attendee: attendee,
-                    fields: fields
+                    fields: fields,
+                    attestation: attestation
                 )
 
                 showingElectiveForm = false
@@ -1333,6 +1357,166 @@ struct MainMenuView: View {
 }
 
 // MARK: - Extensions and Helper Views at File Scope
+private struct AttendanceCaptureAction: Identifiable {
+    let id: String
+}
+
+private struct AttendanceCaptureSheet: View {
+    let attendee: RosterAttendee
+    let inOut: String
+    let onCancel: () -> Void
+    let onSubmit: (ClassManagerAPIClient.AttendanceAttestation) -> Void
+
+    @State private var drawing = PKDrawing()
+    @State private var location: AttendanceLocationSnapshot?
+    @State private var locationStatus = "Getting location..."
+    @State private var isLocating = true
+    @State private var locationProvider = LocationAddressProvider()
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(inOut)
+                        .font(.title2.weight(.semibold))
+                    Text(attendee.fullName)
+                        .font(.headline)
+                    Text(displayCourseName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Label(locationStatus, systemImage: location == nil ? "location" : "location.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(location == nil ? Color.secondary : Color.green)
+
+                Text("Signature")
+                    .font(.headline)
+
+                SignatureCanvas(drawing: $drawing)
+                    .frame(minHeight: 260)
+                    .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                    )
+
+                HStack {
+                    Button("Clear") {
+                        drawing = PKDrawing()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Spacer()
+
+                    Button {
+                        submit()
+                    } label: {
+                        Label("Submit", systemImage: "checkmark.circle.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(drawing.bounds.isEmpty)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding()
+            .navigationTitle("Attendance")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+            }
+            .onAppear(perform: loadLocation)
+        }
+    }
+
+    private func loadLocation() {
+        guard isLocating else { return }
+        isLocating = true
+        locationProvider.getCurrentLocation { snapshot in
+            DispatchQueue.main.async {
+                self.location = snapshot
+                self.isLocating = false
+                if let snapshot {
+                    if let address = snapshot.address, !address.isEmpty {
+                        self.locationStatus = address
+                    } else {
+                        self.locationStatus = String(format: "%.5f, %.5f", snapshot.latitude, snapshot.longitude)
+                    }
+                } else {
+                    self.locationStatus = "Location unavailable"
+                }
+            }
+        }
+    }
+
+    private func submit() {
+        let bounds = drawing.bounds.insetBy(dx: -12, dy: -12)
+        let image = drawing.image(from: bounds, scale: UIScreen.main.scale)
+        guard let png = image.pngData() else { return }
+        let signedAt = ISO8601DateFormatter().string(from: Date())
+        let locationPayload = location.map {
+            ClassManagerAPIClient.AttendanceLocation(
+                latitude: $0.latitude,
+                longitude: $0.longitude,
+                horizontalAccuracy: $0.horizontalAccuracy,
+                address: $0.address
+            )
+        }
+        let actionText = inOut == "Check-In" ? "checked in to" : "checked out of"
+        let attestationText = "I certify that \(attendee.fullName) \(actionText) \(displayCourseName) on \(signedAt)."
+        onSubmit(
+            ClassManagerAPIClient.AttendanceAttestation(
+                signatureDataUrl: "data:image/png;base64,\(png.base64EncodedString())",
+                signedAt: signedAt,
+                attestationText: attestationText,
+                location: locationPayload
+            )
+        )
+    }
+
+    private var displayCourseName: String {
+        attendee.courseType.replacingOccurrences(of: #"^\d+\s*-\s*"#, with: "", options: .regularExpression)
+    }
+}
+
+private struct SignatureCanvas: UIViewRepresentable {
+    @Binding var drawing: PKDrawing
+
+    func makeUIView(context: Context) -> PKCanvasView {
+        let canvas = PKCanvasView()
+        canvas.drawingPolicy = .anyInput
+        canvas.tool = PKInkingTool(.pen, color: .black, width: 3)
+        canvas.backgroundColor = .clear
+        canvas.delegate = context.coordinator
+        return canvas
+    }
+
+    func updateUIView(_ canvas: PKCanvasView, context: Context) {
+        if canvas.drawing != drawing {
+            canvas.drawing = drawing
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(drawing: $drawing)
+    }
+
+    final class Coordinator: NSObject, PKCanvasViewDelegate {
+        @Binding var drawing: PKDrawing
+
+        init(drawing: Binding<PKDrawing>) {
+            _drawing = drawing
+        }
+
+        func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+            drawing = canvasView.drawing
+        }
+    }
+}
+
 private extension CourseMaterialsManager {
     func clearCache() {
         self.materials.removeAll()
