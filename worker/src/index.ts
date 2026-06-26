@@ -930,7 +930,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
   }
 
   const flexiquizUserName = flexiUserProfile?.userName || email;
-  const launchUrl = await buildFlexiQuizSsoUrl(env, flexiquizUserName, quizId);
+  const launchUrl = await buildFlexiQuizSsoUrl(env, flexiquizUserId, quizId);
 
   if (studentId && classSessionId) {
     await ensureProgressParents(env, {
@@ -955,7 +955,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     studentId,
     classSessionId,
     deviceId,
-    payload: { email, quizId, flexiquizUserId: flexiquizUserId ?? null, flexiquizUserName, warnings }
+    payload: { email, quizId, flexiquizUserId: flexiquizUserId ?? null, flexiquizUserName, jwtSubject: "user_id", warnings }
   });
 
   return json({
@@ -1780,11 +1780,11 @@ function topMapKeys(map: Map<string, number>, count: number): string[] {
     .map(([key]) => key);
 }
 
-async function buildFlexiQuizSsoUrl(env: Env, userName: string, quizId: string): Promise<string> {
+async function buildFlexiQuizSsoUrl(env: Env, userId: string, quizId: string): Promise<string> {
   const jwt = await signHs256(
     { alg: "HS256", typ: "JWT" },
     {
-      user_name: userName,
+      user_id: userId,
       exp: Math.floor(Date.now() / 1000) + 5 * 60
     },
     env.FLEXIQUIZ_SSO_SHARED_SECRET ?? ""
