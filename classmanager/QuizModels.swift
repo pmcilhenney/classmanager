@@ -14,10 +14,10 @@ struct QuizInfo: Identifiable {
     static func refresherAQuizzes() -> [QuizInfo] {
         [
             QuizInfo(
-                id: "73c71545-8d3b-45ef-b0c6-e0de27733df5",
+                id: "66564166-9de9-4b17-9c2d-6f76bc186970",
                 number: 1,
                 title: "Refresher A Mini-Quiz #1",
-                url: URL(string: "https://www.flexiquiz.com/SC/N/73c71545-8d3b-45ef-b0c6-e0de27733df5")!
+                url: URL(string: "https://www.flexiquiz.com/SC/N/66564166-9de9-4b17-9c2d-6f76bc186970")!
             ),
             QuizInfo(
                 id: "41b6732a-dbfd-4663-8265-484b7256e34f",
