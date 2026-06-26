@@ -1137,11 +1137,7 @@ struct MainMenuView: View {
     }
 
     private func getQuizzesForCourse() -> [QuizInfo] {
-        let courseType = cleanCourseName(attendee.courseType).uppercased()
-        if courseType.contains("REFRESHER A") { return QuizInfo.refresherAQuizzes() }
-        else if courseType.contains("REFRESHER B") { return QuizInfo.refresherBQuizzes() }
-        else if courseType.contains("REFRESHER C") { return QuizInfo.refresherCQuizzes() }
-        else { return [] }
+        QuizInfo.activeCourseExam(courseType: cleanCourseName(attendee.courseType), flexi: flexi)
     }
 
     // MARK: - Course Materials

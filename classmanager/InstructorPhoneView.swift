@@ -300,11 +300,7 @@ struct InstructorPhoneView: View {
     }
 
     private func quizzesForCourse(_ courseType: String) -> [QuizInfo] {
-        let upper = cleanCourseName(courseType).uppercased()
-        if upper.contains("REFRESHER A") { return QuizInfo.refresherAQuizzes() }
-        if upper.contains("REFRESHER B") { return QuizInfo.refresherBQuizzes() }
-        if upper.contains("REFRESHER C") { return QuizInfo.refresherCQuizzes() }
-        return []
+        QuizInfo.activeCourseExam(courseType: cleanCourseName(courseType), flexi: flexi)
     }
 
     private func cleanCourseName(_ value: String) -> String {

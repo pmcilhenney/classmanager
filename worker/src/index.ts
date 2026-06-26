@@ -760,6 +760,17 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
   }
 
   const warnings: string[] = [];
+  const quizCheck = await flexiQuizStatus(env, quizId);
+  if (!quizCheck.ok) {
+    await audit(env, "quiz.preflight.failed", {
+      studentId,
+      classSessionId,
+      deviceId,
+      payload: { email, quizId, status: quizCheck.status, body: quizCheck.body }
+    });
+    return json({ error: "flexiquiz_quiz_unavailable", status: quizCheck.status, warnings }, 502);
+  }
+
   let flexiquizUserId = await flexiFindUserId(env, email);
 
   if (!flexiquizUserId) {
@@ -843,6 +854,22 @@ async function flexiFindUserId(env: Env, userName: string): Promise<string | und
 
   const data = await response.json<JsonRecord>().catch(() => ({}));
   return stringField(data, "user_id");
+}
+
+async function flexiQuizStatus(env: Env, quizId: string): Promise<{ ok: boolean; status: number; body?: string }> {
+  const response = await flexiGet(env, `/v1/quizzes/${encodeURIComponent(quizId)}`);
+  const text = await response.text().catch(() => "");
+  if (!response.ok) {
+    return { ok: false, status: response.status, body: text };
+  }
+
+  const data = text ? JSON.parse(text) as JsonRecord : {};
+  const status = stringField(data, "status")?.toLowerCase();
+  if (status && status !== "open") {
+    return { ok: false, status: 409, body: text };
+  }
+
+  return { ok: true, status: response.status };
 }
 
 async function flexiCreateUser(
