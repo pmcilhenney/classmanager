@@ -416,76 +416,16 @@ struct MainMenuView: View {
                             quiz: quiz
                         )
                     } else if let quiz = selectedQuiz {
-                        FlexiQuizWebView(
-                            quiz: quiz,
+                        QuizWorkspaceView(
+                            config: config,
                             attendee: attendee,
-                            onComplete: { result, reviewId in
-                                // When a completion is detected, prefer the parsed result. If the page
-                                // didn't include an explicit Pass/Fail string, try to fetch the
-                                // Flexi response report (best-effort) and parse it so we update CloudKit
-                                // when a retake changes Fail -> Pass.
-                                Task {
-                                    // Persist reviewId immediately when available
-                                    if let rid = reviewId {
-                                        await MainActor.run { progressStore.markQuizReviewId(quiz.id, reviewId: rid) }
-                                    }
-
-                                    // We'll compute a finalResult (from page `result` or best-effort fetch)
-                                    var finalResult: String? = nil
-
-                                    // If we have a useful result string from the page, use it.
-                                    if let r = result?.trimmingCharacters(in: .whitespacesAndNewlines), !r.isEmpty {
-                                        finalResult = r
-                                    } else {
-                                        // No explicit result parsed from the page – attempt best-effort
-                                        // Flexi API lookup for a response report page and try to extract
-                                        // pass/fail/score text from its HTML. If that fails, fallback
-                                        // to marking completion only.
-                                        let email = attendee.email.isEmpty ? (attendee.firstName.lowercased() + "." + attendee.lastName.lowercased() + "@" + config.flexiEmailDomain) : attendee.email
-                                        if let reportURL = await flexi.latestResponseReportURL(email: email, quizId: quiz.id) {
-                                            do {
-                                                let (data, _) = try await URLSession.shared.data(from: reportURL)
-                                                if let html = String(data: data, encoding: .utf8) {
-                                                    // Look for common pass/fail or score tokens
-                                                    if let match = html.range(of: "(?i)(pass|passed|fail|failed|\\d+%|\\d+ percent)", options: .regularExpression) {
-                                                        let parsed = String(html[match])
-                                                        finalResult = parsed
-                                                    } else {
-                                                        // no useful parsed result – we'll mark completion below
-                                                    }
-                                                }
-                                            } catch {
-                                                // ignore and fallback to completion
-                                            }
-                                        }
-                                    }
-
-                                    // Persist the final result if we have one; if it contains "pass"
-                                    // use the force-save helper to aggressively ensure server reflects it.
-                                    if let fr = finalResult {
-                                        let lower = fr.lowercased()
-                                        if lower.contains("pass") {
-                                            await MainActor.run { progressStore.markQuizResultAndForceSave(quiz.id, result: fr) }
-                                        } else {
-                                            await MainActor.run { progressStore.markQuizResult(quiz.id, result: fr) }
-                                        }
-                                    } else {
-                                        await MainActor.run { progressStore.markQuizComplete(quiz.id) }
-                                    }
-
-                                    // Show toast on main thread and clear pending review token
-                                    await MainActor.run {
-                                        quizResultToast = QuizResultToast(quizId: quiz.id, result: finalResult ?? result ?? "Completed", reviewId: reviewId)
-                                        pendingReviewId = nil
-                                        selectedReviewQuiz = nil
-                                        // If the parsed/final result contains "pass" then close the webview; keep it open on fail so user may retake
-                                        let r = (finalResult ?? result ?? "").lowercased()
-                                        if r.contains("pass") { selectedQuiz = nil }
-                                    }
-                                }
+                            jotform: jotform,
+                            flexi: flexi,
+                            quiz: quiz,
+                            onSSOLoaded: {
+                                progressStore.markQuiz()
                             },
-                            onBack: { selectedQuiz = nil },
-                            autoOpenReviewId: pendingReviewId
+                            onBack: { selectedQuiz = nil }
                         )
                     } else {
                         QuizSelectionView(

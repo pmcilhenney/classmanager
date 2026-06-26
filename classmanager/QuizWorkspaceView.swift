@@ -8,31 +8,58 @@ struct QuizWorkspaceView: View {
     let flexi: FlexiQuizClient
     var quiz: QuizInfo?
     var onSSOLoaded: (() -> Void)?
+    var onBack: (() -> Void)?
 
+    @Environment(\.dismiss) private var dismiss
     @State private var isLoading = false
     @State private var currentURL: URL?
     @State private var lastURL: URL?
     @State private var toast: String?
 
     var body: some View {
-        ZStack {
-            if let url = currentURL {
-                FlexiWebView(url: url, lastURL: $lastURL, loading: $isLoading)
-                .ignoresSafeArea()
-                .onChange(of: lastURL) { _ in
-                    // Called once when real content is visible in the webview
-                    onSSOLoaded?()
+        VStack(spacing: 0) {
+            HStack {
+                Button {
+                    if let onBack {
+                        onBack()
+                    } else {
+                        dismiss()
+                    }
+                } label: {
+                    Label("Back to Exams", systemImage: "chevron.left")
+                        .font(.system(size: 16, weight: .medium))
                 }
-            } else {
-                VStack(spacing: 12) {
-                    LoadingSpinnerView()
-                    Text("Preparing quiz…").font(.footnote).foregroundStyle(.secondary)
-                }
-                .padding(.top, 40)
-            }
 
-            if isLoading {
-                LoadingSpinnerView()
+                Spacer()
+
+                Text(quiz?.title ?? "Exam")
+                    .font(.headline)
+
+                Spacer()
+            }
+            .padding()
+            .background(Color(.systemBackground))
+
+            Divider()
+
+            ZStack {
+                if let url = currentURL {
+                    FlexiWebView(url: url, lastURL: $lastURL, loading: $isLoading)
+                    .onChange(of: lastURL) { _ in
+                        // Called once when real content is visible in the webview
+                        onSSOLoaded?()
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        LoadingSpinnerView()
+                        Text("Preparing quiz…").font(.footnote).foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 40)
+                }
+
+                if isLoading {
+                    LoadingSpinnerView()
+                }
             }
         }
         .task {

@@ -81,6 +81,8 @@ struct QuizSelectionView: View {
                                     Image(systemName: "chevron.right")
                                         .foregroundColor(.white.opacity(0.9))
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
 
@@ -91,6 +93,8 @@ struct QuizSelectionView: View {
                                     Label("Review Answers", systemImage: "doc.text.magnifyingglass")
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                                 .padding(.leading, 66)
