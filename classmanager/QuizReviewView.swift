@@ -105,7 +105,7 @@ struct QuizReviewView: View {
                 : attendee.email
             let loaded = try await ClassManagerAPIClient.shared.fetchQuizReview(
                 attendee: attendee,
-                quizId: quiz.id,
+                quizId: quiz.flexiQuizId,
                 email: email
             )
             await MainActor.run {

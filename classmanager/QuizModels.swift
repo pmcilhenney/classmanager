@@ -7,35 +7,50 @@ import Foundation
 
 struct QuizInfo: Identifiable {
     let id: String
+    let flexiQuizId: String
     let number: Int
     let title: String
     let url: URL
+
+    init(id: String, flexiQuizId: String? = nil, number: Int, title: String, url: URL) {
+        self.id = id
+        self.flexiQuizId = flexiQuizId ?? id
+        self.number = number
+        self.title = title
+        self.url = url
+    }
     
     static func refresherAQuizzes() -> [QuizInfo] {
-        [
+        let combinedQuizId = "89db2c06-5052-4ff5-867b-95ef67fcfcd2"
+        let combinedURL = URL(string: "https://www.flexiquiz.com/SC/N/\(combinedQuizId)")!
+        return [
             QuizInfo(
-                id: "66564166-9de9-4b17-9c2d-6f76bc186970",
+                id: "refresher-a-page-1",
+                flexiQuizId: combinedQuizId,
                 number: 1,
                 title: "Refresher A Mini-Quiz #1",
-                url: URL(string: "https://www.flexiquiz.com/SC/N/66564166-9de9-4b17-9c2d-6f76bc186970")!
+                url: combinedURL
             ),
             QuizInfo(
-                id: "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+                id: "refresher-a-page-2",
+                flexiQuizId: combinedQuizId,
                 number: 2,
                 title: "Refresher A Mini-Quiz #2",
-                url: URL(string: "https://www.flexiquiz.com/SC/N/78df99bd-d81a-4f24-a855-81ea0a3a71ec")!
+                url: combinedURL
             ),
             QuizInfo(
-                id: "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+                id: "refresher-a-page-3",
+                flexiQuizId: combinedQuizId,
                 number: 3,
                 title: "Refresher A Mini-Quiz #3",
-                url: URL(string: "https://www.flexiquiz.com/SC/N/772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7")!
+                url: combinedURL
             ),
             QuizInfo(
-                id: "16ca7d9a-d3a4-4a24-85fe-ccb49def519d",
+                id: "refresher-a-page-4",
+                flexiQuizId: combinedQuizId,
                 number: 4,
                 title: "Refresher A Mini-Quiz #4",
-                url: URL(string: "https://www.flexiquiz.com/SC/N/16ca7d9a-d3a4-4a24-85fe-ccb49def519d")!
+                url: combinedURL
             )
         ]
     }

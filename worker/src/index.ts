@@ -148,6 +148,10 @@ export default {
         return await quizReview(url, env);
       }
 
+      if (request.method === "GET" && url.pathname.startsWith("/quiz/metadata/")) {
+        return await quizMetadata(url, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/email/send") {
         return await sendEmailEndpoint(request, env);
       }
@@ -1255,6 +1259,47 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   }
 
   return json(review);
+}
+
+async function quizMetadata(url: URL, env: Env): Promise<Response> {
+  const quizId = decodeURIComponent(url.pathname.split("/").pop() ?? "");
+  const expectedName = url.searchParams.get("expectedName")?.trim();
+
+  if (!quizId) {
+    return json({ error: "missing_quiz_id" }, 400);
+  }
+
+  if (!env.FLEXIQUIZ_API_KEY) {
+    return json({ error: "flexiquiz_not_configured" }, 503);
+  }
+
+  const response = await flexiGet(env, `/v1/quizzes/${encodeURIComponent(quizId)}`);
+  const text = await response.text().catch(() => "");
+  const metadata = text ? parseJsonRecord(text) ?? {} : {};
+  const name = firstText([metadata], ["name", "quiz_name", "title"]);
+  const status = firstText([metadata], ["status", "quiz_status"]);
+  const expectedNameMatches = expectedName && name
+    ? name.trim().toLowerCase() === expectedName.trim().toLowerCase()
+    : undefined;
+
+  if (!response.ok) {
+    return json({
+      error: "flexiquiz_quiz_lookup_failed",
+      quizId,
+      statusCode: response.status,
+      name,
+      status
+    }, 502);
+  }
+
+  return json({
+    ok: true,
+    quizId,
+    name,
+    status,
+    expectedName,
+    expectedNameMatches
+  });
 }
 
 async function saveQuizAttempt(

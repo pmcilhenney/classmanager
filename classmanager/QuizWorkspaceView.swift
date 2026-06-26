@@ -133,7 +133,7 @@ struct QuizWorkspaceView: View {
 
         let resolvedQuizId: String? = {
             if let quiz {
-                return quiz.id
+                return quiz.flexiQuizId
             }
             if isPEPP {
                 if let id = Bundle.main.object(forInfoDictionaryKey: "PEPP_QUIZ_ID") as? String,

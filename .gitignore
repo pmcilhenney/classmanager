@@ -12,6 +12,7 @@ build/
 *.ipa
 *.xcarchive
 Exports/
+outputs/
 
 # Local editor state
 .vscode/
