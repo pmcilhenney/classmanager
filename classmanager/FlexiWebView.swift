@@ -79,6 +79,7 @@ struct FlexiWebView: View {
     @Binding var lastURL: URL?
     @Binding var loading: Bool
     var onResultDetected: (() -> Void)?
+    var onPageNavigationDetected: ((FlexiQuizPageNavigationEvent) -> Void)?
     var onProcessTerminated: (() -> Void)?
 
     var body: some View {
@@ -87,10 +88,18 @@ struct FlexiWebView: View {
             lastURL: $lastURL,
             isLoading: $loading,
             onResultDetected: onResultDetected,
+            onPageNavigationDetected: onPageNavigationDetected,
             onProcessTerminated: onProcessTerminated
         )
             .edgesIgnoringSafeArea(.all)
     }
+}
+
+struct FlexiQuizPageNavigationEvent: Equatable {
+    let type: String
+    let href: String
+    let title: String
+    let at: String
 }
 
 struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
@@ -98,13 +107,16 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
     @Binding var lastURL: URL?
     @Binding var isLoading: Bool
     var onResultDetected: (() -> Void)?
+    var onPageNavigationDetected: ((FlexiQuizPageNavigationEvent) -> Void)?
     var onProcessTerminated: (() -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.userContentController.add(context.coordinator, name: "classmanagerFlexiQuiz")
         let webView = WKWebView(frame: .zero, configuration: config)
+        context.coordinator.webView = webView
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.load(URLRequest(url: url))
@@ -118,14 +130,43 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
         }
     }
 
-    class Coordinator: NSObject, WKNavigationDelegate {
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        uiView.configuration.userContentController.removeScriptMessageHandler(forName: "classmanagerFlexiQuiz")
+        uiView.navigationDelegate = nil
+    }
+
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var parent: FlexiSimpleWebViewRepresentable
+        weak var webView: WKWebView?
         var loadedRequestURL: URL?
         private var hasReportedResult = false
+        private var hasReportedPageNavigation = false
 
         init(_ parent: FlexiSimpleWebViewRepresentable) {
             self.parent = parent
             self.loadedRequestURL = parent.url
+        }
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "classmanagerFlexiQuiz", !hasReportedPageNavigation else { return }
+
+            let body = message.body as? [String: Any]
+            let eventType = body?["type"] as? String ?? ""
+            guard eventType == "classmanager.flexiquiz.pageNavigation" else { return }
+
+            let event = FlexiQuizPageNavigationEvent(
+                type: eventType,
+                href: body?["href"] as? String ?? webView?.url?.absoluteString ?? "",
+                title: body?["title"] as? String ?? "",
+                at: body?["at"] as? String ?? ISO8601DateFormatter().string(from: Date())
+            )
+
+            hasReportedPageNavigation = true
+            webView?.stopLoading()
+            DispatchQueue.main.async {
+                self.parent.isLoading = false
+                self.parent.onPageNavigationDetected?(event)
+            }
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {

@@ -9,6 +9,7 @@ struct QuizWorkspaceView: View {
     var quiz: QuizInfo?
     var onSSOLoaded: (() -> Void)?
     var onReviewLoaded: ((QuizInfo, ClassManagerAPIClient.QuizReviewResponse) -> Void)?
+    var onPageCheckpoint: ((QuizInfo, FlexiQuizPageNavigationEvent) -> Void)?
     var onBack: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
@@ -19,6 +20,7 @@ struct QuizWorkspaceView: View {
     @State private var showingReview = false
     @State private var webViewError: String?
     @State private var webViewReloadToken = UUID()
+    @State private var pageNavigationEvent: FlexiQuizPageNavigationEvent?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,7 +49,25 @@ struct QuizWorkspaceView: View {
             Divider()
 
             ZStack {
-                if showingReview, let quiz {
+                if let event = pageNavigationEvent, let quiz {
+                    QuizPageCheckpointView(
+                        quiz: quiz,
+                        event: event,
+                        onBackToExams: {
+                            if let onBack {
+                                onBack()
+                            } else {
+                                dismiss()
+                            }
+                        },
+                        onContinueExam: {
+                            pageNavigationEvent = nil
+                            webViewError = nil
+                            webViewReloadToken = UUID()
+                            isLoading = true
+                        }
+                    )
+                } else if showingReview, let quiz {
                     QuizReviewView(
                         config: config,
                         attendee: attendee,
@@ -78,6 +98,13 @@ struct QuizWorkspaceView: View {
                             onResultDetected: {
                                 isLoading = false
                                 showingReview = true
+                            },
+                            onPageNavigationDetected: { event in
+                                isLoading = false
+                                pageNavigationEvent = event
+                                if let quiz {
+                                    onPageCheckpoint?(quiz, event)
+                                }
                             },
                             onProcessTerminated: {
                                 webViewError = "FlexiQuiz stopped responding inside the embedded exam window. Reloading the exam usually restores the session."
@@ -192,6 +219,7 @@ struct QuizWorkspaceView: View {
 
         await MainActor.run {
             webViewError = nil
+            pageNavigationEvent = nil
             webViewReloadToken = UUID()
             currentURL = launch.launchUrl
             // isLoading stays true; FlexiWebView will turn it false on finish/fail/timeout
@@ -218,5 +246,60 @@ struct QuizWorkspaceView: View {
             return before
         }
         return s.trimmingCharacters(in: .whitespaces)
+    }
+}
+
+private struct QuizPageCheckpointView: View {
+    let quiz: QuizInfo
+    let event: FlexiQuizPageNavigationEvent
+    let onBackToExams: () -> Void
+    let onContinueExam: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 54, weight: .semibold))
+                .foregroundStyle(.green)
+
+            VStack(spacing: 8) {
+                Text("\(quiz.title) Submitted")
+                    .font(.title2.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                Text("This section was accepted by FlexiQuiz. Return to the exam list to continue the next mini-quiz section.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 520)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    onBackToExams()
+                } label: {
+                    Label("Back to Exams", systemImage: "list.bullet.clipboard")
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    onContinueExam()
+                } label: {
+                    Label("Continue in FlexiQuiz", systemImage: "arrow.right.circle")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            VStack(spacing: 4) {
+                if !event.title.isEmpty {
+                    Text(event.title)
+                }
+                Text(event.at)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.top, 8)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
     }
 }

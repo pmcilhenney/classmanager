@@ -433,6 +433,9 @@ struct MainMenuView: View {
                             onReviewLoaded: { quiz, review in
                                 recordQuizReview(quiz: quiz, review: review)
                             },
+                            onPageCheckpoint: { quiz, _ in
+                                recordQuizCheckpoint(quiz: quiz)
+                            },
                             onBack: { selectedQuiz = nil }
                         )
                     } else {
@@ -1135,6 +1138,11 @@ struct MainMenuView: View {
         let result = quizResultSummary(review)
         completedQuizzes.insert(quiz.id)
         progressStore.markQuizResult(quiz.id, result: result)
+    }
+
+    private func recordQuizCheckpoint(quiz: QuizInfo) {
+        completedQuizzes.insert(quiz.id)
+        progressStore.markQuizResult(quiz.id, result: "Section submitted")
     }
 
     private func quizResultSummary(_ review: ClassManagerAPIClient.QuizReviewResponse) -> String {

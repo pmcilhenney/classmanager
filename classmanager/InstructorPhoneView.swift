@@ -150,6 +150,9 @@ struct InstructorPhoneView: View {
                         },
                         onReviewLoaded: { quiz, review in
                             recordQuizReview(quiz: quiz, review: review)
+                        },
+                        onPageCheckpoint: { quiz, _ in
+                            recordQuizCheckpoint(quiz: quiz)
                         }
                     )
                 }
@@ -319,6 +322,10 @@ struct InstructorPhoneView: View {
 
     private func recordQuizReview(quiz: QuizInfo, review: ClassManagerAPIClient.QuizReviewResponse) {
         progressStore.markQuizResult(quiz.id, result: quizResultSummary(review))
+    }
+
+    private func recordQuizCheckpoint(quiz: QuizInfo) {
+        progressStore.markQuizResult(quiz.id, result: "Section submitted")
     }
 
     private func quizResultSummary(_ review: ClassManagerAPIClient.QuizReviewResponse) -> String {
