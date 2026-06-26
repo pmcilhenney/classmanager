@@ -1186,7 +1186,7 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
     }
   }
 
-  const review = normalizeQuizReview({
+  let review = normalizeQuizReview({
     quizId,
     latest,
     detail,
@@ -1195,6 +1195,26 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
     fallbackReportUrl: reportUrl,
     warnings
   });
+
+  try {
+    const rmsReview = await fetchRmsQuizReview(env, {
+      responseId: review.responseId ?? responseId,
+      quizId,
+      email,
+      flexiquizUserId
+    });
+    if (rmsReview) {
+      const rmsWarning = firstText([rmsReview], ["__rmsLookupWarning"]);
+      if (rmsWarning) {
+        review.warnings.push(rmsWarning);
+      } else {
+        review = mergeRmsQuizReview(review, rmsReview);
+      }
+    }
+  } catch (error) {
+    console.warn("RMS quiz review merge failed", error);
+    review.warnings.push("rms_review_unavailable");
+  }
 
   if (studentId && classSessionId) {
     await audit(env, "quiz.review.requested", {
@@ -1268,6 +1288,110 @@ async function saveQuizAttempt(
     input.review.completedAt ?? now,
     now
   ).run();
+}
+
+async function fetchRmsQuizReview(
+  env: Env,
+  input: {
+    responseId?: string;
+    quizId: string;
+    email?: string;
+    flexiquizUserId?: string;
+  }
+): Promise<JsonRecord | undefined> {
+  if (!env.ACADEMY_RMS_BASE_URL || !env.ACADEMY_RMS_ATTENDANCE_SECRET) {
+    return undefined;
+  }
+  const params = new URLSearchParams();
+  if (input.responseId) params.set("response_id", input.responseId);
+  if (input.quizId) params.set("quiz_id", input.quizId);
+  if (input.email) params.set("email", input.email);
+  if (input.flexiquizUserId) params.set("user_id", input.flexiquizUserId);
+
+  if ([...params.keys()].length === 0) {
+    return undefined;
+  }
+
+  const endpoint = `${joinUrl(env.ACADEMY_RMS_BASE_URL, "/api/classmanager/flexiquiz-review")}?${params.toString()}`;
+  const res = await fetch(endpoint, {
+    headers: {
+      "accept": "application/json",
+      "x-classmanager-secret": env.ACADEMY_RMS_ATTENDANCE_SECRET
+    }
+  });
+  const text = await res.text();
+  if (res.status === 404) {
+    return { __rmsLookupWarning: "rms_review_not_ready" };
+  }
+  if (!res.ok) {
+    console.warn("RMS quiz review lookup failed", { status: res.status, body: text.slice(0, 500) });
+    return { __rmsLookupWarning: `rms_review_status_${res.status}` };
+  }
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text) as unknown;
+  } catch (error) {
+    console.warn("RMS quiz review returned non-JSON response", { body: text.slice(0, 500), error });
+    return undefined;
+  }
+  return isJsonRecord(payload) ? payload : undefined;
+}
+
+function mergeRmsQuizReview(review: QuizReviewPayload, rmsPayload: JsonRecord): QuizReviewPayload {
+  const result = recordField(rmsPayload, "result");
+  const questionRows = Array.isArray(rmsPayload.question_rows)
+    ? rmsPayload.question_rows.filter(isJsonRecord)
+    : [];
+  const rmsQuestions = questionRows.map((row, index) => rmsQuestionToReviewQuestion(row, index));
+  const warnings = rmsQuestions.length > 0
+    ? review.warnings.filter((warning) => warning !== "question_detail_unavailable")
+    : review.warnings;
+  const scoreText = scoreTextFromSources([result].filter(isJsonRecord));
+  const resultText = firstText([result], ["grade", "result", "result_text", "response_status", "status"]);
+  const passed = boolFromUnknown(firstValue([result].filter(isJsonRecord), ["passed", "pass"])) ??
+    passStatusFromText(resultText ?? scoreText) ??
+    review.passed;
+
+  return {
+    ...review,
+    responseId: firstText([result], ["response_id", "responseId"]) ?? review.responseId,
+    resultText: resultText ?? review.resultText,
+    scoreText: scoreText ?? review.scoreText,
+    passed,
+    completedAt: firstText([result], ["submitted_at", "submittedAt", "completed_at", "completedAt"]) ?? review.completedAt,
+    reportUrl: firstText([result], ["response_report_url", "responseReportUrl"]) ?? review.reportUrl,
+    questions: rmsQuestions.length > 0 ? rmsQuestions : review.questions,
+    warnings
+  };
+}
+
+function rmsQuestionToReviewQuestion(row: JsonRecord, index: number): QuizReviewQuestion {
+  const correctness = firstText([row], ["correctness", "result", "status"]);
+  return {
+    id: firstText([row], ["id", "question_id", "questionId"]) ?? String(index + 1),
+    number: Number(firstNumber([row], ["number", "question_number", "questionNumber"]) ?? index + 1),
+    prompt: firstText([row], ["question", "prompt", "text", "title"]) ?? `Question ${index + 1}`,
+    choices: choicesFromRmsQuestion(row),
+    studentAnswer: firstText([row], ["answer", "student_answer", "studentAnswer", "selected_answer", "selectedAnswer"]),
+    correctAnswer: firstText([row], ["correct_answer", "correctAnswer", "expected_answer", "expectedAnswer"]),
+    isCorrect: boolFromUnknown(firstValue([row], ["is_correct", "isCorrect", "correct"])) ?? /^correct\b/i.test(correctness ?? ""),
+    feedback: firstText([row], ["feedback", "comment", "comments", "explanation", "rationale"]),
+    points: firstText([row], ["points", "score", "marks"])
+  };
+}
+
+function choicesFromRmsQuestion(row: JsonRecord): string[] | undefined {
+  const direct = row.choices ?? row.options ?? row.possible_answers ?? row.possibleAnswers;
+  if (!Array.isArray(direct)) {
+    return undefined;
+  }
+  const choices = direct.map((value) => {
+    if (isJsonRecord(value)) {
+      return firstText([value], ["text", "label", "answer", "value", "option"]);
+    }
+    return textFromUnknown(value);
+  }).filter((value): value is string => Boolean(value));
+  return choices.length > 0 ? choices : undefined;
 }
 
 async function cachedQuizReview(env: Env, attemptId: string): Promise<QuizReviewPayload | undefined> {
