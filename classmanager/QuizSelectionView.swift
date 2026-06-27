@@ -198,7 +198,7 @@ struct QuizSelectionView: View {
 
     private func versionBRetestCard(_ quiz: QuizInfo) -> some View {
         let unlocked = versionAReviewCompleted
-        let completed = completedQuizzes.contains(quiz.id)
+        let completed = progressStore.progress.finalExamResult?.quizId == QuizInfo.refresherAVersionBQuizId
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 Image(systemName: completed ? "checkmark.seal.fill" : (unlocked ? "arrow.clockwise.circle.fill" : "lock.fill"))

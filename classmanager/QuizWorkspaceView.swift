@@ -23,6 +23,7 @@ struct QuizWorkspaceView: View {
     @State private var pageNavigationEvent: FlexiQuizPageNavigationEvent?
     @State private var isCheckingSectionCompletion = false
     @State private var reviewQuiz: QuizInfo?
+    @State private var sectionTransitionMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -86,6 +87,16 @@ struct QuizWorkspaceView: View {
                             }
                         }
                     )
+                } else if let sectionTransitionMessage {
+                    VStack(spacing: 14) {
+                        LoadingSpinnerView()
+                        Text(sectionTransitionMessage)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(.systemBackground))
                 } else if let url = currentURL {
                     if let webViewError {
                         ContentUnavailableView {
@@ -108,6 +119,7 @@ struct QuizWorkspaceView: View {
                             pageNavigationEventsToIgnore: initialPageNavigationEventsToIgnore,
                             onResultDetected: {
                                 isLoading = false
+                                sectionTransitionMessage = nil
                                 if quiz?.questionRange == nil || quiz?.number == 4 {
                                     if let quiz, quiz.number == 4 {
                                         reviewQuiz = fullExamReviewQuiz(from: quiz)
@@ -150,6 +162,7 @@ struct QuizWorkspaceView: View {
             pageNavigationEvent = nil
             showingReview = false
             reviewQuiz = nil
+            sectionTransitionMessage = nil
             webViewError = nil
             currentURL = nil
             lastURL = nil
@@ -163,7 +176,7 @@ struct QuizWorkspaceView: View {
     }
 
     private var initialPageNavigationEventsToIgnore: Int {
-        guard let quiz, quiz.questionRange != nil, quiz.number > 1 else { return 0 }
+        guard let quiz, quiz.questionRange != nil else { return 0 }
         return 1
     }
 
@@ -179,14 +192,19 @@ struct QuizWorkspaceView: View {
         guard !isCheckingSectionCompletion else { return }
 
         isCheckingSectionCompletion = true
+        sectionTransitionMessage = quiz.number == 4
+            ? "Submitting the full exam..."
+            : "Preparing your section review..."
         Task {
             let accepted = await sectionHasEnoughAnswers(for: quiz)
             await MainActor.run {
                 isCheckingSectionCompletion = false
                 guard accepted else {
+                    sectionTransitionMessage = nil
                     return
                 }
                 onPageCheckpoint?(quiz, event)
+                sectionTransitionMessage = nil
                 if quiz.number == 4 {
                     reviewQuiz = fullExamReviewQuiz(from: quiz)
                     showingReview = true

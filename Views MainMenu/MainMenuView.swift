@@ -213,6 +213,10 @@ struct MainMenuView: View {
     }
 
     private var examWorkflowComplete: Bool {
+        if versionBRequiredOrActive {
+            return hasVersionBFinalResult
+        }
+
         if progressStore.progress.finalExamResult != nil {
             return true
         }
@@ -223,6 +227,21 @@ struct MainMenuView: View {
 
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
         return trackedQuizIds.isSubset(of: completed)
+    }
+
+    private var versionBRequiredOrActive: Bool {
+        let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
+        if completed.contains(QuizInfo.refresherAVersionBStartedMarkerId) {
+            return true
+        }
+        guard let final = progressStore.progress.finalExamResult else {
+            return false
+        }
+        return final.quizId == QuizInfo.refresherACombinedQuizId && final.passed == false
+    }
+
+    private var hasVersionBFinalResult: Bool {
+        progressStore.progress.finalExamResult?.quizId == QuizInfo.refresherAVersionBQuizId
     }
 
     private var trackedQuizIds: Set<String> {
@@ -1292,6 +1311,12 @@ struct MainMenuView: View {
             } else if quiz.flexiQuizId == QuizInfo.refresherACombinedQuizId {
                 Task { await progressStore.fetchLatestAndMerge() }
             } else if quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId {
+                guard answeredQuestionCount(review, quiz: quiz) > 0 else {
+                    completedQuizzes.remove(quiz.id)
+                    progressStore.clearQuizResult(quiz.id)
+                    toast = "Version B is ready. Complete the retest before review is available."
+                    return
+                }
                 completedQuizzes.insert(quiz.id)
                 progressStore.markQuizResult(quiz.id, result: quizResultSummary(review, quiz: quiz))
                 Task { await progressStore.fetchLatestAndMerge() }
