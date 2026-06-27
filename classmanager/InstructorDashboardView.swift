@@ -23,11 +23,11 @@ struct InstructorDashboardView: View {
 
     private var availableCourses: [ClassManagerAPIClient.InstructorCourse] {
         let remote = dashboard?.courses ?? []
-        return remote.isEmpty ? courses : remote
+        return courses.isEmpty ? remote : courses
     }
 
     private var activeCourse: ClassManagerAPIClient.InstructorCourse? {
-        selectedCourse ?? dashboard?.course ?? initialCourse ?? availableCourses.first
+        selectedCourse ?? initialCourse
     }
 
     var body: some View {
@@ -57,7 +57,7 @@ struct InstructorDashboardView: View {
             }
             .task {
                 if selectedCourse == nil {
-                    selectedCourse = initialCourse ?? courses.first
+                    selectedCourse = initialCourse
                 }
                 await refresh()
                 await poll()
@@ -400,7 +400,7 @@ struct InstructorDashboardView: View {
             await MainActor.run {
                 dashboard = loaded
                 if selectedCourse == nil {
-                    selectedCourse = loaded.course ?? initialCourse ?? loaded.courses?.first ?? courses.first
+                    selectedCourse = initialCourse ?? (loaded.course?.isToday == true ? loaded.course : nil)
                 }
             }
         } catch {
@@ -411,6 +411,8 @@ struct InstructorDashboardView: View {
     private func poll() async {
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 10_000_000_000)
+            let isCheckedIn = await MainActor.run { attendance != nil }
+            guard isCheckedIn else { continue }
             await refresh()
         }
     }
@@ -556,8 +558,8 @@ struct InstructorDashboardView: View {
 
     private func coursePickerLabel(_ course: ClassManagerAPIClient.InstructorCourse) -> String {
         let date = course.date.isEmpty ? "No date" : course.date
-        let timing = course.isToday ? "Today" : (isPastCourse(course) ? "Past" : "Upcoming")
-        return "\(timing): \(course.title) - \(date) (\(course.expectedCount))"
+        let timing = course.isToday ? "Today" : (isPastCourse(course) ? "Recent" : "Upcoming")
+        return "\(timing): \(date) - \(course.title) (\(course.expectedCount))"
     }
 
     private func isPastCourse(_ course: ClassManagerAPIClient.InstructorCourse) -> Bool {

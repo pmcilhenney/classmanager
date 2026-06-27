@@ -96,6 +96,9 @@ const REFRESHER_A_VERSION_B_QUIZ_ID = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b";
 const REFRESHER_A_VERSION_A_PASSING_SCORE = 74;
 const REFRESHER_A_VERSION_B_PASSING_SCORE = 80;
 const REGISTRATION_FORM_ID = "251265925097060";
+const INSTRUCTOR_PAST_COURSE_DAYS = 45;
+const INSTRUCTOR_UPCOMING_COURSE_DAYS = 120;
+const INSTRUCTOR_MAX_COURSES = 60;
 const KNOWN_QUESTION_RATIONALES_BY_QUIZ: Record<string, Record<string, string>> = {
   [REFRESHER_A_COMBINED_QUIZ_ID]: {
     "what is the sound of the soft tissue of the upper airway creating impedance or partial obstruction to the flow of air": "Correct answer: Snoring. Snoring is caused by relaxed soft tissue partially obstructing the upper airway, so repositioning and airway support should stay front of mind.",
@@ -468,7 +471,7 @@ async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext
     console.warn("background registration course refresh failed", error);
   }));
   const courses = await resolveInstructorCourses(env);
-  const defaultCourse = courses.find((course) => course.isToday) ?? courses[0];
+  const defaultCourse = courses.find((course) => course.isToday);
 
   await audit(env, "instructor.scan", {
     actorId: personId,
@@ -835,7 +838,7 @@ async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {
   ).all<JsonRecord>();
   const scheduled = (rows.results ?? []).map(courseFromScheduledRow);
   if (scheduled.length > 0) {
-    return scheduled.sort(compareInstructorCourses);
+    return instructorCourseMenuList(scheduled);
   }
 
   const sessions = await env.DB.prepare(
@@ -844,7 +847,7 @@ async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {
      ORDER BY updated_at DESC
      LIMIT 100`
   ).all<JsonRecord>();
-  return (sessions.results ?? []).map((row) => {
+  return instructorCourseMenuList((sessions.results ?? []).map((row) => {
     const date = stringField(row, "course_date") ?? "";
     const classSessionId = stringField(row, "id") ?? sessionIdFor(date);
     const title = stringField(row, "course_title") ?? "Class Session";
@@ -858,7 +861,7 @@ async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {
       expectedCount: 0,
       isToday: datesMatchToday(date)
     };
-  }).sort(compareInstructorCourses);
+  }));
 }
 
 async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
@@ -910,9 +913,7 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
     }
   }
 
-  return [...courseMap.values()]
-    .map((entry) => entry.course)
-    .sort(compareInstructorCourses);
+  return instructorCourseMenuList([...courseMap.values()].map((entry) => entry.course));
 }
 
 function instructorCourseFromAttendee(attendee: NormalizedAttendee, formId: string): InstructorCourse {
@@ -1024,6 +1025,55 @@ function courseFromScheduledRow(row: JsonRecord): InstructorCourse {
   };
 }
 
+function instructorCourseMenuList(courses: InstructorCourse[]): InstructorCourse[] {
+  const deduped = dedupeInstructorCourses(courses);
+  const todayValue = dateSortValue(todayEasternDate());
+  const windowed = deduped.filter((course) => {
+    if (course.isToday) {
+      return true;
+    }
+    const value = dateSortValue(course.date);
+    if (!Number.isFinite(value) || value === Number.MAX_SAFE_INTEGER) {
+      return false;
+    }
+    const delta = daysBetweenDateValues(todayValue, value);
+    return delta >= -INSTRUCTOR_PAST_COURSE_DAYS && delta <= INSTRUCTOR_UPCOMING_COURSE_DAYS;
+  });
+
+  const scoped = windowed.length > 0 ? windowed : deduped;
+  return scoped
+    .sort(compareInstructorCourses)
+    .slice(0, INSTRUCTOR_MAX_COURSES);
+}
+
+function dedupeInstructorCourses(courses: InstructorCourse[]): InstructorCourse[] {
+  const merged = new Map<string, InstructorCourse>();
+  for (const course of courses) {
+    const key = [
+      course.classSessionId,
+      courseDateKey(course.date),
+      normalizedCourseTitle(course.title),
+      normalizedCourseTitle(course.location ?? "")
+    ].join(":");
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, course);
+      continue;
+    }
+
+    merged.set(key, {
+      ...existing,
+      id: course.courseId && !existing.courseId ? course.id : existing.id,
+      courseId: existing.courseId ?? course.courseId,
+      title: existing.title.length >= course.title.length ? existing.title : course.title,
+      location: existing.location ?? course.location,
+      expectedCount: Math.max(existing.expectedCount, course.expectedCount),
+      isToday: existing.isToday || course.isToday
+    });
+  }
+  return [...merged.values()];
+}
+
 function compareInstructorCourses(a: InstructorCourse, b: InstructorCourse): number {
   if (a.isToday !== b.isToday) {
     return a.isToday ? -1 : 1;
@@ -1031,13 +1081,13 @@ function compareInstructorCourses(a: InstructorCourse, b: InstructorCourse): num
   const today = dateSortValue(todayEasternDate());
   const aValue = dateSortValue(a.date);
   const bValue = dateSortValue(b.date);
-  const aFuture = aValue >= today;
-  const bFuture = bValue >= today;
-  if (aFuture !== bFuture) {
-    return aFuture ? -1 : 1;
+  const aPast = aValue < today;
+  const bPast = bValue < today;
+  if (aPast !== bPast) {
+    return aPast ? -1 : 1;
   }
   if (aValue !== bValue) {
-    return aFuture ? aValue - bValue : bValue - aValue;
+    return aPast ? bValue - aValue : aValue - bValue;
   }
   return a.title.localeCompare(b.title);
 }
@@ -1053,6 +1103,40 @@ function dateSortValue(rawDate: string): number {
     return Number.MAX_SAFE_INTEGER;
   }
   return Number(`${match[3]}${match[1]}${match[2]}`);
+}
+
+function courseDateKey(rawDate: string): string {
+  return normalizeDateToMMDDYYYY(rawDate).replace(/\//g, "-");
+}
+
+function normalizedCourseTitle(value: string): string {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function daysBetweenDateValues(start: number, end: number): number {
+  const startDate = dateFromSortValue(start);
+  const endDate = dateFromSortValue(end);
+  if (!startDate || !endDate) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000);
+}
+
+function dateFromSortValue(value: number): Date | undefined {
+  if (!Number.isFinite(value) || value === Number.MAX_SAFE_INTEGER) {
+    return undefined;
+  }
+  const text = String(value).padStart(8, "0");
+  const year = Number(text.slice(0, 4));
+  const month = Number(text.slice(4, 6));
+  const day = Number(text.slice(6, 8));
+  if (!year || !month || !day) {
+    return undefined;
+  }
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
 function todayEasternDate(): string {
