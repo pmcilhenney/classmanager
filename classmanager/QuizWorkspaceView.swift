@@ -72,6 +72,14 @@ struct QuizWorkspaceView: View {
                         quiz: quiz,
                         onLoaded: { review in
                             onReviewLoaded?(quiz, review)
+                        },
+                        onDone: {
+                            showingReview = false
+                            if let onBack {
+                                onBack()
+                            } else {
+                                dismiss()
+                            }
                         }
                     )
                 } else if let url = currentURL {

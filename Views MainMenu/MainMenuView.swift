@@ -418,6 +418,9 @@ struct MainMenuView: View {
                             quiz: quiz,
                             onLoaded: { review in
                                 recordQuizReview(quiz: quiz, review: review)
+                            },
+                            onDone: {
+                                selectedReviewQuiz = nil
                             }
                         )
                     } else if let quiz = selectedQuiz {

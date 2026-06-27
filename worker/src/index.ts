@@ -1839,18 +1839,7 @@ function pointsTextFromQuestionRecord(record: JsonRecord): string | undefined {
 }
 
 function feedbackFromQuestionRecord(record: JsonRecord): string | undefined {
-  const direct = firstText([record], ["feedback", "feedback_text", "feedbackText", "comment", "comments", "explanation", "rationale"])?.trim();
-  if (direct) {
-    return direct;
-  }
-  const categories = recordsFromMaybeArray(record.categories)
-    .map((category) => firstText([category], ["name", "title", "label"]))
-    .filter((value): value is string => Boolean(value));
-  return categories.length > 0 ? `Category: ${categories.join(", ")}` : undefined;
-}
-
-function recordsFromMaybeArray(value: unknown): JsonRecord[] {
-  return Array.isArray(value) ? value.filter(isJsonRecord) : [];
+  return firstText([record], ["feedback", "feedback_text", "feedbackText", "comment", "comments", "explanation", "rationale"])?.trim();
 }
 
 function parseQuestionsFromReportHtml(html?: string): QuizReviewQuestion[] {
