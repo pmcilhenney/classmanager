@@ -297,7 +297,14 @@ final class CKProgressStore: ObservableObject {
             guard let remote = try await apiClient.fetchProgress(
                 studentId: workerStudentId,
                 classSessionId: workerClassSessionId
-            ) else { return }
+            ) else {
+                let cleared = CKProgress()
+                if progress != cleared {
+                    progress = cleared
+                    saveLocal(cleared)
+                }
+                return
+            }
 
             var merged = progress
             merged.didCheckIn = merged.didCheckIn || remote.didCheckIn
