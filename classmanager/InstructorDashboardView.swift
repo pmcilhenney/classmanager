@@ -60,14 +60,18 @@ struct InstructorDashboardView: View {
                     selectedCourse = initialCourse
                 }
                 await refresh()
-                await poll()
             }
             .sheet(item: $selectedStudent) { student in
                 studentDetail(student)
             }
             .sheet(item: Binding(
                 get: { skillsURL.map { SkillsURLBox(url: $0) } },
-                set: { if $0 == nil { skillsURL = nil } }
+                set: {
+                    if $0 == nil {
+                        skillsURL = nil
+                        Task { await refresh() }
+                    }
+                }
             )) { box in
                 SkillsWebView(url: box.url)
             }
@@ -389,15 +393,6 @@ struct InstructorDashboardView: View {
             }
         } catch {
             await MainActor.run { notice = "Could not load instructor dashboard." }
-        }
-    }
-
-    private func poll() async {
-        while !Task.isCancelled {
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
-            let isCheckedIn = await MainActor.run { attendance != nil }
-            guard isCheckedIn else { continue }
-            await refresh()
         }
     }
 
