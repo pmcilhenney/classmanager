@@ -744,6 +744,7 @@ async function instructorResetStudent(request: Request, env: Env): Promise<Respo
   const deletedSkills = await env.DB.prepare(
     `DELETE FROM skills_verifications WHERE student_id = ?1 AND class_session_id = ?2`
   ).bind(studentId, classSessionId).run();
+  const flexiReset = await resetFlexiQuizUserForStudent(env, { studentId, classSessionId });
   const deletedProgress = await env.DB.prepare(
     `DELETE FROM student_progress WHERE student_id = ?1 AND class_session_id = ?2`
   ).bind(studentId, classSessionId).run();
@@ -763,7 +764,8 @@ async function instructorResetStudent(request: Request, env: Env): Promise<Respo
       deletedFinals: deletedFinals.meta.changes,
       deletedAttempts: deletedAttempts.meta.changes,
       deletedSkills: deletedSkills.meta.changes,
-      deletedProgress: deletedProgress.meta.changes
+      deletedProgress: deletedProgress.meta.changes,
+      flexiquiz: flexiReset
     }
   });
 
@@ -774,8 +776,96 @@ async function instructorResetStudent(request: Request, env: Env): Promise<Respo
       quizAttempts: deletedAttempts.meta.changes,
       skillsVerifications: deletedSkills.meta.changes,
       progressRows: deletedProgress.meta.changes
-    }
+    },
+    flexiquiz: flexiReset
   });
+}
+
+async function resetFlexiQuizUserForStudent(
+  env: Env,
+  input: { studentId: string; classSessionId: string }
+): Promise<JsonRecord> {
+  if (!env.FLEXIQUIZ_API_KEY) {
+    return { ok: false, skipped: true, reason: "flexiquiz_not_configured" };
+  }
+
+  const identity = await env.DB.prepare(
+    `SELECT
+       scs.submission_id,
+       scs.email,
+       scs.first_name,
+       scs.last_name,
+       scs.oems_id,
+       dt.flexiquiz_user_id
+     FROM scheduled_course_students scs
+     LEFT JOIN device_tokens dt
+       ON dt.student_id = scs.student_id AND dt.class_session_id = scs.class_session_id
+     WHERE scs.student_id = ?1 AND scs.class_session_id = ?2
+     ORDER BY dt.updated_at DESC
+     LIMIT 1`
+  ).bind(input.studentId, input.classSessionId).first<JsonRecord>();
+
+  const fallback = await env.DB.prepare(
+    `SELECT s.email, s.first_name, s.last_name, s.oems_id,
+            cs.source_submission_id,
+            dt.flexiquiz_user_id
+     FROM students s
+     JOIN class_sessions cs ON cs.id = ?2
+     LEFT JOIN device_tokens dt
+       ON dt.student_id = s.id AND dt.class_session_id = ?2
+     WHERE s.id = ?1
+     ORDER BY dt.updated_at DESC
+     LIMIT 1`
+  ).bind(input.studentId, input.classSessionId).first<JsonRecord>();
+
+  const source = identity ?? fallback;
+  const sourceSubmissionId = stringField(source ?? {}, "submission_id") ?? stringField(source ?? {}, "source_submission_id");
+  const email = stringField(source ?? {}, "email");
+  const flexiquizUserName = classRegistrationFlexiQuizUserName({
+    email,
+    sourceSubmissionId,
+    studentId: input.studentId,
+    classSessionId: input.classSessionId
+  });
+
+  const userIds = new Set<string>();
+  const storedUserId = stringField(source ?? {}, "flexiquiz_user_id");
+  if (storedUserId) {
+    userIds.add(storedUserId);
+  }
+
+  const generatedUserId = await flexiFindUserId(env, flexiquizUserName);
+  if (generatedUserId) {
+    userIds.add(generatedUserId);
+  }
+
+  if (userIds.size === 0) {
+    return {
+      ok: true,
+      deleted: false,
+      flexiquizUserName,
+      reason: "flexiquiz_user_not_found"
+    };
+  }
+
+  const deleted: JsonRecord[] = [];
+  const failed: JsonRecord[] = [];
+  for (const userId of userIds) {
+    const result = await flexiDeleteUser(env, userId);
+    if (result.ok) {
+      deleted.push({ userId, status: result.status });
+    } else {
+      failed.push({ userId, status: result.status, body: result.body });
+    }
+  }
+
+  return {
+    ok: failed.length === 0,
+    deleted: deleted.length > 0,
+    flexiquizUserName,
+    deletedUsers: deleted,
+    failedUsers: failed
+  };
 }
 
 async function skillsOpened(request: Request, env: Env): Promise<Response> {
@@ -2365,6 +2455,15 @@ async function flexiAssignQuiz(env: Env, userId: string, quizId: string): Promis
   };
 }
 
+async function flexiDeleteUser(env: Env, userId: string): Promise<{ ok: boolean; status: number; body?: string }> {
+  const response = await flexiRequest(env, "DELETE", `/v1/users/${encodeURIComponent(userId)}`);
+  return {
+    ok: response.ok || response.status === 404,
+    status: response.status,
+    body: response.ok ? undefined : await response.text().catch(() => undefined)
+  };
+}
+
 async function flexiPost(env: Env, path: string, fields: Record<string, string>): Promise<Response> {
   const url = new URL(joinUrl(env.FLEXIQUIZ_API_BASE, path));
   const body = new URLSearchParams();
@@ -2380,6 +2479,17 @@ async function flexiPost(env: Env, path: string, fields: Record<string, string>)
       "x-api-key": env.FLEXIQUIZ_API_KEY ?? ""
     },
     body
+  });
+}
+
+async function flexiRequest(env: Env, method: string, path: string): Promise<Response> {
+  const url = new URL(joinUrl(env.FLEXIQUIZ_API_BASE, path));
+  return await fetch(url, {
+    method,
+    headers: {
+      accept: "application/json",
+      "x-api-key": env.FLEXIQUIZ_API_KEY ?? ""
+    }
   });
 }
 
