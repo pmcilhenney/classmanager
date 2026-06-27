@@ -230,6 +230,13 @@ final class CKProgressStore: ObservableObject {
         }
     }
 
+    @MainActor func clearQuizResult(_ quizId: String) {
+        mutate { p in
+            p.quizResults.removeValue(forKey: quizId)
+            p.completedQuizIDs.removeAll { $0 == quizId }
+        }
+    }
+
     /// Mark a quiz result locally and attempt a forced save that ensures the local
     /// value for this quizId is applied to the server record (useful when a retake
     /// should overwrite an earlier server value). This performs a targeted fetch->merge

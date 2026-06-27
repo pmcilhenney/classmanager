@@ -109,8 +109,10 @@ struct QuizReviewView: View {
     }
 
     private func sectionRatioText(_ questions: [ClassManagerAPIClient.QuizReviewQuestion]) -> String {
-        let correct = questions.filter { $0.isCorrect == true }.count
-        return "\(correct)/\(questions.count)"
+        let answered = questions.filter { ($0.studentAnswer ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+        guard !answered.isEmpty else { return "No answers yet" }
+        let correct = answered.filter { $0.isCorrect == true }.count
+        return "\(correct)/\(answered.count)"
     }
 
     private func loadReview() async {

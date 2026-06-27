@@ -1138,6 +1138,13 @@ struct MainMenuView: View {
     }
 
     private func recordQuizReview(quiz: QuizInfo, review: ClassManagerAPIClient.QuizReviewResponse) {
+        if quiz.questionRange != nil && answeredQuestionCount(review, quiz: quiz) == 0 {
+            completedQuizzes.remove(quiz.id)
+            progressStore.clearQuizResult(quiz.id)
+            toast = "\(quiz.title) has no recorded answers yet. It was reopened for completion."
+            return
+        }
+
         let result = quizResultSummary(review, quiz: quiz)
         completedQuizzes.insert(quiz.id)
         progressStore.markQuizResult(quiz.id, result: result)
@@ -1157,8 +1164,10 @@ struct MainMenuView: View {
         }
 
         if !sectionQuestions.isEmpty {
-            let correct = sectionQuestions.filter { $0.isCorrect == true }.count
-            return "\(correct)/\(sectionQuestions.count)"
+            let answered = sectionQuestions.filter { ($0.studentAnswer ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+            guard !answered.isEmpty else { return "No answers yet" }
+            let correct = answered.filter { $0.isCorrect == true }.count
+            return "\(correct)/\(answered.count)"
         }
 
         let status: String? = {
@@ -1177,6 +1186,16 @@ struct MainMenuView: View {
             .filter { !$0.isEmpty }
             .joined(separator: " ")
         return summary.isEmpty ? "Completed" : summary
+    }
+
+    private func answeredQuestionCount(_ review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> Int {
+        let questions: [ClassManagerAPIClient.QuizReviewQuestion]
+        if let range = quiz.questionRange {
+            questions = review.questions.filter { range.contains($0.number) }
+        } else {
+            questions = review.questions
+        }
+        return questions.filter { ($0.studentAnswer ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }.count
     }
 
     private func getQuizzesForCourse() -> [QuizInfo] {

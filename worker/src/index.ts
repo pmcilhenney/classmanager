@@ -1763,10 +1763,13 @@ function normalizeQuestionRecords(records: JsonRecord[]): QuizReviewQuestion[] {
       answerText(firstValue([record], ["user_answer", "userAnswer", "student_answer", "studentAnswer", "selected_answer", "selectedAnswer", "response", "answer"]));
     const correctAnswer = correctOptionsText(options) ??
       answerText(firstValue([record], ["correct_answer", "correctAnswer", "right_answer", "rightAnswer", "expected_answer", "expectedAnswer"]));
-    const isCorrect = correctnessFromPoints(record) ??
-      correctnessFromOptions(options) ??
-      boolFromUnknown(firstValue([record], ["is_correct", "isCorrect", "correct", "was_correct", "wasCorrect", "passed", "result"])) ??
-      correctnessFromText(firstText([record], ["result", "status"]));
+    const hasAnswer = Boolean(studentAnswer?.trim());
+    const isCorrect = hasAnswer
+      ? correctnessFromPoints(record) ??
+        correctnessFromOptions(options) ??
+        boolFromUnknown(firstValue([record], ["is_correct", "isCorrect", "correct", "was_correct", "wasCorrect", "passed", "result"])) ??
+        correctnessFromText(firstText([record], ["result", "status"]))
+      : undefined;
     return {
       id: firstText([record], ["id", "question_id", "questionId"]),
       number: intFromUnknown(firstValue([record], ["number", "question_number", "questionNumber", "order", "position"])) ?? index + 1,
@@ -1776,7 +1779,7 @@ function normalizeQuestionRecords(records: JsonRecord[]): QuizReviewQuestion[] {
       correctAnswer,
       isCorrect,
       feedback: feedbackFromQuestionRecord(record),
-      points: pointsTextFromQuestionRecord(record)
+      points: hasAnswer ? pointsTextFromQuestionRecord(record) : undefined
     };
   });
 }

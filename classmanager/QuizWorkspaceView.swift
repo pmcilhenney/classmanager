@@ -21,6 +21,7 @@ struct QuizWorkspaceView: View {
     @State private var webViewError: String?
     @State private var webViewReloadToken = UUID()
     @State private var pageNavigationEvent: FlexiQuizPageNavigationEvent?
+    @State private var isCheckingSectionCompletion = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -110,10 +111,7 @@ struct QuizWorkspaceView: View {
                             },
                             onPageNavigationDetected: { event in
                                 isLoading = false
-                                pageNavigationEvent = event
-                                if let quiz {
-                                    onPageCheckpoint?(quiz, event)
-                                }
+                                handlePageNavigation(event)
                             },
                             onProcessTerminated: {
                                 webViewError = "FlexiQuiz stopped responding inside the embedded exam window. Reloading the exam usually restores the session."
@@ -148,6 +146,7 @@ struct QuizWorkspaceView: View {
             webViewError = nil
             currentURL = nil
             lastURL = nil
+            isCheckingSectionCompletion = false
             Task { await launchOrResumeQuiz() }
         }
         .alert(toast ?? "", isPresented: Binding(
@@ -162,6 +161,61 @@ struct QuizWorkspaceView: View {
     }
 
     // MARK: - Flow
+
+    private func handlePageNavigation(_ event: FlexiQuizPageNavigationEvent) {
+        guard let quiz else { return }
+        guard quiz.questionRange != nil else {
+            pageNavigationEvent = event
+            onPageCheckpoint?(quiz, event)
+            return
+        }
+        guard !isCheckingSectionCompletion else { return }
+
+        isCheckingSectionCompletion = true
+        Task {
+            let accepted = await sectionHasEnoughAnswers(for: quiz)
+            await MainActor.run {
+                isCheckingSectionCompletion = false
+                guard accepted else {
+                    toast = "FlexiQuiz moved to the next section. Complete \(quiz.title) before reviewing it."
+                    return
+                }
+                pageNavigationEvent = event
+                onPageCheckpoint?(quiz, event)
+            }
+        }
+    }
+
+    private func sectionHasEnoughAnswers(for quiz: QuizInfo) async -> Bool {
+        guard let questionRange = quiz.questionRange else { return true }
+        let email = attendee.email.isEmpty
+            ? "\(attendee.firstName.lowercased()).\(attendee.lastName.lowercased())@\(config.flexiEmailDomain)"
+            : attendee.email
+
+        for attempt in 0..<2 {
+            do {
+                let review = try await ClassManagerAPIClient.shared.fetchQuizReview(
+                    attendee: attendee,
+                    quizId: quiz.flexiQuizId,
+                    email: email,
+                    questionRange: questionRange,
+                    includeInProgress: true
+                )
+                let answered = review.questions.filter { ($0.studentAnswer ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }.count
+                if answered >= questionRange.count {
+                    return true
+                }
+            } catch {
+                if attempt == 1 {
+                    return false
+                }
+            }
+
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+        }
+
+        return false
+    }
 
     private func launchOrResumeQuiz() async {
         await MainActor.run { isLoading = true }

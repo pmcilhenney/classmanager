@@ -145,7 +145,6 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
         weak var webView: WKWebView?
         var loadedRequestURL: URL?
         private var hasReportedResult = false
-        private var hasReportedPageNavigation = false
         private var ignoredPageNavigationEventsRemaining: Int
 
         init(_ parent: FlexiSimpleWebViewRepresentable) {
@@ -156,12 +155,11 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
 
         func resetForNewLoad(ignoredPageNavigationEvents: Int) {
             hasReportedResult = false
-            hasReportedPageNavigation = false
             ignoredPageNavigationEventsRemaining = ignoredPageNavigationEvents
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.name == "classmanagerFlexiQuiz", !hasReportedPageNavigation else { return }
+            guard message.name == "classmanagerFlexiQuiz" else { return }
 
             let body = message.body as? [String: Any]
             let eventType = body?["type"] as? String ?? ""
@@ -179,8 +177,6 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
                 return
             }
 
-            hasReportedPageNavigation = true
-            webView?.stopLoading()
             DispatchQueue.main.async {
                 self.parent.isLoading = false
                 self.parent.onPageNavigationDetected?(event)
