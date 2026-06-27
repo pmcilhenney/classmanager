@@ -1368,7 +1368,7 @@ async function flexiCreateUser(
     manage_users: "false",
     manage_groups: "false",
     edit_quizzes: "false",
-    send_welcome_email: "true"
+    send_welcome_email: "false"
   });
 
   if (!response.ok) {

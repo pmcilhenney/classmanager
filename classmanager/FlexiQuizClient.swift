@@ -143,7 +143,7 @@ final class FlexiQuizClient {
             "manage_users": "false",
             "manage_groups": "false",
             "edit_quizzes": "false",
-            "send_welcome_email": "true"
+            "send_welcome_email": "false"
         ])
         let req = try makePOST(url: url, body: body)
 
@@ -466,4 +466,3 @@ final class FlexiQuizClient {
         return URL(string: "data:text/html;base64," + b64)
     }
 }
-
