@@ -81,6 +81,7 @@ type QuizReviewPayload = {
 };
 
 const REFRESHER_A_COMBINED_QUIZ_ID = "89db2c06-5052-4ff5-867b-95ef67fcfcd2";
+const REFRESHER_A_VERSION_B_QUIZ_ID = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b";
 const REFRESHER_A_VERSION_A_PASSING_SCORE = 74;
 const REFRESHER_A_VERSION_B_PASSING_SCORE = 80;
 const KNOWN_QUESTION_RATIONALES_BY_QUIZ: Record<string, Record<string, string>> = {
@@ -136,7 +137,7 @@ const KNOWN_QUESTION_RATIONALES_BY_QUIZ: Record<string, Record<string, string>> 
     "in most cases cardiopulmonary arrest in infants and children is caused by": "Correct answer: Respiratory arrest. Pediatric cardiac arrest is often secondary to respiratory failure or arrest, making airway and ventilation assessment critical.",
     "what is the correct ratio of compressions to ventilations when performing two rescuer adult cpr": "Correct answer: 30:2. Two-rescuer adult CPR uses a 30:2 compression-to-ventilation ratio.",
   },
-  "refresher-a-version-b": {
+  [REFRESHER_A_VERSION_B_QUIZ_ID]: {
     "a patient is found supine with noisy snoring respirations after a syncopal episode what should you do first to improve the airway": "Correct answer: Reposition the head and open the airway. Snoring respirations usually mean relaxed upper-airway tissue is partially obstructing airflow, so manual airway positioning is the first priority.",
     "during assessment you hear a wet bubbling sound from the patient s mouth with each breath which airway problem is most likely present": "Correct answer: Fluid or secretions in the upper airway. Gurgling indicates material in the airway and should prompt suctioning to clear blood, vomitus, or secretions.",
     "which finding best indicates that an oropharyngeal airway is inappropriate": "Correct answer: The patient gags when the device is inserted. An OPA is used only when the gag reflex is absent because it can trigger vomiting or airway complications.",
@@ -1758,7 +1759,7 @@ function minimumPassingScoreForFinalExam(result: JsonRecord): number {
 
 function minimumPassingScoreForQuiz(quizId: string, sources: JsonRecord[]): number {
   const quizName = (firstText(sources, ["quiz_name", "quizName", "name", "title"]) ?? "").toLowerCase();
-  if (quizName.includes("version b")) {
+  if (quizId === REFRESHER_A_VERSION_B_QUIZ_ID || quizName.includes("version b")) {
     return REFRESHER_A_VERSION_B_PASSING_SCORE;
   }
   if (quizId === REFRESHER_A_COMBINED_QUIZ_ID || quizName.includes("refresher a")) {

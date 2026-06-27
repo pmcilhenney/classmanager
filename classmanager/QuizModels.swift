@@ -6,6 +6,10 @@
 import Foundation
 
 struct QuizInfo: Identifiable {
+    static let refresherACombinedQuizId = "89db2c06-5052-4ff5-867b-95ef67fcfcd2"
+    static let refresherAVersionBQuizId = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b"
+    static let refresherAVersionAReviewMarkerId = "refresher-a-version-a-review-complete"
+
     let id: String
     let flexiQuizId: String
     let number: Int
@@ -23,7 +27,7 @@ struct QuizInfo: Identifiable {
     }
     
     static func refresherAQuizzes() -> [QuizInfo] {
-        let combinedQuizId = "89db2c06-5052-4ff5-867b-95ef67fcfcd2"
+        let combinedQuizId = refresherACombinedQuizId
         let combinedURL = URL(string: "https://www.flexiquiz.com/SC/N/\(combinedQuizId)")!
         return [
             QuizInfo(
@@ -59,6 +63,16 @@ struct QuizInfo: Identifiable {
                 questionRange: 39...50
             )
         ]
+    }
+
+    static func refresherAVersionBQuiz() -> QuizInfo {
+        QuizInfo(
+            id: "refresher-a-version-b",
+            flexiQuizId: refresherAVersionBQuizId,
+            number: 5,
+            title: "Refresher A Version B Retest",
+            url: URL(string: "https://www.flexiquiz.com/SC/N/\(refresherAVersionBQuizId)")!
+        )
     }
     
     static func refresherBQuizzes() -> [QuizInfo] {

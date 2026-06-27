@@ -9,6 +9,7 @@ struct QuizSelectionView: View {
     @ObservedObject var progressStore: CKProgressStore
     let attendee: RosterAttendee
     let quizURLs: [QuizInfo]
+    let versionBQuiz: QuizInfo?
     @Binding var selectedQuiz: QuizInfo?
     @Binding var completedQuizzes: Set<String>
     var onBlocked: (String) -> Void = { _ in }
@@ -30,6 +31,9 @@ struct QuizSelectionView: View {
                 VStack(spacing: 12) {
                     if let finalResult = progressStore.progress.finalExamResult {
                         fullExamReviewCard(finalResult)
+                        if isFailedVersionA(finalResult), let versionBQuiz {
+                            versionBRetestCard(versionBQuiz)
+                        }
                     } else {
                         miniQuizCards
                     }
@@ -134,7 +138,10 @@ struct QuizSelectionView: View {
     private func fullExamReviewCard(_ result: ClassManagerAPIClient.FinalExamResult) -> some View {
         let passed = result.passed
         let color: Color = passed == false ? .red : .green
-        let status = passed == false ? "Final Exam Failed" : (passed == true ? "Final Exam Passed" : "Final Exam Result")
+        let isVersionB = result.quizId == QuizInfo.refresherAVersionBQuizId
+        let status = passed == false
+            ? (isVersionB ? "Version B Unsuccessful" : "Version A Remediation Required")
+            : (passed == true ? (isVersionB ? "Version B Passed" : "Final Exam Passed") : "Final Exam Result")
         let score = result.scoreText ?? result.percentageScore.map { "\(Int($0.rounded()))%" }
 
         return Button {
@@ -168,7 +175,7 @@ struct QuizSelectionView: View {
                 }
 
                 if passed == false {
-                    Text("Review and remediation required for scores below 74%. Version B unlocks after review and instructor remediation.")
+                    Text(isVersionB ? "Version B requires an 80% or higher. This attempt is recorded separately from Version A." : "Review every missed item. Version B unlocks after the Version A review is opened.")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.red)
                 }
@@ -185,6 +192,50 @@ struct QuizSelectionView: View {
         .buttonStyle(.plain)
     }
 
+    private func versionBRetestCard(_ quiz: QuizInfo) -> some View {
+        let unlocked = versionAReviewCompleted
+        let completed = completedQuizzes.contains(quiz.id)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: completed ? "checkmark.seal.fill" : (unlocked ? "arrow.clockwise.circle.fill" : "lock.fill"))
+                    .font(.title2)
+                    .foregroundStyle(completed ? .green : (unlocked ? Color.accentColor : .secondary))
+                    .frame(width: 32)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Version B Retest")
+                        .font(.headline)
+                    Text(unlocked ? "50 new questions, 80% required" : "Locked until Version A review is complete")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(unlocked ? Color.accentColor : .secondary)
+                }
+                Spacer()
+                Image(systemName: unlocked ? "chevron.right" : "lock.fill")
+                    .foregroundStyle(.secondary)
+            }
+
+            Button {
+                guard unlocked else {
+                    onBlocked("Open the Version A full exam review first. Version B unlocks after review and remediation.")
+                    return
+                }
+                if completed {
+                    onReview(quiz)
+                } else {
+                    selectedQuiz = quiz
+                }
+            } label: {
+                Label(completed ? "Review Version B" : (unlocked ? "Start Version B" : "Review Version A First"),
+                      systemImage: completed ? "doc.text.magnifyingglass" : (unlocked ? "play.fill" : "lock.fill"))
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+    }
+
     private func fullExamReviewQuiz(from result: ClassManagerAPIClient.FinalExamResult) -> QuizInfo? {
         let quizId = result.quizId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !quizId.isEmpty,
@@ -199,6 +250,15 @@ struct QuizSelectionView: View {
             title: title?.isEmpty == false ? title! : "Full Exam Review",
             url: url
         )
+    }
+
+    private func isFailedVersionA(_ result: ClassManagerAPIClient.FinalExamResult) -> Bool {
+        result.quizId == QuizInfo.refresherACombinedQuizId && result.passed == false
+    }
+
+    private var versionAReviewCompleted: Bool {
+        let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
+        return completed.contains(QuizInfo.refresherAVersionAReviewMarkerId)
     }
 
     private func isLocked(_ quiz: QuizInfo) -> Bool {

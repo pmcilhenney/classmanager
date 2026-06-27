@@ -547,6 +547,7 @@ struct MainMenuView: View {
                             progressStore: progressStore,
                             attendee: attendee,
                             quizURLs: getQuizzesForCourse().map { $0.asInfo() },
+                            versionBQuiz: getVersionBQuizForCourse(),
                             selectedQuiz: $selectedQuiz,
                             completedQuizzes: $completedQuizzes,
                             onBlocked: { msg in toast = msg },
@@ -1273,8 +1274,17 @@ struct MainMenuView: View {
         }
 
         guard trackedQuizIds.contains(quiz.id) else {
-            if review.passed == false {
-                toast = "Version A is below the 74% passing standard. Review the full exam, then complete instructor remediation before Version B is released."
+            if quiz.flexiQuizId == QuizInfo.refresherACombinedQuizId && review.passed == false {
+                completedQuizzes.insert(QuizInfo.refresherAVersionAReviewMarkerId)
+                progressStore.markQuizResult(
+                    QuizInfo.refresherAVersionAReviewMarkerId,
+                    result: "Version A review complete"
+                )
+                toast = "Version A is below the 74% passing standard. Review is complete; complete remediation with your instructor, then start Version B."
+            } else if quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId {
+                completedQuizzes.insert(quiz.id)
+                progressStore.markQuizResult(quiz.id, result: quizResultSummary(review, quiz: quiz))
+                Task { await progressStore.fetchLatestAndMerge() }
             }
             return
         }
@@ -1342,6 +1352,14 @@ struct MainMenuView: View {
             return QuizInfo.refresherCQuizzes()
         }
         return []
+    }
+
+    private func getVersionBQuizForCourse() -> QuizInfo? {
+        let courseType = cleanCourseName(attendee.courseType).uppercased()
+        if courseType.contains("REFRESHER A") {
+            return QuizInfo.refresherAVersionBQuiz()
+        }
+        return nil
     }
 
     // MARK: - Course Materials
