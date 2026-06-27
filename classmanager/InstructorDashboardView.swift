@@ -546,10 +546,10 @@ struct InstructorDashboardView: View {
 
     private func commonQuizName(_ quizId: String?) -> String {
         switch quizId {
-        case "refresher-a-quiz-1", "66564166-9de9-4b17-9c2d-6f76bc186970": return "Refresher A Quiz 1"
-        case "refresher-a-quiz-2": return "Refresher A Quiz 2"
-        case "refresher-a-quiz-3": return "Refresher A Quiz 3"
-        case "refresher-a-quiz-4": return "Refresher A Quiz 4"
+        case "refresher-a-page-1", "refresher-a-quiz-1", "66564166-9de9-4b17-9c2d-6f76bc186970": return "Refresher A Quiz 1"
+        case "refresher-a-page-2", "refresher-a-quiz-2": return "Refresher A Quiz 2"
+        case "refresher-a-page-3", "refresher-a-quiz-3": return "Refresher A Quiz 3"
+        case "refresher-a-page-4", "refresher-a-quiz-4": return "Refresher A Quiz 4"
         case QuizInfo.refresherACombinedQuizId: return "Refresher A Version A"
         case QuizInfo.refresherAVersionBQuizId: return "Refresher A Version B"
         default: return quizId ?? "Quiz"

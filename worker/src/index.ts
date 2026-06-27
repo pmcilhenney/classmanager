@@ -685,6 +685,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
             qa.score_text, qa.passed, qa.completed_at, qa.updated_at
      FROM quiz_attempts qa
      WHERE qa.class_session_id = ?1
+       AND lower(COALESCE(qa.result_text, '')) NOT IN ('not_submitted', 'not submitted', 'in_progress', 'in progress')
      ORDER BY COALESCE(qa.completed_at, qa.updated_at) DESC
      LIMIT 500`
   ).bind(classSessionId).all<JsonRecord>();
@@ -2649,7 +2650,9 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
         studentId,
         classSessionId,
         flexiquizUserId,
-        review
+        review,
+        questionStart,
+        questionEnd
       }).catch((error) => console.warn("quiz attempt save failed", error));
     }
     if (!questionStart && !questionEnd && review.responseId && completedReview) {
@@ -3008,10 +3011,19 @@ async function saveQuizAttempt(
     classSessionId: string;
     flexiquizUserId?: string;
     review: QuizReviewPayload;
+    questionStart?: number;
+    questionEnd?: number;
   }
 ): Promise<void> {
   const now = new Date().toISOString();
-  const attemptId = input.review.responseId ?? crypto.randomUUID();
+  const section = sectionAttemptSummary(input.review, input.questionStart, input.questionEnd);
+  if (section && section.answered === 0) {
+    return;
+  }
+  const quizId = section?.quizId ?? input.review.quizId;
+  const attemptId = section
+    ? `${input.review.responseId ?? input.review.quizId}:section:${input.questionStart}-${input.questionEnd}`
+    : input.review.responseId ?? crypto.randomUUID();
   await env.DB.prepare(
     `INSERT INTO quiz_attempts (
       id, student_id, class_session_id, flexiquiz_user_id, quiz_id, response_id,
@@ -3034,15 +3046,51 @@ async function saveQuizAttempt(
     input.studentId,
     input.classSessionId,
     input.flexiquizUserId ?? null,
-    input.review.quizId,
+    quizId,
     input.review.responseId ?? null,
-    input.review.resultText ?? null,
-    input.review.scoreText ?? null,
-    input.review.passed === undefined ? null : boolInt(input.review.passed),
+    section?.resultText ?? input.review.resultText ?? null,
+    section?.scoreText ?? input.review.scoreText ?? null,
+    section ? null : input.review.passed === undefined ? null : boolInt(input.review.passed),
     input.review.reportUrl ?? null,
-    input.review.completedAt ?? now,
+    section ? now : input.review.completedAt ?? now,
     now
   ).run();
+}
+
+function sectionAttemptSummary(
+  review: QuizReviewPayload,
+  questionStart?: number,
+  questionEnd?: number
+): { quizId: string; scoreText: string; resultText: string; answered: number } | undefined {
+  if (questionStart === undefined || questionEnd === undefined) {
+    return undefined;
+  }
+
+  const sectionQuestions = review.questions.filter((question) =>
+    question.number >= questionStart && question.number <= questionEnd
+  );
+  const answered = sectionQuestions.filter((question) =>
+    (question.studentAnswer ?? "").trim().length > 0 ||
+    question.isCorrect === true ||
+    question.isCorrect === false
+  );
+  const correct = answered.filter((question) => question.isCorrect === true).length;
+  return {
+    quizId: sectionQuizId(review.quizId, questionStart, questionEnd),
+    scoreText: `${correct}/${answered.length}`,
+    resultText: "section_submitted",
+    answered: answered.length
+  };
+}
+
+function sectionQuizId(quizId: string, questionStart: number, questionEnd: number): string {
+  if (quizId === REFRESHER_A_COMBINED_QUIZ_ID) {
+    if (questionStart === 1 && questionEnd === 12) return "refresher-a-page-1";
+    if (questionStart === 13 && questionEnd === 25) return "refresher-a-page-2";
+    if (questionStart === 26 && questionEnd === 38) return "refresher-a-page-3";
+    if (questionStart === 39 && questionEnd === 50) return "refresher-a-page-4";
+  }
+  return `${quizId}:section:${questionStart}-${questionEnd}`;
 }
 
 async function fetchRmsQuizReview(
