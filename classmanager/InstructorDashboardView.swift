@@ -428,7 +428,7 @@ struct InstructorDashboardView: View {
     }
 
     private func openSkills(for student: ClassManagerAPIClient.DashboardStudent) async {
-        guard !config.skillsFormId.isEmpty else {
+        guard let formURL = skillsFormURL(for: student) else {
             await MainActor.run { notice = "Skills validation form is not configured." }
             return
         }
@@ -455,7 +455,7 @@ struct InstructorDashboardView: View {
         )
 
         await MainActor.run {
-            skillsURL = buildSkillsURL(for: student, aiComment: aiComment)
+            skillsURL = buildSkillsURL(for: student, formURL: formURL, aiComment: aiComment)
             selectedStudent = nil
         }
         await refresh()
@@ -486,8 +486,8 @@ struct InstructorDashboardView: View {
         }
     }
 
-    private func buildSkillsURL(for student: ClassManagerAPIClient.DashboardStudent, aiComment: String) -> URL? {
-        guard var comps = URLComponents(string: "https://form.jotform.com/\(config.skillsFormId)") else { return nil }
+    private func buildSkillsURL(for student: ClassManagerAPIClient.DashboardStudent, formURL: URL, aiComment: String) -> URL? {
+        guard var comps = URLComponents(url: formURL, resolvingAgainstBaseURL: false) else { return nil }
         var items: [URLQueryItem] = []
         func add(_ name: String, _ value: String?) {
             guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -504,6 +504,43 @@ struct InstructorDashboardView: View {
         addDateQueryItems(student.courseDate, to: &items)
         comps.queryItems = items
         return comps.url
+    }
+
+    private func skillsFormURL(for student: ClassManagerAPIClient.DashboardStudent) -> URL? {
+        let courseType = student.courseTitle.lowercased()
+        let key: String
+        if courseType.contains("refresher a") || courseType.contains("a refresher") {
+            key = "SKILLS_A_VALIDATOR_FORM"
+        } else if courseType.contains("refresher b") || courseType.contains("b refresher") {
+            key = "SKILLS_B_VALIDATOR_FORM"
+        } else if courseType.contains("refresher c") || courseType.contains("c refresher") {
+            key = "SKILLS_C_VALIDATOR_FORM"
+        } else {
+            key = "SKILLS_VALIDATOR_FORM_ID"
+        }
+
+        let raw = firstNonEmptyPlistValue(key, "SKILLS_VALIDATOR_FORM_ID", config.skillsFormId)
+        guard !raw.isEmpty else { return nil }
+        if let url = URL(string: raw), url.scheme != nil {
+            return url
+        }
+        return URL(string: "https://form.jotform.com/\(raw)")
+    }
+
+    private func firstNonEmptyPlistValue(_ keysOrValues: String...) -> String {
+        for item in keysOrValues {
+            let value: String
+            if item.contains("_") || item.uppercased() == item {
+                value = (Bundle.main.object(forInfoDictionaryKey: item) as? String) ?? ""
+            } else {
+                value = item
+            }
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return ""
     }
 
     private func addDateQueryItems(_ rawDate: String?, to items: inout [URLQueryItem]) {
