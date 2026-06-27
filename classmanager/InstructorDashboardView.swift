@@ -187,8 +187,6 @@ struct InstructorDashboardView: View {
         List {
             instructorSection
             rosterSection
-            quizSection
-            finalExamSection
         }
     }
 
@@ -278,75 +276,6 @@ struct InstructorDashboardView: View {
         }
     }
 
-    private var quizSection: some View {
-        Section("Quiz Results") {
-            let rows = (dashboard?.quizResults ?? []).prefix(30)
-            if rows.isEmpty {
-                Text("Quiz results will appear here as students complete sections.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(Array(rows)) { result in
-                    HStack(spacing: 12) {
-                        Image(systemName: "doc.text")
-                            .foregroundStyle(.blue)
-                            .frame(width: 24)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(commonQuizName(result.quizId))
-                            Text(studentName(result.studentId, result.classSessionId))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 3) {
-                            Text(scoreText(result.scoreText, result.resultText))
-                                .font(.subheadline.weight(.semibold))
-                            if let completedAt = result.completedAt ?? result.updatedAt {
-                                Text(formatEasternTime(completedAt))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var finalExamSection: some View {
-        Section("Overall Exam Grades") {
-            let rows = dashboard?.finalResults ?? []
-            if rows.isEmpty {
-                Text("Overall grades will appear after FlexiQuiz submits the final exam.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(rows) { result in
-                    HStack(spacing: 12) {
-                        Image(systemName: result.passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
-                            .foregroundStyle(result.passed == false ? .red : .green)
-                            .frame(width: 24)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(studentName(result.studentId, result.classSessionId))
-                            Text(result.quizName ?? commonQuizName(result.quizId))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 3) {
-                            Text(scoreText(result.scoreText, result.resultText))
-                                .font(.headline)
-                                .foregroundStyle(result.passed == false ? .red : .green)
-                            if let completedAt = result.completedAt ?? result.updatedAt {
-                                Text(formatEasternTime(completedAt))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private func studentDetail(_ student: ClassManagerAPIClient.DashboardStudent) -> some View {
         NavigationStack {
             List {
@@ -359,6 +288,61 @@ struct InstructorDashboardView: View {
                     }
                     if let checkOut = student.checkOutAt {
                         Label("Checked out \(formatEasternTime(checkOut))", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                }
+
+                Section("Submitted Quiz Attempts") {
+                    let attempts = quizResults(for: student)
+                    if attempts.isEmpty {
+                        Text("No submitted quiz attempts yet.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(attempts) { result in
+                            HStack(spacing: 12) {
+                                Image(systemName: "doc.text")
+                                    .foregroundStyle(.blue)
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(commonQuizName(result.quizId))
+                                    if let completedAt = result.completedAt ?? result.updatedAt {
+                                        Text(formatEasternTime(completedAt))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Text(scoreText(result.scoreText, result.resultText))
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                        }
+                    }
+                }
+
+                Section("Exam Results") {
+                    let results = finalResults(for: student)
+                    if results.isEmpty {
+                        Text("No overall exam result yet.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(results) { result in
+                            HStack(spacing: 12) {
+                                Image(systemName: result.passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
+                                    .foregroundStyle(result.passed == false ? .red : .green)
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(result.quizName ?? commonQuizName(result.quizId))
+                                    if let completedAt = result.completedAt ?? result.updatedAt {
+                                        Text(formatEasternTime(completedAt))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Text(scoreText(result.scoreText, result.resultText))
+                                    .font(.headline)
+                                    .foregroundStyle(result.passed == false ? .red : .green)
+                            }
+                        }
                     }
                 }
 
@@ -449,6 +433,9 @@ struct InstructorDashboardView: View {
             return
         }
 
+        await MainActor.run { busy = true }
+        defer { Task { @MainActor in busy = false } }
+
         do {
             _ = try await ClassManagerAPIClient.shared.markSkillsOpened(
                 studentId: student.studentId,
@@ -459,8 +446,16 @@ struct InstructorDashboardView: View {
             await MainActor.run { notice = "Could not log skills verification." }
         }
 
+        let aiComment = await CFAICommentGenerator.generateCommentWithRetry(
+            studentName: student.fullName.isEmpty ? student.studentId : student.fullName,
+            courseTitle: student.courseTitle,
+            context: "skills validation",
+            studentId: student.studentId,
+            classSessionId: student.classSessionId
+        )
+
         await MainActor.run {
-            skillsURL = buildSkillsURL(for: student)
+            skillsURL = buildSkillsURL(for: student, aiComment: aiComment)
             selectedStudent = nil
         }
         await refresh()
@@ -491,7 +486,7 @@ struct InstructorDashboardView: View {
         }
     }
 
-    private func buildSkillsURL(for student: ClassManagerAPIClient.DashboardStudent) -> URL? {
+    private func buildSkillsURL(for student: ClassManagerAPIClient.DashboardStudent, aiComment: String) -> URL? {
         guard var comps = URLComponents(string: "https://form.jotform.com/\(config.skillsFormId)") else { return nil }
         var items: [URLQueryItem] = []
         func add(_ name: String, _ value: String?) {
@@ -505,7 +500,7 @@ struct InstructorDashboardView: View {
         add("studentEmail", student.email)
         add("instructorFirst", instructor.fullName)
         add("instructor6digit", instructor.personId)
-        add("theseComments", "Instructor skills verification opened from the ClassManager dashboard.")
+        add("theseComments", aiComment)
         addDateQueryItems(student.courseDate, to: &items)
         comps.queryItems = items
         return comps.url
@@ -535,6 +530,18 @@ struct InstructorDashboardView: View {
             $0.studentId == studentId && (classSessionId == nil || $0.classSessionId == classSessionId)
         }
         return match?.fullName.isEmpty == false ? match!.fullName : studentId
+    }
+
+    private func quizResults(for student: ClassManagerAPIClient.DashboardStudent) -> [ClassManagerAPIClient.DashboardQuizResult] {
+        (dashboard?.quizResults ?? []).filter {
+            $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
+        }
+    }
+
+    private func finalResults(for student: ClassManagerAPIClient.DashboardStudent) -> [ClassManagerAPIClient.DashboardFinalResult] {
+        (dashboard?.finalResults ?? []).filter {
+            $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
+        }
     }
 
     private func scoreText(_ score: String?, _ result: String?) -> String {
