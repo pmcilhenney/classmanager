@@ -13,16 +13,31 @@ struct InstructorPhoneView: View {
     @State private var selectedReviewQuiz: QuizInfo?
     @State private var busy = false
     @State private var notice: String?
+    @State private var instructorSession: ClassManagerAPIClient.InstructorScanResponse?
     @StateObject private var progressStore = CKProgressStore()
 
     var body: some View {
+        if let instructorSession {
+            InstructorDashboardView(
+                config: config,
+                jotform: jotform,
+                flexi: flexi,
+                instructor: instructorSession.instructor,
+                attendance: instructorSession.attendance
+            )
+        } else {
+            instructorLoginView
+        }
+    }
+
+    private var instructorLoginView: some View {
         NavigationStack {
             List {
                 Section {
                     Button {
                         showingScanner = true
                     } label: {
-                        Label("Scan Student QR", systemImage: "qrcode.viewfinder")
+                        Label("Scan Instructor QR", systemImage: "qrcode.viewfinder")
                             .font(.headline)
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
@@ -120,7 +135,7 @@ struct InstructorPhoneView: View {
                     }
                 } else {
                     Section {
-                        Text("Scan a student QR code to view class progress and instructor actions.")
+                        Text("Scan your instructor QR code to start the dashboard and log your attendance.")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -136,7 +151,7 @@ struct InstructorPhoneView: View {
             .sheet(isPresented: $showingScanner) {
                 QRScannerView { code in
                     showingScanner = false
-                    Task { await loadStudent(from: code) }
+                    Task { await loadInstructor(from: code) }
                 }
             }
             .sheet(isPresented: $showingSessionPicker) {
@@ -190,6 +205,30 @@ struct InstructorPhoneView: View {
                 set: { if !$0 { notice = nil } }
             )) {
                 Button("OK", role: .cancel) {}
+            }
+        }
+    }
+
+    private func loadInstructor(from qrString: String) async {
+        guard let personId = InstructorQRPayload.personId(from: qrString) else {
+            await MainActor.run { notice = "That QR code is not an instructor access code." }
+            return
+        }
+
+        await MainActor.run {
+            busy = true
+            notice = nil
+        }
+        defer { Task { @MainActor in busy = false } }
+
+        do {
+            let session = try await ClassManagerAPIClient.shared.scanInstructor(personId: personId)
+            await MainActor.run {
+                instructorSession = session
+            }
+        } catch {
+            await MainActor.run {
+                notice = "Could not start instructor dashboard."
             }
         }
     }

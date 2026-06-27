@@ -44,6 +44,62 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func scanInstructor(personId: String) async throws -> InstructorScanResponse {
+        try await send(
+            path: "/instructor/scan",
+            method: "POST",
+            body: InstructorScanRequest(
+                personId: personId,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
+    func fetchInstructorDashboard(limit: Int = 100) async throws -> InstructorDashboardResponse {
+        try await send(
+            path: "/instructor/dashboard",
+            method: "GET",
+            queryItems: [URLQueryItem(name: "limit", value: String(limit))]
+        )
+    }
+
+    func resetStudentProgress(
+        personId: String,
+        studentId: String,
+        classSessionId: String,
+        confirmation: String
+    ) async throws -> StudentResetResponse {
+        try await send(
+            path: "/instructor/student/reset",
+            method: "POST",
+            body: StudentResetRequest(
+                personId: personId,
+                studentId: studentId,
+                classSessionId: classSessionId,
+                confirmation: confirmation,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
+    @discardableResult
+    func markSkillsOpened(
+        studentId: String,
+        classSessionId: String,
+        instructorPersonId: String?
+    ) async throws -> SkillsOpenedResponse {
+        try await send(
+            path: "/skills/opened",
+            method: "POST",
+            body: SkillsOpenedRequest(
+                studentId: studentId,
+                classSessionId: classSessionId,
+                instructorPersonId: instructorPersonId,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     @discardableResult
     func registerDeviceToken(_ token: String, apnsEnvironment: String) async throws -> DeviceRegistrationResponse {
         try await send(
@@ -313,6 +369,134 @@ extension ClassManagerAPIClient {
         let fullName: String
         let email: String
         let oemsId: String
+    }
+
+    struct InstructorScanRequest: Encodable {
+        let personId: String
+        let deviceId: String?
+    }
+
+    struct InstructorScanResponse: Decodable {
+        let ok: Bool
+        let instructor: InstructorDashboardInstructor
+        let attendance: InstructorAttendance
+    }
+
+    struct InstructorDashboardInstructor: Decodable, Identifiable, Hashable {
+        let personId: String
+        let fullName: String
+
+        var id: String { personId }
+    }
+
+    struct InstructorAttendance: Decodable, Hashable {
+        let id: String
+        let checkedInAt: String
+    }
+
+    struct InstructorDashboardResponse: Decodable {
+        let ok: Bool
+        let generatedAt: String
+        let students: [DashboardStudent]
+        let quizResults: [DashboardQuizResult]
+        let finalResults: [DashboardFinalResult]
+        let skillsVerifications: [DashboardSkillsVerification]
+    }
+
+    struct DashboardStudent: Decodable, Identifiable, Hashable {
+        let studentId: String
+        let classSessionId: String
+        let firstName: String
+        let lastName: String
+        let email: String?
+        let oemsId: String?
+        let courseTitle: String
+        let courseDate: String?
+        let courseId: String?
+        let didCheckIn: Bool
+        let didCheckOut: Bool
+        let didOpenSkills: Bool
+        let didOpenQuiz: Bool
+        let checkInAt: String?
+        let checkOutAt: String?
+        let updatedAt: String?
+
+        var id: String { "\(classSessionId):\(studentId)" }
+        var fullName: String { "\(firstName) \(lastName)".trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+
+    struct DashboardQuizResult: Decodable, Identifiable, Hashable {
+        let studentId: String?
+        let classSessionId: String?
+        let quizId: String?
+        let resultText: String?
+        let scoreText: String?
+        let passed: Bool?
+        let completedAt: String?
+        let updatedAt: String?
+
+        var id: String { [studentId, classSessionId, quizId, completedAt, updatedAt].compactMap { $0 }.joined(separator: ":") }
+    }
+
+    struct DashboardFinalResult: Decodable, Identifiable, Hashable {
+        let studentId: String?
+        let classSessionId: String?
+        let quizId: String?
+        let quizName: String?
+        let responseId: String?
+        let scoreText: String?
+        let resultText: String?
+        let passed: Bool?
+        let percentageScore: Double?
+        let points: Double?
+        let availablePoints: Double?
+        let completedAt: String?
+        let updatedAt: String?
+
+        var id: String { [studentId, classSessionId, quizId, responseId, completedAt].compactMap { $0 }.joined(separator: ":") }
+    }
+
+    struct DashboardSkillsVerification: Decodable, Identifiable, Hashable {
+        let studentId: String?
+        let classSessionId: String?
+        let instructorPersonId: String?
+        let openedAt: String?
+        let completedAt: String?
+        let updatedAt: String?
+
+        var id: String { [studentId, classSessionId, openedAt].compactMap { $0 }.joined(separator: ":") }
+    }
+
+    struct StudentResetRequest: Encodable {
+        let personId: String
+        let studentId: String
+        let classSessionId: String
+        let confirmation: String
+        let deviceId: String?
+    }
+
+    struct StudentResetResponse: Decodable {
+        let ok: Bool
+        let deleted: DeletedStudentProgress
+    }
+
+    struct DeletedStudentProgress: Decodable {
+        let finalExamResults: Int
+        let quizAttempts: Int
+        let skillsVerifications: Int
+        let progressRows: Int
+    }
+
+    struct SkillsOpenedRequest: Encodable {
+        let studentId: String
+        let classSessionId: String
+        let instructorPersonId: String?
+        let deviceId: String?
+    }
+
+    struct SkillsOpenedResponse: Decodable {
+        let ok: Bool
+        let updatedAt: String
     }
 
     struct AttendanceSubmitRequest: Encodable {

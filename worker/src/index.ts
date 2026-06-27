@@ -261,6 +261,22 @@ export default {
         return await instructorAuth(request, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/instructor/scan") {
+        return await instructorScan(request, env);
+      }
+
+      if (request.method === "GET" && url.pathname === "/instructor/dashboard") {
+        return await instructorDashboard(url, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/instructor/student/reset") {
+        return await instructorResetStudent(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/skills/opened") {
+        return await skillsOpened(request, env);
+      }
+
       if (request.method === "GET" && url.pathname.startsWith("/progress/")) {
         return await getProgress(url, env);
       }
@@ -414,6 +430,272 @@ async function instructorAuth(request: Request, env: Env): Promise<Response> {
   }
 
   return json({ error: "instructor_not_authorized" }, 404);
+}
+
+async function instructorScan(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const personId = stringField(body, "personId");
+  const deviceId = stringField(body, "deviceId");
+  const now = new Date().toISOString();
+
+  if (!personId) {
+    return json({ error: "missing_person_id" }, 400);
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO instructors (person_id, full_name, updated_at)
+     VALUES (?1, ?2, ?3)
+     ON CONFLICT(person_id) DO UPDATE SET updated_at = excluded.updated_at`
+  ).bind(personId, knownInstructorName(personId) ?? "Instructor", now).run();
+
+  const attendanceId = `${personId}:${now.slice(0, 10)}`;
+  await env.DB.prepare(
+    `INSERT INTO instructor_attendance (id, person_id, device_id, checked_in_at, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?4)
+     ON CONFLICT(id) DO UPDATE SET
+       device_id = COALESCE(excluded.device_id, instructor_attendance.device_id),
+       updated_at = excluded.updated_at`
+  ).bind(attendanceId, personId, deviceId ?? null, now).run();
+
+  await audit(env, "instructor.scan", {
+    actorId: personId,
+    deviceId,
+    payload: { attendanceId }
+  });
+
+  return json({
+    ok: true,
+    instructor: {
+      personId,
+      fullName: knownInstructorName(personId) ?? "Instructor"
+    },
+    attendance: {
+      id: attendanceId,
+      checkedInAt: now
+    }
+  });
+}
+
+async function instructorDashboard(url: URL, env: Env): Promise<Response> {
+  const limit = Math.min(Math.max(numberFromUnknown(url.searchParams.get("limit")) ?? 100, 1), 250);
+  const rows = await env.DB.prepare(
+    `SELECT
+       sp.student_id, sp.class_session_id, sp.did_check_in, sp.did_check_out,
+       sp.did_open_skills, sp.did_open_quiz, sp.check_in_at, sp.check_out_at,
+       sp.updated_at AS progress_updated_at,
+       s.first_name, s.last_name, s.email, s.oems_id,
+       cs.course_title, cs.course_date, cs.course_id
+     FROM student_progress sp
+     JOIN students s ON s.id = sp.student_id
+     JOIN class_sessions cs ON cs.id = sp.class_session_id
+     ORDER BY sp.updated_at DESC
+     LIMIT ?1`
+  ).bind(limit).all<JsonRecord>();
+
+  const attempts = await env.DB.prepare(
+    `SELECT qa.student_id, qa.class_session_id, qa.quiz_id, qa.result_text,
+            qa.score_text, qa.passed, qa.completed_at, qa.updated_at
+     FROM quiz_attempts qa
+     ORDER BY COALESCE(qa.completed_at, qa.updated_at) DESC
+     LIMIT 500`
+  ).all<JsonRecord>();
+
+  const finals = await env.DB.prepare(
+    `SELECT student_id, class_session_id, quiz_id, quiz_name, response_id,
+            score_text, result_text, passed, percentage_score, points,
+            available_points, completed_at, updated_at
+     FROM final_exam_results
+     ORDER BY COALESCE(completed_at, updated_at) DESC
+     LIMIT 250`
+  ).all<JsonRecord>();
+
+  const skills = await env.DB.prepare(
+    `SELECT student_id, class_session_id, instructor_person_id, opened_at,
+            completed_at, updated_at
+     FROM skills_verifications
+     ORDER BY opened_at DESC
+     LIMIT 250`
+  ).all<JsonRecord>();
+
+  return json({
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    students: (rows.results ?? []).map(dashboardStudent),
+    quizResults: (attempts.results ?? []).map(dashboardQuizResult),
+    finalResults: (finals.results ?? []).map(dashboardFinalResult),
+    skillsVerifications: (skills.results ?? []).map(dashboardSkillsVerification)
+  });
+}
+
+async function instructorResetStudent(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const personId = stringField(body, "personId");
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const confirmation = stringField(body, "confirmation");
+  const deviceId = stringField(body, "deviceId");
+
+  if (!personId || !studentId || !classSessionId) {
+    return json({ error: "missing_reset_fields" }, 400);
+  }
+  if (confirmation !== "RESET STUDENT") {
+    return json({ error: "reset_confirmation_required" }, 400);
+  }
+
+  const deletedFinals = await env.DB.prepare(
+    `DELETE FROM final_exam_results WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(studentId, classSessionId).run();
+  const deletedAttempts = await env.DB.prepare(
+    `DELETE FROM quiz_attempts WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(studentId, classSessionId).run();
+  const deletedSkills = await env.DB.prepare(
+    `DELETE FROM skills_verifications WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(studentId, classSessionId).run();
+  const deletedProgress = await env.DB.prepare(
+    `DELETE FROM student_progress WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(studentId, classSessionId).run();
+  await env.DB.prepare(
+    `UPDATE device_tokens
+     SET student_id = NULL, class_session_id = NULL, email = NULL, flexiquiz_user_id = NULL,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+     WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(studentId, classSessionId).run();
+
+  await audit(env, "instructor.student_reset", {
+    studentId,
+    classSessionId,
+    actorId: personId,
+    deviceId,
+    payload: {
+      deletedFinals: deletedFinals.meta.changes,
+      deletedAttempts: deletedAttempts.meta.changes,
+      deletedSkills: deletedSkills.meta.changes,
+      deletedProgress: deletedProgress.meta.changes
+    }
+  });
+
+  return json({
+    ok: true,
+    deleted: {
+      finalExamResults: deletedFinals.meta.changes,
+      quizAttempts: deletedAttempts.meta.changes,
+      skillsVerifications: deletedSkills.meta.changes,
+      progressRows: deletedProgress.meta.changes
+    }
+  });
+}
+
+async function skillsOpened(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const instructorPersonId = stringField(body, "instructorPersonId");
+  const now = new Date().toISOString();
+
+  if (!studentId || !classSessionId) {
+    return json({ error: "missing_skills_fields" }, 400);
+  }
+
+  await writeProgress(env, {
+    studentId,
+    classSessionId,
+    didOpenSkills: true,
+    deviceId: stringField(body, "deviceId")
+  });
+
+  await env.DB.prepare(
+    `INSERT INTO skills_verifications (
+      id, student_id, class_session_id, instructor_person_id, opened_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+    ON CONFLICT(id) DO UPDATE SET
+      instructor_person_id = COALESCE(excluded.instructor_person_id, skills_verifications.instructor_person_id),
+      updated_at = excluded.updated_at`
+  ).bind(
+    `${classSessionId}:${studentId}:skills`,
+    studentId,
+    classSessionId,
+    instructorPersonId ?? null,
+    now
+  ).run();
+
+  await audit(env, "skills.opened", {
+    studentId,
+    classSessionId,
+    actorId: instructorPersonId,
+    deviceId: stringField(body, "deviceId")
+  });
+
+  return json({ ok: true, updatedAt: now });
+}
+
+function knownInstructorName(personId: string): string | undefined {
+  const known: Record<string, string> = {
+    "704bbc3f-9503-44e5-a442-e6cbf21c4ebe": "Patrick McIlhenney"
+  };
+  return known[personId];
+}
+
+function dashboardStudent(row: JsonRecord): JsonRecord {
+  return {
+    studentId: stringField(row, "student_id"),
+    classSessionId: stringField(row, "class_session_id"),
+    firstName: stringField(row, "first_name") ?? "",
+    lastName: stringField(row, "last_name") ?? "",
+    email: stringField(row, "email"),
+    oemsId: stringField(row, "oems_id"),
+    courseTitle: stringField(row, "course_title") ?? "Class Session",
+    courseDate: stringField(row, "course_date"),
+    courseId: stringField(row, "course_id"),
+    didCheckIn: boolFromUnknown(row.did_check_in) ?? false,
+    didCheckOut: boolFromUnknown(row.did_check_out) ?? false,
+    didOpenSkills: boolFromUnknown(row.did_open_skills) ?? false,
+    didOpenQuiz: boolFromUnknown(row.did_open_quiz) ?? false,
+    checkInAt: stringField(row, "check_in_at"),
+    checkOutAt: stringField(row, "check_out_at"),
+    updatedAt: stringField(row, "progress_updated_at")
+  };
+}
+
+function dashboardQuizResult(row: JsonRecord): JsonRecord {
+  return {
+    studentId: stringField(row, "student_id"),
+    classSessionId: stringField(row, "class_session_id"),
+    quizId: stringField(row, "quiz_id"),
+    resultText: stringField(row, "result_text"),
+    scoreText: stringField(row, "score_text"),
+    passed: boolFromUnknown(row.passed),
+    completedAt: stringField(row, "completed_at"),
+    updatedAt: stringField(row, "updated_at")
+  };
+}
+
+function dashboardFinalResult(row: JsonRecord): JsonRecord {
+  return {
+    studentId: stringField(row, "student_id"),
+    classSessionId: stringField(row, "class_session_id"),
+    quizId: stringField(row, "quiz_id"),
+    quizName: stringField(row, "quiz_name"),
+    responseId: stringField(row, "response_id"),
+    scoreText: stringField(row, "score_text"),
+    resultText: stringField(row, "result_text"),
+    passed: boolFromUnknown(row.passed),
+    percentageScore: numberFromUnknown(row.percentage_score),
+    points: numberFromUnknown(row.points),
+    availablePoints: numberFromUnknown(row.available_points),
+    completedAt: stringField(row, "completed_at"),
+    updatedAt: stringField(row, "updated_at")
+  };
+}
+
+function dashboardSkillsVerification(row: JsonRecord): JsonRecord {
+  return {
+    studentId: stringField(row, "student_id"),
+    classSessionId: stringField(row, "class_session_id"),
+    instructorPersonId: stringField(row, "instructor_person_id"),
+    openedAt: stringField(row, "opened_at"),
+    completedAt: stringField(row, "completed_at"),
+    updatedAt: stringField(row, "updated_at")
+  };
 }
 
 async function fetchJotformSubmission(env: Env, submissionId: string): Promise<JsonRecord> {

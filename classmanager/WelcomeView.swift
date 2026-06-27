@@ -62,6 +62,7 @@ struct WelcomeView: View {
     @State private var showReview = false
     @State private var navigateToMain = false
     @State private var acceptedAttendee: RosterAttendee?
+    @State private var instructorSession: ClassManagerAPIClient.InstructorScanResponse?
     @State private var errorText: String?
     @State private var busy = false
 
@@ -93,7 +94,15 @@ struct WelcomeView: View {
 
     var body: some View {
         Group {
-            if navigateToMain, let att = acceptedAttendee {
+            if let instructorSession {
+                InstructorDashboardView(
+                    config: config,
+                    jotform: jotform,
+                    flexi: flexi,
+                    instructor: instructorSession.instructor,
+                    attendance: instructorSession.attendance
+                )
+            } else if navigateToMain, let att = acceptedAttendee {
                 // Main 2-panel view
                 MainMenuView(
                     config: config,
@@ -240,6 +249,11 @@ struct WelcomeView: View {
         let submissionId = qrString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !submissionId.isEmpty, !isScanningBusy else { return }
 
+        if let personId = InstructorQRPayload.personId(from: submissionId) {
+            await handleInstructorScan(personId: personId)
+            return
+        }
+
         isScanningBusy = true
         await MainActor.run {
             errorText = nil
@@ -280,6 +294,35 @@ struct WelcomeView: View {
         } catch {
             await MainActor.run {
                 errorText = "Could not load registration data. Please try again."
+            }
+        }
+    }
+
+    private func handleInstructorScan(personId: String) async {
+        guard !isScanningBusy else { return }
+
+        isScanningBusy = true
+        await MainActor.run {
+            errorText = nil
+            busy = true
+        }
+        defer {
+            Task { @MainActor in
+                busy = false
+                isScanningBusy = false
+            }
+        }
+
+        do {
+            let session = try await ClassManagerAPIClient.shared.scanInstructor(personId: personId)
+            await MainActor.run {
+                instructorSession = session
+                acceptedAttendee = nil
+                navigateToMain = false
+            }
+        } catch {
+            await MainActor.run {
+                errorText = "Could not start instructor dashboard."
             }
         }
     }
