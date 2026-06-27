@@ -29,6 +29,10 @@ struct QuizSelectionView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
+                    if let finalResult = progressStore.progress.finalExamResult {
+                        finalExamBanner(finalResult)
+                    }
+
                     ForEach(quizURLs) { quiz in
                         let locked = isLocked(quiz)
                         let completed = completedQuizzes.contains(quiz.id)
@@ -125,6 +129,41 @@ struct QuizSelectionView: View {
         }
     }
 
+    private func finalExamBanner(_ result: ClassManagerAPIClient.FinalExamResult) -> some View {
+        let passed = result.passed
+        let color: Color = passed == false ? .red : .green
+        let status = passed == false ? "Final Exam Failed" : (passed == true ? "Final Exam Passed" : "Final Exam Result")
+        let score = result.scoreText ?? result.percentageScore.map { "\(Int($0.rounded()))%" }
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
+                    .foregroundStyle(color)
+                Text(status)
+                    .font(.headline)
+                Spacer()
+                if let score {
+                    Text(score)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(color)
+                }
+            }
+            if passed == false {
+                Text("Review and retest required for scores below 70%.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.red)
+            }
+            if let completedAt = result.completedAt {
+                Label(formatEasternTime(completedAt), systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+    }
+
     private func isLocked(_ quiz: QuizInfo) -> Bool {
         guard quiz.number > 1 else { return false }
         let previousNumber = quiz.number - 1
@@ -139,6 +178,20 @@ struct QuizSelectionView: View {
             return "Section submitted"
         }
         return result
+    }
+
+    private func formatEasternTime(_ rawValue: String) -> String {
+        let isoWithFractionalSeconds = ISO8601DateFormatter()
+        isoWithFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso = ISO8601DateFormatter()
+        let date = isoWithFractionalSeconds.date(from: rawValue) ?? iso.date(from: rawValue)
+        guard let date else { return rawValue }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York")
+        formatter.dateFormat = "MMM d, yyyy h:mm a z"
+        return formatter.string(from: date)
     }
 
     private func attemptSelect(_ quiz: QuizInfo) {

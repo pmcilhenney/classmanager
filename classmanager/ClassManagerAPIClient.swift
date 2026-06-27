@@ -44,6 +44,20 @@ final class ClassManagerAPIClient {
         )
     }
 
+    @discardableResult
+    func registerDeviceToken(_ token: String, apnsEnvironment: String) async throws -> DeviceRegistrationResponse {
+        try await send(
+            path: "/devices/register",
+            method: "POST",
+            body: DeviceRegistrationRequest(
+                token: token,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString ?? "unknown-device",
+                apnsEnvironment: apnsEnvironment,
+                platform: "ios"
+            )
+        )
+    }
+
     func assignQuiz(
         attendee: RosterAttendee,
         email: String,
@@ -281,6 +295,18 @@ extension ClassManagerAPIClient {
         let instructor: InstructorPayload
     }
 
+    struct DeviceRegistrationRequest: Encodable {
+        let token: String
+        let deviceId: String
+        let apnsEnvironment: String
+        let platform: String
+    }
+
+    struct DeviceRegistrationResponse: Decodable {
+        let ok: Bool
+        let updatedAt: String
+    }
+
     struct InstructorPayload: Decodable {
         let fullName: String
         let email: String
@@ -384,6 +410,7 @@ extension ClassManagerAPIClient {
         let updatedAt: Date?
         let completedQuizIDs: [String]
         let quizResults: [String: String]
+        let finalExamResult: FinalExamResult?
 
         enum CodingKeys: String, CodingKey {
             case didCheckIn = "did_check_in"
@@ -394,6 +421,7 @@ extension ClassManagerAPIClient {
             case updatedAt = "updated_at"
             case completedQuizIDs = "completed_quiz_ids"
             case quizResults = "quiz_results"
+            case finalExamResult = "final_exam_result"
         }
 
         init(from decoder: Decoder) throws {
@@ -406,7 +434,22 @@ extension ClassManagerAPIClient {
             updatedAt = try container.decodeDateIfPresent(forKey: .updatedAt)
             completedQuizIDs = try container.decodeIfPresent([String].self, forKey: .completedQuizIDs) ?? []
             quizResults = try container.decodeIfPresent([String: String].self, forKey: .quizResults) ?? [:]
+            finalExamResult = try container.decodeIfPresent(FinalExamResult.self, forKey: .finalExamResult)
         }
+    }
+
+    struct FinalExamResult: Codable, Equatable {
+        let quizId: String
+        let quizName: String?
+        let responseId: String?
+        let scoreText: String?
+        let resultText: String?
+        let passed: Bool?
+        let completedAt: String?
+        let reportUrl: URL?
+        let percentageScore: Double?
+        let points: Double?
+        let availablePoints: Double?
     }
 
     struct ProgressSaveResponse: Decodable {

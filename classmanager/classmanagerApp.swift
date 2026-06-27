@@ -1,16 +1,44 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
-class AppDelegate: NSObject, UIApplicationDelegate {
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            #if DEBUG
+            if let error { print("[Push] authorization failed: \(error.localizedDescription)") }
+            print("[Push] authorization granted: \(granted)")
+            #endif
+            guard granted else { return }
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
         return true
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        #if DEBUG
         let tokenParts = deviceToken.map { String(format: "%02.2hhx", $0) }
-        print("[Push] registered device token: \(tokenParts.joined())")
+        let token = tokenParts.joined()
+        #if DEBUG
+        let apnsEnvironment = "sandbox"
+        print("[Push] registered device token: \(token)")
+        #else
+        let apnsEnvironment = "prod"
         #endif
+        Task {
+            do {
+                _ = try await ClassManagerAPIClient.shared.registerDeviceToken(token, apnsEnvironment: apnsEnvironment)
+                #if DEBUG
+                print("[Push] uploaded device token to ClassManager Worker")
+                #endif
+            } catch {
+                #if DEBUG
+                print("[Push] token upload failed: \(error.localizedDescription)")
+                #endif
+            }
+        }
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
@@ -20,7 +48,25 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        completionHandler(.noData)
+        NotificationCenter.default.post(name: .ckRemoteNotificationReceived, object: nil, userInfo: userInfo)
+        completionHandler(.newData)
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        NotificationCenter.default.post(
+            name: .ckRemoteNotificationReceived,
+            object: nil,
+            userInfo: notification.request.content.userInfo
+        )
+        return [.banner, .sound, .list]
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        NotificationCenter.default.post(
+            name: .ckRemoteNotificationReceived,
+            object: nil,
+            userInfo: response.notification.request.content.userInfo
+        )
     }
 }
 

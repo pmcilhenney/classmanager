@@ -58,6 +58,12 @@ struct InstructorPhoneView: View {
                         progressRow("Checked Out", systemImage: "rectangle.portrait.and.arrow.right", isDone: progressStore.progress.didCheckOut)
                     }
 
+                    if let finalResult = progressStore.progress.finalExamResult {
+                        Section("Final Exam") {
+                            finalExamRow(finalResult)
+                        }
+                    }
+
                     Section("Exams") {
                         let quizzes = quizzesForCourse(attendee.courseType)
                         if quizzes.isEmpty {
@@ -186,6 +192,52 @@ struct InstructorPhoneView: View {
                 Button("OK", role: .cancel) {}
             }
         }
+    }
+
+    private func finalExamRow(_ result: ClassManagerAPIClient.FinalExamResult) -> some View {
+        let passed = result.passed
+        let score = result.scoreText ?? result.percentageScore.map { "\(Int($0.rounded()))%" }
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(
+                    passed == false ? "Failed" : (passed == true ? "Passed" : "Result Ready"),
+                    systemImage: passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill"
+                )
+                .font(.headline)
+                .foregroundStyle(passed == false ? .red : .green)
+                Spacer()
+                if let score {
+                    Text(score)
+                        .font(.headline)
+                        .foregroundStyle(passed == false ? .red : .green)
+                }
+            }
+            if passed == false {
+                Text("Review and retest required for scores below 70%.")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.red)
+            }
+            if let completedAt = result.completedAt {
+                Label(formatEasternTime(completedAt), systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func formatEasternTime(_ rawValue: String) -> String {
+        let isoWithFractionalSeconds = ISO8601DateFormatter()
+        isoWithFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso = ISO8601DateFormatter()
+        let date = isoWithFractionalSeconds.date(from: rawValue) ?? iso.date(from: rawValue)
+        guard let date else { return rawValue }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York")
+        formatter.dateFormat = "MMM d, yyyy h:mm a z"
+        return formatter.string(from: date)
     }
 
     private func progressRow(_ title: String, systemImage: String, isDone: Bool) -> some View {

@@ -26,6 +26,7 @@ struct CKProgress: Codable, Equatable {
     var quizResults: [String: String] = [:]
     // Map of quizId -> review token/id (extracted from results page) so we can open review later
     var quizReviewIds: [String: String] = [:]
+    var finalExamResult: ClassManagerAPIClient.FinalExamResult? = nil
 }
 
 /// Observable store that reads/writes a single CloudKit record keyed by (oemsId, courseDate).
@@ -307,6 +308,9 @@ final class CKProgressStore: ObservableObject {
             merged.completedQuizIDs = Array(Set(merged.completedQuizIDs).union(remote.completedQuizIDs))
             for (quizId, result) in remote.quizResults {
                 merged.quizResults[quizId] = result
+            }
+            if let finalExamResult = remote.finalExamResult {
+                merged.finalExamResult = finalExamResult
             }
             if let remoteUpdatedAt = remote.updatedAt {
                 merged.updatedAt = max(merged.updatedAt, remoteUpdatedAt)

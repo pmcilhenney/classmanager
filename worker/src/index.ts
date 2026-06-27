@@ -19,6 +19,11 @@ export interface Env {
   REPLY_TO_ADDRESS?: string;
   ACADEMY_RMS_BASE_URL?: string;
   ACADEMY_RMS_ATTENDANCE_SECRET?: string;
+  APNS_KEY?: string;
+  APNS_PRIVATE_KEY?: string;
+  APNS_KEY_ID?: string;
+  APNS_TEAM_ID?: string;
+  APNS_BUNDLE_ID?: string;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -75,6 +80,20 @@ type QuizReviewPayload = {
   warnings: string[];
 };
 
+type FinalExamResult = {
+  quizId: string;
+  quizName?: string;
+  responseId?: string;
+  scoreText?: string;
+  resultText?: string;
+  passed?: boolean;
+  completedAt?: string;
+  reportUrl?: string;
+  percentageScore?: number;
+  points?: number;
+  availablePoints?: number;
+};
+
 type StudentCommentAnalytics = {
   averageScore?: number;
   completedQuizCount: number;
@@ -95,6 +114,9 @@ const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store"
 };
+
+let cachedApnsJwt = "";
+let cachedApnsJwtExp = 0;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -136,6 +158,10 @@ export default {
         return await patchProgress(request, url, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/devices/register") {
+        return await registerDevice(request, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/attendance/submit") {
         return await submitAttendance(request, env);
       }
@@ -146,6 +172,10 @@ export default {
 
       if (request.method === "GET" && url.pathname.startsWith("/quiz/review/")) {
         return await quizReview(url, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/rms/flexiquiz-result") {
+        return await rmsFlexiQuizResult(request, env);
       }
 
       if (request.method === "GET" && url.pathname.startsWith("/quiz/metadata/")) {
@@ -486,8 +516,10 @@ async function getProgress(url: URL, env: Env): Promise<Response> {
     quizResults[quizId] = quizResultSummary(attempt);
   }
 
+  const finalExamResult = await latestFinalExamResult(env, studentId, classSessionId);
+
   const progress = row ? { ...row } : null;
-  if (progress || completedQuizIds.length > 0) {
+  if (progress || completedQuizIds.length > 0 || finalExamResult) {
     return json({
       classSessionId,
       studentId,
@@ -501,12 +533,46 @@ async function getProgress(url: URL, env: Env): Promise<Response> {
           updated_at: null
         }),
         completed_quiz_ids: completedQuizIds,
-        quiz_results: quizResults
+        quiz_results: quizResults,
+        final_exam_result: finalExamResult ?? null
       }
     });
   }
 
   return json({ classSessionId, studentId, progress: null });
+}
+
+async function latestFinalExamResult(
+  env: Env,
+  studentId: string,
+  classSessionId: string
+): Promise<FinalExamResult | undefined> {
+  const row = await env.DB.prepare(
+    `SELECT quiz_id, quiz_name, response_id, score_text, result_text, passed,
+            percentage_score, points, available_points, report_url, completed_at
+     FROM final_exam_results
+     WHERE student_id = ?1 AND class_session_id = ?2
+     ORDER BY COALESCE(completed_at, updated_at) DESC
+     LIMIT 1`
+  ).bind(studentId, classSessionId).first<JsonRecord>();
+
+  if (!row) {
+    return undefined;
+  }
+
+  return {
+    quizId: stringField(row, "quiz_id") ?? "",
+    quizName: stringField(row, "quiz_name"),
+    responseId: stringField(row, "response_id"),
+    scoreText: stringField(row, "score_text"),
+    resultText: stringField(row, "result_text"),
+    passed: boolFromUnknown(row.passed),
+    completedAt: stringField(row, "completed_at"),
+    reportUrl: stringField(row, "report_url"),
+    percentageScore: numberFromUnknown(row.percentage_score),
+    points: numberFromUnknown(row.points),
+    availablePoints: numberFromUnknown(row.available_points)
+  };
 }
 
 async function patchProgress(request: Request, url: URL, env: Env): Promise<Response> {
@@ -570,7 +636,82 @@ async function patchProgress(request: Request, url: URL, env: Env): Promise<Resp
     payload: body
   });
 
+  await touchDeviceContext(env, {
+    deviceId: stringField(body, "deviceId"),
+    studentId,
+    classSessionId,
+    email: stringField(body, "email")
+  });
+
   return json({ ok: true, id, updatedAt: now });
+}
+
+async function registerDevice(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const token = stringField(body, "token");
+  const deviceId = stringField(body, "deviceId");
+  const apnsEnvironment = normalizeApnsEnvironment(stringField(body, "apnsEnvironment"));
+  const platform = stringField(body, "platform") ?? "ios";
+
+  if (!token || !deviceId) {
+    return json({ error: "missing_device_token" }, 400);
+  }
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO device_tokens (
+      token, device_id, apns_environment, platform, created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+    ON CONFLICT(token) DO UPDATE SET
+      device_id = excluded.device_id,
+      apns_environment = excluded.apns_environment,
+      platform = excluded.platform,
+      updated_at = excluded.updated_at`
+  ).bind(token, deviceId, apnsEnvironment, platform, now).run();
+
+  await audit(env, "device.registered", {
+    deviceId,
+    payload: {
+      apnsEnvironment,
+      platform,
+      tokenSuffix: token.slice(-8)
+    }
+  });
+
+  return json({ ok: true, updatedAt: now });
+}
+
+async function touchDeviceContext(
+  env: Env,
+  input: {
+    deviceId?: string | null;
+    studentId?: string | null;
+    classSessionId?: string | null;
+    email?: string | null;
+    flexiquizUserId?: string | null;
+  }
+): Promise<void> {
+  const deviceId = input.deviceId?.trim();
+  if (!deviceId) {
+    return;
+  }
+
+  await env.DB.prepare(
+    `UPDATE device_tokens
+     SET student_id = COALESCE(?2, student_id),
+         class_session_id = COALESCE(?3, class_session_id),
+         email = COALESCE(?4, email),
+         flexiquiz_user_id = COALESCE(?5, flexiquiz_user_id),
+         updated_at = ?6
+     WHERE device_id = ?1`
+  ).bind(
+    deviceId,
+    input.studentId ?? null,
+    input.classSessionId ?? null,
+    input.email ?? null,
+    input.flexiquizUserId ?? null,
+    new Date().toISOString()
+  ).run();
 }
 
 async function submitAttendance(request: Request, env: Env): Promise<Response> {
@@ -657,6 +798,13 @@ async function submitAttendance(request: Request, env: Env): Promise<Response> {
     checkInAt: didCheckIn ? now : undefined,
     checkOutAt: didCheckOut ? now : undefined,
     deviceId
+  });
+
+  await touchDeviceContext(env, {
+    deviceId,
+    studentId,
+    classSessionId,
+    email: stringField(attendee, "email")
   });
 
   await audit(env, "attendance.submit", {
@@ -980,6 +1128,13 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
       didOpenQuiz: true,
       deviceId
     });
+    await touchDeviceContext(env, {
+      deviceId,
+      studentId,
+      classSessionId,
+      email,
+      flexiquizUserId
+    });
   }
 
   await audit(env, "quiz.assign.requested", {
@@ -1272,9 +1427,211 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
       flexiquizUserId,
       review
     }).catch((error) => console.warn("quiz attempt save failed", error));
+    await touchDeviceContext(env, {
+      deviceId,
+      studentId,
+      classSessionId,
+      email,
+      flexiquizUserId
+    });
   }
 
   return json(review);
+}
+
+async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response> {
+  if (!rmsCallbackAuthorized(request, env)) {
+    return json({ error: "unauthorized" }, 401);
+  }
+
+  const body = await readJson(request);
+  const result = recordField(body, "result") ?? body;
+  const responseId = stringField(result, "response_id") ?? stringField(result, "responseId");
+  const quizId = stringField(result, "quiz_id") ?? stringField(result, "quizId");
+  const email = stringField(result, "email_address") ?? stringField(result, "email") ?? stringField(result, "user_name");
+  const flexiquizUserId = stringField(result, "user_id") ?? stringField(result, "userId");
+
+  if (!responseId || !quizId || (!email && !flexiquizUserId)) {
+    return json({ error: "missing_flexiquiz_result_identity" }, 400);
+  }
+
+  const contexts = await matchingDeviceContexts(env, { email, flexiquizUserId });
+  const finalResult = finalExamResultFromRms(result);
+  let saved = 0;
+  let sent = 0;
+  let failed = 0;
+
+  for (const context of contexts) {
+    const studentId = stringField(context, "student_id");
+    const classSessionId = stringField(context, "class_session_id");
+    if (!studentId || !classSessionId) {
+      continue;
+    }
+
+    await saveFinalExamResult(env, {
+      ...finalResult,
+      quizId,
+      responseId,
+      studentId,
+      classSessionId,
+      email,
+      flexiquizUserId,
+      raw: result
+    });
+    saved += 1;
+
+    const token = stringField(context, "token");
+    if (!token) {
+      continue;
+    }
+    try {
+      await sendFinalExamApns(env, {
+        token,
+        apnsEnvironment: normalizeApnsEnvironment(stringField(context, "apns_environment")),
+        studentId,
+        classSessionId,
+        result: {
+          ...finalResult,
+          quizId,
+          responseId
+        }
+      });
+      sent += 1;
+      await env.DB.prepare(
+        `UPDATE device_tokens SET last_push_at = ?2, updated_at = ?2 WHERE token = ?1`
+      ).bind(token, new Date().toISOString()).run();
+    } catch (error) {
+      failed += 1;
+      await handleApnsFailure(env, token, error);
+      console.warn("final exam APNs failed", { tokenSuffix: token.slice(-8), error: String(error) });
+    }
+  }
+
+  await audit(env, "rms.flexiquiz.final_result", {
+    payload: {
+      quizId,
+      responseId,
+      email,
+      flexiquizUserId,
+      passed: finalResult.passed ?? null,
+      scoreText: finalResult.scoreText ?? null,
+      saved,
+      sent,
+      failed
+    }
+  });
+
+  return json({ ok: true, matched: contexts.length, saved, sent, failed });
+}
+
+async function matchingDeviceContexts(
+  env: Env,
+  input: { email?: string; flexiquizUserId?: string }
+): Promise<JsonRecord[]> {
+  const email = input.email?.trim().toLowerCase();
+  const flexiquizUserId = input.flexiquizUserId?.trim();
+  const rows = await env.DB.prepare(
+    `SELECT token, device_id, apns_environment, student_id, class_session_id, email, flexiquiz_user_id
+     FROM device_tokens
+     WHERE (?1 IS NOT NULL AND LOWER(COALESCE(email, '')) = ?1)
+        OR (?2 IS NOT NULL AND COALESCE(flexiquiz_user_id, '') = ?2)
+     ORDER BY updated_at DESC
+     LIMIT 20`
+  ).bind(email ?? null, flexiquizUserId ?? null).all<JsonRecord>();
+
+  const seen = new Set<string>();
+  const unique: JsonRecord[] = [];
+  for (const row of rows.results ?? []) {
+    const token = stringField(row, "token");
+    if (!token || seen.has(token)) {
+      continue;
+    }
+    seen.add(token);
+    unique.push(row);
+  }
+  return unique;
+}
+
+function finalExamResultFromRms(result: JsonRecord): FinalExamResult {
+  const percentageScore = firstNumber([result], ["percentage_score", "percentageScore"]);
+  const points = firstNumber([result], ["points"]);
+  const availablePoints = firstNumber([result], ["available_points", "availablePoints"]);
+  const scoreText = scoreTextFromSources([result]);
+  const resultText = firstText([result], ["grade", "result", "result_text", "response_status", "status"]);
+  const passed = boolFromUnknown(firstValue([result], ["passed", "pass"])) ??
+    (percentageScore !== undefined ? percentageScore >= 70 : undefined) ??
+    passStatusFromText(resultText ?? scoreText) ??
+    passStatusFromScore(scoreText);
+
+  return {
+    quizId: stringField(result, "quiz_id") ?? stringField(result, "quizId") ?? "",
+    quizName: stringField(result, "quiz_name") ?? stringField(result, "quizName"),
+    responseId: stringField(result, "response_id") ?? stringField(result, "responseId"),
+    scoreText,
+    resultText,
+    passed,
+    completedAt: stringField(result, "submitted_at") ?? stringField(result, "submittedAt") ?? stringField(result, "completed_at"),
+    reportUrl: stringField(result, "response_report_url") ?? stringField(result, "responseReportUrl"),
+    percentageScore,
+    points,
+    availablePoints
+  };
+}
+
+async function saveFinalExamResult(
+  env: Env,
+  input: FinalExamResult & {
+    studentId: string;
+    classSessionId: string;
+    email?: string;
+    flexiquizUserId?: string;
+    raw: JsonRecord;
+  }
+): Promise<void> {
+  const id = input.responseId
+    ? `${input.classSessionId}:${input.studentId}:${input.quizId}:${input.responseId}`
+    : crypto.randomUUID();
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO final_exam_results (
+      id, student_id, class_session_id, quiz_id, quiz_name, response_id,
+      flexiquiz_user_id, email, score_text, result_text, passed, percentage_score,
+      points, available_points, report_url, completed_at, raw_json, created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18)
+    ON CONFLICT(student_id, class_session_id, quiz_id, response_id) DO UPDATE SET
+      quiz_name = COALESCE(excluded.quiz_name, final_exam_results.quiz_name),
+      flexiquiz_user_id = COALESCE(excluded.flexiquiz_user_id, final_exam_results.flexiquiz_user_id),
+      email = COALESCE(excluded.email, final_exam_results.email),
+      score_text = COALESCE(excluded.score_text, final_exam_results.score_text),
+      result_text = COALESCE(excluded.result_text, final_exam_results.result_text),
+      passed = COALESCE(excluded.passed, final_exam_results.passed),
+      percentage_score = COALESCE(excluded.percentage_score, final_exam_results.percentage_score),
+      points = COALESCE(excluded.points, final_exam_results.points),
+      available_points = COALESCE(excluded.available_points, final_exam_results.available_points),
+      report_url = COALESCE(excluded.report_url, final_exam_results.report_url),
+      completed_at = COALESCE(excluded.completed_at, final_exam_results.completed_at),
+      raw_json = excluded.raw_json,
+      updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    input.studentId,
+    input.classSessionId,
+    input.quizId,
+    input.quizName ?? null,
+    input.responseId ?? null,
+    input.flexiquizUserId ?? null,
+    input.email ?? null,
+    input.scoreText ?? null,
+    input.resultText ?? null,
+    input.passed === undefined ? null : boolInt(input.passed),
+    input.percentageScore ?? null,
+    input.points ?? null,
+    input.availablePoints ?? null,
+    input.reportUrl ?? null,
+    input.completedAt ?? now,
+    JSON.stringify(input.raw),
+    now
+  ).run();
 }
 
 async function quizMetadata(url: URL, env: Env): Promise<Response> {
@@ -2465,6 +2822,17 @@ function boolFromUnknown(value: unknown): boolean | undefined {
   return undefined;
 }
 
+function numberFromUnknown(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
 function intFromUnknown(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Math.trunc(value);
@@ -2474,6 +2842,34 @@ function intFromUnknown(value: unknown): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
+}
+
+function rmsCallbackAuthorized(request: Request, env: Env): boolean {
+  const secret = (env.ACADEMY_RMS_ATTENDANCE_SECRET ?? "").trim();
+  if (!secret) {
+    return false;
+  }
+  const supplied = (
+    request.headers.get("x-classmanager-secret") ??
+    request.headers.get("x-webhook-secret") ??
+    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
+    ""
+  ).trim();
+  return timingSafeEqual(supplied, secret);
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const aBytes = encoder.encode(a);
+  const bBytes = encoder.encode(b);
+  if (aBytes.length !== bBytes.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let index = 0; index < aBytes.length; index += 1) {
+    diff |= aBytes[index] ^ bBytes[index];
+  }
+  return diff === 0;
 }
 
 function passStatusFromText(text?: string): boolean | undefined {
@@ -2673,6 +3069,118 @@ function base64Url(bytes: Uint8Array): string {
     binary += String.fromCharCode(byte);
   }
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function normalizeApnsEnvironment(value?: string | null): "prod" | "sandbox" {
+  return value?.trim().toLowerCase() === "sandbox" ? "sandbox" : "prod";
+}
+
+async function apnsJwt(env: Env): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (cachedApnsJwt && now < cachedApnsJwtExp) {
+    return cachedApnsJwt;
+  }
+
+  const keyId = (env.APNS_KEY_ID ?? "").trim();
+  const teamId = (env.APNS_TEAM_ID ?? "").trim();
+  const keyPem = (env.APNS_KEY ?? env.APNS_PRIVATE_KEY ?? "").trim();
+  if (!keyId || !teamId || !keyPem) {
+    throw new Error("missing_apns_credentials");
+  }
+
+  const header = base64Url(new TextEncoder().encode(JSON.stringify({ alg: "ES256", kid: keyId })));
+  const claims = base64Url(new TextEncoder().encode(JSON.stringify({ iss: teamId, iat: now })));
+  const data = new TextEncoder().encode(`${header}.${claims}`);
+  const rawKey = Uint8Array.from(
+    atob(
+      keyPem
+        .replace("-----BEGIN PRIVATE KEY-----", "")
+        .replace("-----END PRIVATE KEY-----", "")
+        .replace(/\s+/g, "")
+    ),
+    (char) => char.charCodeAt(0)
+  );
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    rawKey.buffer,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, cryptoKey, data);
+  cachedApnsJwt = `${header}.${claims}.${base64Url(new Uint8Array(signature))}`;
+  cachedApnsJwtExp = now + 50 * 60;
+  return cachedApnsJwt;
+}
+
+async function sendFinalExamApns(
+  env: Env,
+  input: {
+    token: string;
+    apnsEnvironment: "prod" | "sandbox";
+    studentId: string;
+    classSessionId: string;
+    result: FinalExamResult;
+  }
+): Promise<void> {
+  const topic = (env.APNS_BUNDLE_ID ?? "").trim();
+  if (!topic) {
+    throw new Error("missing_apns_topic");
+  }
+
+  const passed = input.result.passed;
+  const score = input.result.scoreText ?? (
+    input.result.percentageScore !== undefined ? `${input.result.percentageScore}%` : undefined
+  );
+  const title = passed === false ? "Exam review required" : "Exam result ready";
+  const body = passed === false
+    ? `Final exam score ${score ?? "received"}. Review and retest required.`
+    : `Final exam score ${score ?? "received"}.`;
+  const host = input.apnsEnvironment === "sandbox"
+    ? "https://api.sandbox.push.apple.com"
+    : "https://api.push.apple.com";
+  const jwt = await apnsJwt(env);
+
+  const response = await fetch(`${host}/3/device/${input.token}`, {
+    method: "POST",
+    headers: {
+      authorization: `bearer ${jwt}`,
+      "apns-topic": topic,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+      "apns-collapse-id": `final-exam-${input.classSessionId}-${input.studentId}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      aps: {
+        alert: { title, body },
+        sound: "default",
+        "content-available": 1
+      },
+      type: "classmanager.final_exam_result",
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      quizId: input.result.quizId,
+      responseId: input.result.responseId,
+      passed,
+      scoreText: input.result.scoreText ?? null,
+      percentageScore: input.result.percentageScore ?? null,
+      completedAt: input.result.completedAt ?? null
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`apns_${response.status}_${text}`);
+  }
+}
+
+async function handleApnsFailure(env: Env, token: string, error: unknown): Promise<void> {
+  const message = String(error);
+  if (/BadDeviceToken|Unregistered|DeviceTokenNotForTopic/.test(message)) {
+    await env.DB.prepare(`DELETE FROM device_tokens WHERE token = ?1`).bind(token).run();
+  }
 }
 
 function joinUrl(base: string, path: string): string {
