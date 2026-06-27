@@ -78,6 +78,7 @@ final class ClassManagerAPIClient {
                 oemsId: attendee.oemsId,
                 studentId: studentId,
                 classSessionId: classSessionId,
+                sourceSubmissionId: attendee.submissionId,
                 courseTitle: attendee.courseType,
                 courseDate: attendee.courseDate,
                 deviceId: UIDevice.current.identifierForVendor?.uuidString
@@ -100,6 +101,7 @@ final class ClassManagerAPIClient {
             URLQueryItem(name: "email", value: email),
             URLQueryItem(name: "studentId", value: studentId),
             URLQueryItem(name: "classSessionId", value: classSessionId),
+            URLQueryItem(name: "sourceSubmissionId", value: attendee.submissionId),
             URLQueryItem(name: "deviceId", value: UIDevice.current.identifierForVendor?.uuidString)
         ]
         if includeInProgress {
@@ -340,6 +342,7 @@ extension ClassManagerAPIClient {
         let oemsId: String
         let studentId: String
         let classSessionId: String
+        let sourceSubmissionId: String
         let courseTitle: String
         let courseDate: String?
         let deviceId: String?

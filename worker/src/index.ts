@@ -1016,6 +1016,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
   const oemsId = stringField(body, "oemsId") ?? "";
   const studentId = stringField(body, "studentId");
   const classSessionId = stringField(body, "classSessionId");
+  const sourceSubmissionId = stringField(body, "sourceSubmissionId") ?? stringField(body, "submissionId");
   const courseTitle = stringField(body, "courseTitle") ?? "Class Session";
   const courseDate = stringField(body, "courseDate") ?? classSessionId ?? "undated";
   const deviceId = stringField(body, "deviceId");
@@ -1040,16 +1041,22 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     return json({ error: "flexiquiz_quiz_unavailable", status: quizCheck.status, warnings }, 502);
   }
 
-  let flexiquizUserId = await flexiFindUserId(env, email);
+  const flexiquizUserName = classRegistrationFlexiQuizUserName({
+    email,
+    sourceSubmissionId,
+    studentId,
+    classSessionId
+  });
+  let flexiquizUserId = await flexiFindUserId(env, flexiquizUserName);
   let flexiUserProfile: FlexiUserProfile | undefined;
 
   if (!flexiquizUserId) {
     flexiquizUserId = await flexiCreateUser(env, {
-      userName: email,
+      userName: flexiquizUserName,
       email,
       firstName,
       lastName,
-      password: `${lastName}${oemsId}`
+      password: classRegistrationFlexiQuizPassword({ lastName, oemsId, sourceSubmissionId, studentId })
     }).catch((error) => {
       console.warn("flexiquiz create failed", error);
       warnings.push("flexiquiz_create_failed");
@@ -1074,7 +1081,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
           studentId,
           classSessionId,
           deviceId,
-          payload: { email, quizId, flexiquizUserId, status: assignmentStatus.status, body: assignmentStatus.body }
+          payload: { email, quizId, flexiquizUserId, flexiquizUserName, status: assignmentStatus.status, body: assignmentStatus.body }
         });
       }
       flexiUserProfile = await flexiGetUserProfile(env, flexiquizUserId) ?? flexiUserProfile;
@@ -1092,6 +1099,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
           email,
           quizId,
           flexiquizUserId,
+          flexiquizUserName,
           status: assignmentStatus?.status ?? null,
           body: assignmentStatus?.body ?? null,
           quizCount: flexiUserProfile?.quizzes.length ?? null,
@@ -1108,7 +1116,6 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     return json({ error: "flexiquiz_user_not_confirmed", warnings }, 502);
   }
 
-  const flexiquizUserName = flexiUserProfile?.userName || email;
   const launchUrl = await buildFlexiQuizSsoUrl(env, flexiquizUserId, quizId);
 
   if (studentId && classSessionId) {
@@ -1120,7 +1127,8 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
       lastName: lastName || "Student",
       email,
       courseTitle,
-      courseDate
+      courseDate,
+      sourceSubmissionId
     });
     await writeProgress(env, {
       studentId,
@@ -1141,7 +1149,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     studentId,
     classSessionId,
     deviceId,
-    payload: { email, quizId, flexiquizUserId: flexiquizUserId ?? null, flexiquizUserName, jwtSubject: "user_id", warnings }
+    payload: { email, quizId, flexiquizUserId: flexiquizUserId ?? null, flexiquizUserName, jwtSubject: "user_id", sourceSubmissionId: sourceSubmissionId ?? null, warnings }
   });
 
   return json({
@@ -1166,6 +1174,50 @@ async function flexiFindUserId(env: Env, userName: string): Promise<string | und
 
   const data = await response.json<JsonRecord>().catch(() => ({}));
   return stringField(data, "user_id");
+}
+
+function classRegistrationFlexiQuizUserName(input: {
+  email?: string;
+  sourceSubmissionId?: string;
+  studentId?: string;
+  classSessionId?: string;
+}): string {
+  const registrationKey = slugForFlexiQuizIdentity(input.sourceSubmissionId);
+  if (registrationKey) {
+    return `classmanager.${registrationKey}@gcemstrainingacademy.org`;
+  }
+
+  const studentKey = slugForFlexiQuizIdentity(input.studentId);
+  const sessionKey = slugForFlexiQuizIdentity(input.classSessionId);
+  if (studentKey && sessionKey) {
+    return `classmanager.${studentKey}.${sessionKey}@gcemstrainingacademy.org`;
+  }
+
+  return (input.email ?? "").trim().toLowerCase();
+}
+
+function classRegistrationFlexiQuizPassword(input: {
+  lastName?: string;
+  oemsId?: string;
+  sourceSubmissionId?: string;
+  studentId?: string;
+}): string {
+  const base = [
+    input.lastName,
+    input.oemsId,
+    input.sourceSubmissionId,
+    input.studentId
+  ].map((value) => value?.trim()).find(Boolean);
+  return `${base ?? crypto.randomUUID()}!Cm3`;
+}
+
+function slugForFlexiQuizIdentity(value?: string): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }
 
 async function flexiQuizStatus(env: Env, quizId: string): Promise<{ ok: boolean; status: number; body?: string }> {
@@ -1289,6 +1341,7 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   const email = url.searchParams.get("email")?.trim();
   const studentId = url.searchParams.get("studentId")?.trim();
   const classSessionId = url.searchParams.get("classSessionId")?.trim();
+  const sourceSubmissionId = url.searchParams.get("sourceSubmissionId")?.trim() || undefined;
   const deviceId = url.searchParams.get("deviceId")?.trim();
   const includeInProgress = url.searchParams.get("includeInProgress") === "1";
   const questionStart = intFromUnknown(url.searchParams.get("questionStart") ?? undefined);
@@ -1311,7 +1364,13 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
     return json({ error: "missing_email" }, 400);
   }
 
-  const flexiquizUserId = await flexiFindUserId(env, email);
+  const flexiquizUserName = classRegistrationFlexiQuizUserName({
+    email,
+    sourceSubmissionId,
+    studentId,
+    classSessionId
+  });
+  const flexiquizUserId = await flexiFindUserId(env, flexiquizUserName);
   if (!flexiquizUserId) {
     return json({ error: "flexiquiz_user_not_found" }, 404);
   }
@@ -1409,6 +1468,7 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
       deviceId,
       payload: {
         quizId,
+        flexiquizUserName,
         responseId: review.responseId ?? null,
         scoreText: review.scoreText ?? null,
         passed: review.passed ?? null,
