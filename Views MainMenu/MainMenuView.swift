@@ -118,14 +118,30 @@ struct MainMenuView: View {
 
     var body: some View {
         GeometryReader { geo in
-            HStack(spacing: 0) {
-                leftSidebar
-                    .frame(width: max(geo.size.width * 0.33, 280))
-                Divider()
-                rightContent
-                    .frame(width: geo.size.width - max(geo.size.width * 0.33, 280))
+            ZStack {
+                if requiresInitialCheckIn {
+                    checkInGate
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .scale(scale: 0.98)),
+                            removal: .opacity.combined(with: .scale(scale: 1.03))
+                        ))
+                } else {
+                    HStack(spacing: 0) {
+                        leftSidebar
+                            .frame(width: max(geo.size.width * 0.33, 280))
+                        Divider()
+                        rightContent
+                            .frame(width: geo.size.width - max(geo.size.width * 0.33, 280))
+                    }
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .trailing)),
+                        removal: .opacity
+                    ))
+                }
             }
             .frame(width: geo.size.width, height: geo.size.height)
+            .animation(.spring(response: 0.5, dampingFraction: 0.86), value: requiresInitialCheckIn)
         }
         .overlay(busyOverlay)
         .onAppear(perform: onAppearLoad)
@@ -192,6 +208,72 @@ struct MainMenuView: View {
         }
     }
 
+    private var requiresInitialCheckIn: Bool {
+        !progressStore.progress.didCheckIn
+    }
+
+    private var examWorkflowComplete: Bool {
+        if progressStore.progress.finalExamResult != nil {
+            return true
+        }
+
+        let trackedQuizIds = Set(getQuizzesForCourse().map { $0.id })
+        guard !trackedQuizIds.isEmpty else {
+            return true
+        }
+
+        let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
+        return trackedQuizIds.isSubset(of: completed)
+    }
+
+    private var checkInGate: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            Image("gcems_logo")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 150)
+                .opacity(0.95)
+
+            VStack(spacing: 8) {
+                Text(attendee.fullName)
+                    .font(.title.bold())
+                    .multilineTextAlignment(.center)
+                Text(cleanCourseName(attendee.courseType))
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                check(inOut: "Check-In")
+            } label: {
+                VStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 54, weight: .bold))
+                    Text("CHECK IN")
+                        .font(.system(size: 34, weight: .heavy, design: .rounded))
+                }
+                .frame(maxWidth: 520)
+                .padding(.vertical, 34)
+                .foregroundStyle(.white)
+                .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 8))
+                .shadow(color: Color.accentColor.opacity(0.28), radius: 18, x: 0, y: 10)
+            }
+            .buttonStyle(.plain)
+            .disabled(busy)
+
+            Text("Signature and location are required.")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+        }
+        .padding(36)
+        .background(Color(.systemBackground))
+    }
+
     // MARK: - Left Sidebar
     private var leftSidebar: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -239,7 +321,7 @@ struct MainMenuView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.secondary)
             VStack(spacing: 10) {
-                actionButton(title: "Check In", systemImage: "checkmark.circle", done: progressStore.progress.didCheckIn) {
+                actionButton(title: "Check In", systemImage: "checkmark.circle", done: progressStore.progress.didCheckIn, disabled: progressStore.progress.didCheckIn) {
                     check(inOut: "Check-In")
                 }
                 checkOutButton()
@@ -247,7 +329,17 @@ struct MainMenuView: View {
                 // CONDITIONAL SKILLS BUTTON
                 // Show for Refresher courses (always) OR Elective courses WITH a skills URL
                 if shouldShowSkillsButton() {
-                    actionButton(title: "Validate Skills", systemImage: "person.crop.circle.badge.checkmark", done: progressStore.progress.didOpenSkills) {
+                    actionButton(
+                        title: "Validate Skills",
+                        systemImage: "person.crop.circle.badge.checkmark",
+                        done: progressStore.progress.didOpenSkills,
+                        locked: !examWorkflowComplete,
+                        lockedMessage: "Skills validation unlocks after all exam sections are complete."
+                    ) {
+                        guard examWorkflowComplete else {
+                            toast = "Skills validation unlocks after all exam sections are complete."
+                            return
+                        }
                         // If an elective skills URL was detected for this student, open it
                         // directly. Otherwise fall back to the normal instructor-gated flow.
                         if let skills = electiveSkillsLink {
@@ -333,10 +425,16 @@ struct MainMenuView: View {
 
     private func checkOutButton() -> some View {
         let isDone = progressStore.progress.didCheckOut
-        let isBlocked = !canCheckOut()
-        return Button(action: { check(inOut: "Check-Out") }) {
+        let isLocked = !canCheckOut()
+        return Button(action: {
+            if isLocked {
+                toast = checkoutLockedMessage
+            } else if !isDone {
+                check(inOut: "Check-Out")
+            }
+        }) {
             HStack {
-                Image(systemName: "arrow.right.circle")
+                Image(systemName: isDone ? "arrow.right.circle" : (isLocked ? "lock.fill" : "arrow.right.circle"))
                     .font(.system(size: 18))
                 Text("Check Out")
                 Spacer(minLength: 8)
@@ -352,27 +450,16 @@ struct MainMenuView: View {
                             .foregroundColor(.white)
                     )
                     .accessibilityLabel("Completed")
-                } else if isBlocked {
-                    ZStack {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.red)
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                    .overlay(
-                        Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                    )
-                    .accessibilityLabel("Not Available")
                 }
             }
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.accentColor.opacity(isDone ? 0.2 : 1.0))
+                    .fill(isDone ? Color.accentColor.opacity(0.2) : (isLocked ? Color(.systemGray5) : Color.accentColor))
             )
-            .foregroundColor(isDone ? .accentColor : .white)
+            .foregroundColor(isDone ? .accentColor : (isLocked ? .secondary : .white))
         }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Right Content
@@ -688,6 +775,14 @@ struct MainMenuView: View {
     // MARK: - Check In/Out
     private func check(inOut: String) {
         let isElective = attendee.productCategories?.contains("2002") ?? false
+        if inOut == "Check-In" && progressStore.progress.didCheckIn {
+            toast = "Check-in is already complete for this student."
+            return
+        }
+        if inOut == "Check-Out" && !canCheckOut() {
+            toast = checkoutLockedMessage
+            return
+        }
         // If this is a check-out action, present the required completion survey first.
         if inOut == "Check-Out" {
             // Build checkout survey URL with courseType param populated from the attendee's course name
@@ -711,7 +806,19 @@ struct MainMenuView: View {
         }
     }
 
-    private func canCheckOut() -> Bool { true }
+    private var checkoutLockedMessage: String {
+        if !progressStore.progress.didCheckIn {
+            return "Check out unlocks after the student is checked in."
+        }
+        if !examWorkflowComplete {
+            return "Check out unlocks after all exam sections are complete."
+        }
+        return "Check out is not available yet."
+    }
+
+    private func canCheckOut() -> Bool {
+        progressStore.progress.didCheckIn && examWorkflowComplete
+    }
 
     private func beginAttendanceCapture(inOut: String) {
         if inOut == "Check-Out" && !canCheckOut() {
@@ -756,7 +863,9 @@ struct MainMenuView: View {
 
                 if inOut == "Check-In" {
                     didCheckIn = true
-                    progressStore.markCheckIn()
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) {
+                        progressStore.markCheckIn()
+                    }
                 } else {
                     didCheckOut = true
                     progressStore.markCheckOut()
@@ -1035,6 +1144,10 @@ struct MainMenuView: View {
 
     // MARK: - Skills
     private func openSkills() {
+        guard examWorkflowComplete else {
+            toast = "Skills validation unlocks after all exam sections are complete."
+            return
+        }
         if authenticatedInstructor == nil { showingInstructorGate = true; return }
         guard !skillsFormId.isEmpty else { toast = "Skills validation form not configured for this course."; return }
         Task { @MainActor in
@@ -1292,11 +1405,18 @@ struct MainMenuView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func actionButton(title: String, systemImage: String? = nil, done: Bool = false, action: @escaping () -> Void) -> AnyView {
-        // If already done, show a muted completed style, otherwise use accent button style with pressed feedback
+    private func actionButton(
+        title: String,
+        systemImage: String? = nil,
+        done: Bool = false,
+        locked: Bool = false,
+        disabled: Bool = false,
+        lockedMessage: String? = nil,
+        action: @escaping () -> Void
+    ) -> AnyView {
         if done {
             return AnyView(
-                Button(action: action) {
+                Button(action: {}) {
                     HStack {
                         if let s = systemImage { Image(systemName: s).font(.system(size: 18)).foregroundColor(.accentColor) }
                         Text(title)
@@ -1321,6 +1441,29 @@ struct MainMenuView: View {
                     .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.plain)
+                .disabled(true)
+            )
+        } else if locked {
+            return AnyView(
+                Button(action: {
+                    if let lockedMessage {
+                        toast = lockedMessage
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                        Text(title)
+                        Spacer(minLength: 8)
+                    }
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray5))
+                    )
+                    .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
             )
         } else {
             return AnyView(
@@ -1333,6 +1476,7 @@ struct MainMenuView: View {
                     .padding()
                 }
                 .buttonStyle(AccentButtonStyle())
+                .disabled(disabled)
             )
         }
     }

@@ -11,6 +11,7 @@ struct QuizReviewView: View {
     @State private var review: ClassManagerAPIClient.QuizReviewResponse?
     @State private var isLoading = true
     @State private var errorText: String?
+    @State private var fullReviewFilter: FullReviewFilter = .incorrect
 
     var body: some View {
         NavigationStack {
@@ -58,6 +59,7 @@ struct QuizReviewView: View {
         let incorrectQuestions = questions.filter { $0.isCorrect == false }
         let correctQuestions = questions.filter { $0.isCorrect == true }
         let unscoredQuestions = questions.filter { $0.isCorrect == nil }
+        let selectedQuestions = filteredQuestions(for: fullReviewFilter, incorrect: incorrectQuestions, correct: correctQuestions, unscored: unscoredQuestions)
 
         return List {
             Section {
@@ -104,23 +106,48 @@ struct QuizReviewView: View {
                         }
                     }
                 } else {
-                    if !incorrectQuestions.isEmpty {
-                        Section("Needs Review (\(incorrectQuestions.count))") {
-                            ForEach(incorrectQuestions) { question in
-                                QuestionReviewRow(question: question)
+                    Section {
+                        VStack(alignment: .leading, spacing: 10) {
+                            FullReviewFilterButton(
+                                title: "Review Incorrect",
+                                count: incorrectQuestions.count,
+                                systemImage: "xmark.circle.fill",
+                                color: .red,
+                                isSelected: fullReviewFilter == .incorrect
+                            ) {
+                                fullReviewFilter = .incorrect
+                            }
+
+                            FullReviewFilterButton(
+                                title: "Review Correct",
+                                count: correctQuestions.count,
+                                systemImage: "checkmark.circle.fill",
+                                color: .green,
+                                isSelected: fullReviewFilter == .correct
+                            ) {
+                                fullReviewFilter = .correct
+                            }
+
+                            if !unscoredQuestions.isEmpty {
+                                FullReviewFilterButton(
+                                    title: "Review Unscored",
+                                    count: unscoredQuestions.count,
+                                    systemImage: "circle.dashed",
+                                    color: .secondary,
+                                    isSelected: fullReviewFilter == .unscored
+                                ) {
+                                    fullReviewFilter = .unscored
+                                }
                             }
                         }
                     }
-                    if !correctQuestions.isEmpty {
-                        Section("Correct (\(correctQuestions.count))") {
-                            ForEach(correctQuestions) { question in
-                                QuestionReviewRow(question: question)
-                            }
-                        }
-                    }
-                    if !unscoredQuestions.isEmpty {
-                        Section("Unscored (\(unscoredQuestions.count))") {
-                            ForEach(unscoredQuestions) { question in
+
+                    Section(fullReviewFilter.sectionTitle(count: selectedQuestions.count)) {
+                        if selectedQuestions.isEmpty {
+                            Text(fullReviewFilter.emptyText)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(selectedQuestions) { question in
                                 QuestionReviewRow(question: question)
                             }
                         }
@@ -133,6 +160,19 @@ struct QuizReviewView: View {
     private func questionsForCurrentQuiz(_ review: ClassManagerAPIClient.QuizReviewResponse) -> [ClassManagerAPIClient.QuizReviewQuestion] {
         guard let range = quiz.questionRange else { return review.questions }
         return review.questions.filter { range.contains($0.number) }
+    }
+
+    private func filteredQuestions(
+        for filter: FullReviewFilter,
+        incorrect: [ClassManagerAPIClient.QuizReviewQuestion],
+        correct: [ClassManagerAPIClient.QuizReviewQuestion],
+        unscored: [ClassManagerAPIClient.QuizReviewQuestion]
+    ) -> [ClassManagerAPIClient.QuizReviewQuestion] {
+        switch filter {
+        case .incorrect: return incorrect
+        case .correct: return correct
+        case .unscored: return unscored
+        }
     }
 
     private func sectionRatioText(_ questions: [ClassManagerAPIClient.QuizReviewQuestion]) -> String {
@@ -192,6 +232,71 @@ struct QuizReviewView: View {
         formatter.timeZone = TimeZone(identifier: "America/New_York")
         formatter.dateFormat = "MMM d, yyyy h:mm a z"
         return formatter.string(from: date)
+    }
+}
+
+private enum FullReviewFilter {
+    case incorrect
+    case correct
+    case unscored
+
+    func sectionTitle(count: Int) -> String {
+        switch self {
+        case .incorrect: return "Incorrect Items (\(count))"
+        case .correct: return "Correct Items (\(count))"
+        case .unscored: return "Unscored Items (\(count))"
+        }
+    }
+
+    var emptyText: String {
+        switch self {
+        case .incorrect: return "No incorrectly answered questions were found."
+        case .correct: return "No correctly answered questions were found."
+        case .unscored: return "No unscored questions were found."
+        }
+    }
+}
+
+private struct FullReviewFilterButton: View {
+    let title: String
+    let count: Int
+    let systemImage: String
+    let color: Color
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(color)
+                    .frame(width: 24)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("\(count)")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(color)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(color.opacity(0.12), in: Capsule())
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? color.opacity(0.08) : Color(.secondarySystemBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? color.opacity(0.45) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
