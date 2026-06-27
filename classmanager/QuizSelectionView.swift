@@ -30,7 +30,9 @@ struct QuizSelectionView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     if let finalResult = progressStore.progress.finalExamResult {
-                        if isFailedVersionA(finalResult), versionBInProgress, let versionBQuiz {
+                        if isFailedVersionA(finalResult), versionBCompleted, let versionBQuiz {
+                            versionBRetestCard(versionBQuiz)
+                        } else if isFailedVersionA(finalResult), versionBInProgress, let versionBQuiz {
                             versionBResultsPendingCard(versionBQuiz)
                         } else {
                             fullExamReviewCard(finalResult)
@@ -297,6 +299,12 @@ struct QuizSelectionView: View {
     private var versionBInProgress: Bool {
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
         return completed.contains(QuizInfo.refresherAVersionBStartedMarkerId)
+    }
+
+    private var versionBCompleted: Bool {
+        let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
+        return completed.contains(QuizInfo.refresherAVersionBQuizId)
+            || progressStore.progress.finalExamResult?.quizId == QuizInfo.refresherAVersionBQuizId
     }
 
     private func isLocked(_ quiz: QuizInfo) -> Bool {

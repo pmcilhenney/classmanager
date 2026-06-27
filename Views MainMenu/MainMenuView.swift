@@ -241,7 +241,11 @@ struct MainMenuView: View {
     }
 
     private var hasVersionBFinalResult: Bool {
-        progressStore.progress.finalExamResult?.quizId == QuizInfo.refresherAVersionBQuizId
+        if progressStore.progress.finalExamResult?.quizId == QuizInfo.refresherAVersionBQuizId {
+            return true
+        }
+        let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
+        return completed.contains(QuizInfo.refresherAVersionBQuizId)
     }
 
     private var trackedQuizIds: Set<String> {
@@ -1268,6 +1272,7 @@ struct MainMenuView: View {
         busy = true
         Task { @MainActor in
             defer { busy = false }
+            await progressStore.fetchLatestAndMerge()
             completedQuizzes = []
             let courseQuizIDs = Set(getQuizzesForCourse().map { $0.id })
             let workerIDs = Set(progressStore.progress.completedQuizIDs).intersection(courseQuizIDs)
