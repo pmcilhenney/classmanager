@@ -1493,6 +1493,9 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   if (!latest) {
     return json({ error: "review_not_found" }, 404);
   }
+  if (!includeInProgress && !responseLooksCompleted(latest)) {
+    return json({ error: "review_not_submitted" }, 404);
+  }
 
   const responseId = responseIdFrom(latest);
   const warnings: string[] = [];
@@ -1594,13 +1597,16 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
         warnings: review.warnings
       }
     });
-    await saveQuizAttempt(env, {
-      studentId,
-      classSessionId,
-      flexiquizUserId,
-      review
-    }).catch((error) => console.warn("quiz attempt save failed", error));
-    if (!questionStart && !questionEnd && review.responseId && reviewLooksCompleted(review, latest)) {
+    const completedReview = reviewLooksCompleted(review, latest);
+    if (includeInProgress || completedReview) {
+      await saveQuizAttempt(env, {
+        studentId,
+        classSessionId,
+        flexiquizUserId,
+        review
+      }).catch((error) => console.warn("quiz attempt save failed", error));
+    }
+    if (!questionStart && !questionEnd && review.responseId && completedReview) {
       const finalSources = [detail ?? {}, latest];
       const passingScore = minimumPassingScoreForQuiz(quizId, finalSources);
       const scoreText = review.scoreText ?? scoreTextFromSources(finalSources);
@@ -2312,6 +2318,9 @@ function scoreTextFromSources(sources: JsonRecord[]): string | undefined {
 
 function responseLooksCompleted(response: JsonRecord): boolean {
   const status = firstText([response], ["status", "state", "result", "result_text"])?.toLowerCase() ?? "";
+  if (/(^|[^a-z])(not[_ -]?submitted|unsubmitted|incomplete|in[_ -]?progress|pending|started|open)([^a-z]|$)/.test(status)) {
+    return false;
+  }
   if (/(complete|completed|submitted|finished|pass|fail)/.test(status)) {
     return true;
   }
@@ -2322,10 +2331,7 @@ function reviewLooksCompleted(review: QuizReviewPayload, latest: JsonRecord): bo
   if (responseLooksCompleted(latest)) {
     return true;
   }
-  if (review.completedAt || review.passed !== undefined) {
-    return true;
-  }
-  return Boolean(review.scoreText || review.resultText);
+  return Boolean(review.completedAt);
 }
 
 function responseIdFrom(response: JsonRecord): string | undefined {

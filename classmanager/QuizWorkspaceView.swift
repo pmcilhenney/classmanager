@@ -185,8 +185,6 @@ struct QuizWorkspaceView: View {
     private func handlePageNavigation(_ event: FlexiQuizPageNavigationEvent) {
         guard let quiz else { return }
         guard quiz.questionRange != nil else {
-            pageNavigationEvent = event
-            onPageCheckpoint?(quiz, event)
             return
         }
         guard !isCheckingSectionCompletion else { return }
