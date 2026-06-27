@@ -81,6 +81,8 @@ type QuizReviewPayload = {
 };
 
 const REFRESHER_A_COMBINED_QUIZ_ID = "89db2c06-5052-4ff5-867b-95ef67fcfcd2";
+const REFRESHER_A_VERSION_A_PASSING_SCORE = 74;
+const REFRESHER_A_VERSION_B_PASSING_SCORE = 80;
 const KNOWN_QUESTION_RATIONALES_BY_QUIZ: Record<string, Record<string, string>> = {
   [REFRESHER_A_COMBINED_QUIZ_ID]: {
     "what is the sound of the soft tissue of the upper airway creating impedance or partial obstruction to the flow of air": "Correct answer: Snoring. Snoring is caused by relaxed soft tissue partially obstructing the upper airway, so repositioning and airway support should stay front of mind.",
@@ -133,6 +135,58 @@ const KNOWN_QUESTION_RATIONALES_BY_QUIZ: Record<string, Record<string, string>> 
     "cpr will not be effective if the patient is": "Correct answer: Prone. Effective CPR requires the patient to be supine on a firm surface so compressions can generate blood flow.",
     "in most cases cardiopulmonary arrest in infants and children is caused by": "Correct answer: Respiratory arrest. Pediatric cardiac arrest is often secondary to respiratory failure or arrest, making airway and ventilation assessment critical.",
     "what is the correct ratio of compressions to ventilations when performing two rescuer adult cpr": "Correct answer: 30:2. Two-rescuer adult CPR uses a 30:2 compression-to-ventilation ratio.",
+  },
+  "refresher-a-version-b": {
+    "a patient is found supine with noisy snoring respirations after a syncopal episode what should you do first to improve the airway": "Correct answer: Reposition the head and open the airway. Snoring respirations usually mean relaxed upper-airway tissue is partially obstructing airflow, so manual airway positioning is the first priority.",
+    "during assessment you hear a wet bubbling sound from the patient s mouth with each breath which airway problem is most likely present": "Correct answer: Fluid or secretions in the upper airway. Gurgling indicates material in the airway and should prompt suctioning to clear blood, vomitus, or secretions.",
+    "which finding best indicates that an oropharyngeal airway is inappropriate": "Correct answer: The patient gags when the device is inserted. An OPA is used only when the gag reflex is absent because it can trigger vomiting or airway complications.",
+    "you are sizing an oropharyngeal airway for an adult which measurement is most appropriate": "Correct answer: From the corner of the mouth to the angle of the jaw. Proper sizing helps the OPA hold the tongue forward without pushing it deeper into the airway.",
+    "a conscious patient with an intact gag reflex needs an airway adjunct which device is usually more appropriate if not contraindicated": "Correct answer: Nasopharyngeal airway. NPAs are generally better tolerated in conscious or semiconscious patients with an intact gag reflex, unless contraindications are present.",
+    "which patient finding is most concerning for a rapidly developing upper airway obstruction": "Correct answer: High-pitched stridor heard during breathing. Stridor is an upper-airway warning sign and can indicate significant narrowing that may worsen quickly.",
+    "when ventilating a patient with dentures that are secure and improving facial structure what should you generally do": "Correct answer: Leave the dentures in place during mask ventilation. Secure dentures may improve facial contour and help maintain an effective mask seal.",
+    "a pediatric patient becomes harder to ventilate after the head is tilted far backward what is the best next adjustment": "Correct answer: Return the head toward a neutral or sniffing position. Pediatric airways can obstruct with overextension, so small position changes may restore airway alignment.",
+    "which structure is part of the lower airway": "Correct answer: Alveoli. The lower airway includes structures below the larynx and trachea, including bronchi, bronchioles, and alveoli.",
+    "a patient vomits while you are preparing to ventilate what action best protects the airway first": "Correct answer: Roll the patient onto the side and suction as needed. Positioning and suctioning help clear vomitus and reduce the risk of aspiration before assisted ventilations continue.",
+    "a patient with respiratory distress is sitting upright speaking two word phrases and using accessory muscles what does this pattern suggest": "Correct answer: Increased work of breathing with limited ventilatory reserve. Short phrases and accessory-muscle use are practical signs that the patient is working hard to breathe.",
+    "which change most strongly suggests respiratory distress is progressing toward respiratory failure": "Correct answer: Declining mental status and worsening skin signs. Failure occurs when compensatory mechanisms cannot meet demand, often shown by mental-status and perfusion changes.",
+    "a copd patient at home on low flow oxygen is now severely short of breath and cyanotic what is the best oxygen approach": "Correct answer: Provide enough oxygen to correct hypoxia and monitor closely. EMT care prioritizes adequate oxygenation when hypoxia or severe distress is present.",
+    "which medication is intended to relieve bronchospasm in an asthma patient": "Correct answer: Albuterol. Albuterol is a bronchodilator used for bronchospasm, commonly in asthma or reactive airway disease.",
+    "cpap is most appropriate for which patient": "Correct answer: An alert patient with pulmonary edema who can follow commands. CPAP requires an appropriate, breathing patient who can tolerate the mask and benefit from positive pressure.",
+    "how does cpap help many patients with pulmonary edema": "Correct answer: It helps keep alveoli open and improves oxygen exchange. Positive pressure can reduce alveolar collapse and improve oxygenation in selected patients.",
+    "a patient has a pulse but is breathing 5 times per minute with poor chest rise what is the priority intervention": "Correct answer: Assist ventilations with a bag-valve mask and oxygen. A very slow rate with poor chest rise means ventilation is inadequate even when a pulse is present.",
+    "a patient receiving bvm ventilations develops gastric distention which correction is most appropriate": "Correct answer: Ventilate only until visible chest rise is achieved. Excessive volume or force can push air into the stomach; effective ventilations use just enough volume for chest rise.",
+    "what does pulse oximetry fail to directly measure": "Correct answer: Ventilation and carbon dioxide removal. Pulse oximetry estimates oxygen saturation but does not prove adequate ventilation or CO2 clearance.",
+    "a patient is cyanotic diaphoretic and breathing rapidly but shallowly which concern should be highest": "Correct answer: Inadequate ventilation despite a fast respiratory rate. Rapid shallow breathing may not move enough tidal volume and can progress to respiratory failure.",
+    "before suctioning the mouth of a patient with secretions what should you do with the catheter or rigid tip": "Correct answer: Insert to the needed depth before applying suction while withdrawing. Applying suction mainly during withdrawal helps clear material while reducing trauma and hypoxia risk.",
+    "which situation should make you bring suction to the patient s side early": "Correct answer: Any patient at risk for blood, vomit, or secretions in the airway. Early suction readiness prevents delays when the airway fills with material.",
+    "a patient breathes through a permanent stoma and needs oxygen what delivery route should you prioritize": "Correct answer: Apply oxygen over the stoma. A stoma breather ventilates through the neck opening, so oxygen or ventilations must be directed there.",
+    "when ventilating a stoma breather which statement is correct": "Correct answer: Head tilt is not needed to open the airway through the stoma. Airflow bypasses the upper airway, so care focuses on sealing and ventilating through the stoma.",
+    "a pocket mask is best described as a device that": "Correct answer: Provides a barrier and supports mouth-to-mask ventilation. A pocket mask improves safety and seal compared with direct mouth-to-mouth ventilation.",
+    "what body position principle best protects an emt during a lift": "Correct answer: Keep the back straight and lift with the legs. Safe lifting keeps the load close, back straight, and power coming from the legs.",
+    "which factor should be considered before lifting a patient or stretcher": "Correct answer: The object, your limitations, and communication with partners. Planning a lift reduces injury risk by matching the task, team, and communication before movement starts.",
+    "why does raising a loaded stretcher increase risk": "Correct answer: The center of gravity rises and tipping becomes more likely. A higher center of gravity makes the stretcher less stable, especially during turns or uneven movement.",
+    "which move is preferred to reduce twisting of a patient with a possible spine injury during an emergency move": "Correct answer: Move the patient in line with the long axis of the body. Long-axis movement limits twisting and helps reduce additional spinal motion during urgent movement.",
+    "a bariatric patient cannot assist with transfer from bed to stretcher what should you do": "Correct answer: Request adequate additional help and equipment. Safe bariatric movement requires enough trained personnel and equipment to prevent injury to the patient and crew.",
+    "when using a stair chair what helps prevent an anxious patient from grabbing the railing": "Correct answer: Explain the move and tell the patient where to keep their hands. Clear instructions and secure positioning reduce sudden movements that can endanger the crew.",
+    "which device is generally preferred for carrying a seated patient down stairs when appropriate": "Correct answer: Stair chair. Stair chairs are designed to move appropriate patients on stairs with better control and ergonomics.",
+    "transporting with due regard means you should": "Correct answer: Choose the shortest practical safe route without reckless driving. Emergency transport still requires patient, crew, and public safety.",
+    "which statement best defines body mechanics": "Correct answer: Using the body efficiently and safely to lift and move. Body mechanics focuses on posture, balance, coordination, and avoiding preventable injury.",
+    "for a patient with a suspected pelvic injury who must be moved which device may help minimize movement while allowing transfer": "Correct answer: Scoop stretcher. A scoop stretcher can separate and reassemble around the patient, reducing unnecessary movement during transfer.",
+    "an adult choking patient becomes unresponsive while you are providing care what should you do next": "Correct answer: Begin CPR and check the airway during the sequence. Once a choking patient becomes unresponsive, care transitions to CPR with airway checks during ventilations.",
+    "for one rescuer adult cpr which compression to ventilation ratio is used": "Correct answer: 30:2. Adult CPR uses a 30:2 compression-to-ventilation ratio for one rescuer and also for two rescuers in standard BLS.",
+    "for two rescuer child cpr which compression to ventilation ratio is used": "Correct answer: 15:2. Two-rescuer child CPR uses more frequent ventilations because pediatric arrests are commonly respiratory in origin.",
+    "what compression rate should be used during adult cpr": "Correct answer: 100 to 120 per minute. Effective CPR requires compressions at 100 to 120 per minute with adequate depth and full recoil.",
+    "after confirming an adult patient is unresponsive what should you assess next": "Correct answer: Breathing and pulse. The next decision is whether the patient needs ventilations, compressions, or both.",
+    "which pulse is typically checked during the primary assessment of an unresponsive infant": "Correct answer: Brachial pulse. The brachial pulse is the preferred pulse check location for infants during BLS assessment.",
+    "what is the most common underlying cause of cardiac arrest in infants and children": "Correct answer: Respiratory failure or arrest. Pediatric cardiac arrest is often secondary to respiratory problems, so airway and ventilation are especially important.",
+    "cpr compressions are least effective when the patient is": "Correct answer: Prone. Effective compressions require the patient to be supine on a firm surface so force can generate blood flow.",
+    "an adult is unresponsive pulseless and apneic what should happen as soon as possible": "Correct answer: Begin CPR and apply an AED when available. Early CPR and early defibrillation are core priorities for cardiac arrest.",
+    "which action best supports high quality cpr": "Correct answer: Allow full chest recoil after each compression. Full recoil improves venous return and supports blood flow during CPR.",
+    "a patient with chest pain refuses a nonrebreather mask but is willing to accept oxygen by another route what should you do": "Correct answer: Use a nasal cannula if clinically appropriate and continue assessment. When a patient cannot tolerate a mask, a nasal cannula may provide supplemental oxygen while preserving cooperation.",
+    "which sign suggests a patient may be tiring from respiratory distress": "Correct answer: Decreasing responsiveness with continued abnormal breathing. Fatigue and mental-status decline are warning signs that distress may be progressing to failure.",
+    "a patient has pulmonary edema and is alert but anxious which feature must be present before cpap is used": "Correct answer: The patient can follow commands and maintain their own airway. CPAP requires cooperation and airway control because the patient must tolerate positive pressure.",
+    "which statement about supplemental oxygen is most accurate": "Correct answer: Oxygen delivery should be matched to the patient's clinical condition and response. Oxygen is a treatment guided by patient presentation, oxygenation, ventilation, and local protocol.",
+    "during bvm ventilation what confirms that each breath is likely effective": "Correct answer: Visible chest rise with each ventilation. Chest rise is a key sign that air is entering the lungs with adequate volume.",
   }
 };
 
@@ -1676,10 +1730,11 @@ function finalExamResultFromRms(result: JsonRecord): FinalExamResult {
   const availablePoints = firstNumber([result], ["available_points", "availablePoints"]);
   const scoreText = scoreTextFromSources([result]);
   const resultText = firstText([result], ["grade", "result", "result_text", "response_status", "status"]);
-  const passed = boolFromUnknown(firstValue([result], ["passed", "pass"])) ??
-    (percentageScore !== undefined ? percentageScore >= 70 : undefined) ??
+  const passingScore = minimumPassingScoreForFinalExam(result);
+  const passed = (percentageScore !== undefined ? percentageScore >= passingScore : undefined) ??
+    boolFromUnknown(firstValue([result], ["passed", "pass"])) ??
     passStatusFromText(resultText ?? scoreText) ??
-    passStatusFromScore(scoreText);
+    passStatusFromScore(scoreText, passingScore);
 
   return {
     quizId: stringField(result, "quiz_id") ?? stringField(result, "quizId") ?? "",
@@ -1694,6 +1749,22 @@ function finalExamResultFromRms(result: JsonRecord): FinalExamResult {
     points,
     availablePoints
   };
+}
+
+function minimumPassingScoreForFinalExam(result: JsonRecord): number {
+  const quizId = stringField(result, "quiz_id") ?? stringField(result, "quizId") ?? "";
+  return minimumPassingScoreForQuiz(quizId, [result]);
+}
+
+function minimumPassingScoreForQuiz(quizId: string, sources: JsonRecord[]): number {
+  const quizName = (firstText(sources, ["quiz_name", "quizName", "name", "title"]) ?? "").toLowerCase();
+  if (quizName.includes("version b")) {
+    return REFRESHER_A_VERSION_B_PASSING_SCORE;
+  }
+  if (quizId === REFRESHER_A_COMBINED_QUIZ_ID || quizName.includes("refresher a")) {
+    return REFRESHER_A_VERSION_A_PASSING_SCORE;
+  }
+  return REFRESHER_A_VERSION_A_PASSING_SCORE;
 }
 
 async function saveFinalExamResult(
@@ -2071,9 +2142,12 @@ function normalizeQuizReview(input: {
 
   const resultText = firstText(sources, ["result_text", "resultText", "result", "grade", "pass_fail", "outcome", "status"]);
   const scoreText = scoreTextFromSources(sources);
-  const passed = boolFromUnknown(firstValue(sources, ["passed", "pass", "is_passed", "isPassed", "success"])) ??
+  const passingScore = minimumPassingScoreForQuiz(input.quizId, sources);
+  const percentageScore = firstNumber(sources, ["percentage_score", "percentageScore", "percentage", "percent"]);
+  const passed = (percentageScore !== undefined ? percentageScore >= passingScore : undefined) ??
+    boolFromUnknown(firstValue(sources, ["passed", "pass", "is_passed", "isPassed", "success"])) ??
     passStatusFromText(resultText ?? scoreText) ??
-    passStatusFromScore(scoreText);
+    passStatusFromScore(scoreText, passingScore);
 
   return {
     ok: true,
@@ -2144,11 +2218,20 @@ function mappedRationaleForQuestion(quizId: string, question: QuizReviewQuestion
 }
 
 function knownRationaleForQuestion(quizId: string, question: QuizReviewQuestion): string | undefined {
+  const key = questionRationaleKey(question.prompt);
   const rationales = KNOWN_QUESTION_RATIONALES_BY_QUIZ[quizId];
-  if (!rationales) {
-    return undefined;
+  const quizSpecific = rationales?.[key]?.trim();
+  if (quizSpecific) {
+    return quizSpecific;
   }
-  return rationales[questionRationaleKey(question.prompt)]?.trim();
+
+  for (const map of Object.values(KNOWN_QUESTION_RATIONALES_BY_QUIZ)) {
+    const mapped = map[key]?.trim();
+    if (mapped) {
+      return mapped;
+    }
+  }
+  return undefined;
 }
 
 function fallbackRationaleForQuestion(question: QuizReviewQuestion): string | undefined {
@@ -3076,7 +3159,7 @@ function passStatusFromText(text?: string): boolean | undefined {
   return undefined;
 }
 
-function passStatusFromScore(text?: string): boolean | undefined {
+function passStatusFromScore(text?: string, minimumPassingScore = 70): boolean | undefined {
   if (!text) {
     return undefined;
   }
@@ -3085,7 +3168,7 @@ function passStatusFromScore(text?: string): boolean | undefined {
     return undefined;
   }
   const score = Number.parseFloat(match[1]);
-  return Number.isFinite(score) ? score >= 70 : undefined;
+  return Number.isFinite(score) ? score >= minimumPassingScore : undefined;
 }
 
 function quizResultSummary(attempt: JsonRecord): string {

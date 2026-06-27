@@ -168,7 +168,7 @@ struct QuizSelectionView: View {
                 }
 
                 if passed == false {
-                    Text("Review and retest required for scores below 70%.")
+                    Text("Review and remediation required for scores below 74%. Version B unlocks after review and instructor remediation.")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.red)
                 }

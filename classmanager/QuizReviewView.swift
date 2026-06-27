@@ -85,7 +85,7 @@ struct QuizReviewView: View {
                             .foregroundStyle(.secondary)
                     }
                     if !isSectionReview, review.passed == false {
-                        Label("Review and retest required for scores below 70%.", systemImage: "exclamationmark.triangle.fill")
+                        Label("Review and remediation required for scores below 74%.", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.red)
                     }
@@ -332,6 +332,8 @@ private struct QuestionReviewRow: View {
                         .foregroundStyle(.secondary)
                     Text(question.prompt)
                         .font(.body.weight(.semibold))
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -348,6 +350,8 @@ private struct QuestionReviewRow: View {
                             Text(choice)
                                 .font(.subheadline)
                                 .foregroundStyle(choice == question.correctAnswer ? .green : .primary)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
@@ -364,6 +368,8 @@ private struct QuestionReviewRow: View {
                         .foregroundStyle(.secondary)
                     Text(feedback)
                         .font(.subheadline)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -381,6 +387,8 @@ private struct QuestionReviewRow: View {
             Text((value?.isEmpty == false ? value : "Not provided") ?? "Not provided")
                 .font(.subheadline)
                 .foregroundStyle(color)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.leading, 34)
     }

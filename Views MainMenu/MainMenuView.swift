@@ -217,13 +217,27 @@ struct MainMenuView: View {
             return true
         }
 
-        let trackedQuizIds = Set(getQuizzesForCourse().map { $0.id })
         guard !trackedQuizIds.isEmpty else {
             return true
         }
 
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
         return trackedQuizIds.isSubset(of: completed)
+    }
+
+    private var trackedQuizIds: Set<String> {
+        Set(getQuizzesForCourse().map { $0.id })
+    }
+
+    private var trackedQuizCount: Int {
+        trackedQuizIds.count
+    }
+
+    private var completedTrackedQuizCount: Int {
+        Set(progressStore.progress.completedQuizIDs)
+            .union(completedQuizzes)
+            .intersection(trackedQuizIds)
+            .count
     }
 
     private var checkInGate: some View {
@@ -369,8 +383,8 @@ struct MainMenuView: View {
                             Image(systemName: "list.bullet.clipboard").font(.system(size: 20))
                             Text("Quizzes").font(.headline)
                             Spacer()
-                            if !completedQuizzes.isEmpty {
-                                Text("\(completedQuizzes.count)/4")
+                            if completedTrackedQuizCount > 0 {
+                                Text("\(completedTrackedQuizCount)/\(trackedQuizCount)")
                                     .font(.subheadline.bold())
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 8)
@@ -1255,6 +1269,13 @@ struct MainMenuView: View {
             completedQuizzes.remove(quiz.id)
             progressStore.clearQuizResult(quiz.id)
             toast = "\(quiz.title) has no recorded answers yet. It was reopened for completion."
+            return
+        }
+
+        guard trackedQuizIds.contains(quiz.id) else {
+            if review.passed == false {
+                toast = "Version A is below the 74% passing standard. Review the full exam, then complete instructor remediation before Version B is released."
+            }
             return
         }
 
