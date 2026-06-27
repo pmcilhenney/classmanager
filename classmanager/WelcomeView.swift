@@ -100,7 +100,8 @@ struct WelcomeView: View {
                     jotform: jotform,
                     flexi: flexi,
                     instructor: instructorSession.instructor,
-                    attendance: instructorSession.attendance
+                    initialCourse: instructorSession.defaultCourse,
+                    courses: instructorSession.courses
                 )
             } else if navigateToMain, let att = acceptedAttendee {
                 // Main 2-panel view

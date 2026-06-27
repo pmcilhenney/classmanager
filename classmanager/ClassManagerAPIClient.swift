@@ -55,12 +55,44 @@ final class ClassManagerAPIClient {
         )
     }
 
-    func fetchInstructorDashboard(limit: Int = 100) async throws -> InstructorDashboardResponse {
-        try await send(
+    func submitInstructorAttendance(
+        personId: String,
+        inOut: String,
+        course: InstructorCourse,
+        attestation: AttendanceAttestation
+    ) async throws -> InstructorAttendanceSubmitResponse {
+        let response: InstructorAttendanceSubmitResponse = try await send(
+            path: "/instructor/attendance/submit",
+            method: "POST",
+            body: InstructorAttendanceSubmitRequest(
+                personId: personId,
+                inOut: inOut,
+                course: course,
+                attestation: attestation,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+        return response
+    }
+
+    func fetchInstructorDashboard(
+        limit: Int = 100,
+        classSessionId: String? = nil,
+        courseId: String? = nil
+    ) async throws -> InstructorDashboardResponse {
+        var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+        if let classSessionId, !classSessionId.isEmpty {
+            queryItems.append(URLQueryItem(name: "classSessionId", value: classSessionId))
+        }
+        if let courseId, !courseId.isEmpty {
+            queryItems.append(URLQueryItem(name: "courseId", value: courseId))
+        }
+        let response: InstructorDashboardResponse = try await send(
             path: "/instructor/dashboard",
             method: "GET",
-            queryItems: [URLQueryItem(name: "limit", value: String(limit))]
+            queryItems: queryItems
         )
+        return response
     }
 
     func resetStudentProgress(
@@ -379,7 +411,8 @@ extension ClassManagerAPIClient {
     struct InstructorScanResponse: Decodable {
         let ok: Bool
         let instructor: InstructorDashboardInstructor
-        let attendance: InstructorAttendance
+        let defaultCourse: InstructorCourse?
+        let courses: [InstructorCourse]
     }
 
     struct InstructorDashboardInstructor: Decodable, Identifiable, Hashable {
@@ -389,14 +422,47 @@ extension ClassManagerAPIClient {
         var id: String { personId }
     }
 
+    struct InstructorCourse: Codable, Identifiable, Hashable {
+        let id: String
+        let classSessionId: String
+        let courseId: String?
+        let title: String
+        let date: String
+        let location: String?
+        let expectedCount: Int
+        let isToday: Bool
+    }
+
+    struct InstructorAttendanceSubmitRequest: Encodable {
+        let personId: String
+        let inOut: String
+        let course: InstructorCourse
+        let attestation: AttendanceAttestation
+        let deviceId: String?
+    }
+
+    struct InstructorAttendanceSubmitResponse: Decodable {
+        let ok: Bool
+        let attendance: InstructorAttendance
+        let updatedAt: String
+        let warnings: [String]?
+    }
+
     struct InstructorAttendance: Decodable, Hashable {
         let id: String
         let checkedInAt: String
+        let checkedOutAt: String?
+        let classSessionId: String?
+        let courseId: String?
+        let courseTitle: String?
+        let courseDate: String?
     }
 
     struct InstructorDashboardResponse: Decodable {
         let ok: Bool
         let generatedAt: String
+        let course: InstructorCourse?
+        let courses: [InstructorCourse]?
         let students: [DashboardStudent]
         let quizResults: [DashboardQuizResult]
         let finalResults: [DashboardFinalResult]
@@ -417,6 +483,7 @@ extension ClassManagerAPIClient {
         let didCheckOut: Bool
         let didOpenSkills: Bool
         let didOpenQuiz: Bool
+        let expected: Bool?
         let checkInAt: String?
         let checkOutAt: String?
         let updatedAt: String?

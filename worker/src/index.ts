@@ -55,6 +55,17 @@ type SessionOption = {
   courseLocation?: string;
 };
 
+type InstructorCourse = {
+  id: string;
+  classSessionId: string;
+  courseId?: string;
+  title: string;
+  date: string;
+  location?: string;
+  expectedCount: number;
+  isToday: boolean;
+};
+
 type QuizReviewQuestion = {
   id?: string;
   number: number;
@@ -84,6 +95,7 @@ const REFRESHER_A_COMBINED_QUIZ_ID = "89db2c06-5052-4ff5-867b-95ef67fcfcd2";
 const REFRESHER_A_VERSION_B_QUIZ_ID = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b";
 const REFRESHER_A_VERSION_A_PASSING_SCORE = 74;
 const REFRESHER_A_VERSION_B_PASSING_SCORE = 80;
+const REGISTRATION_FORM_ID = "251265925097060";
 const KNOWN_QUESTION_RATIONALES_BY_QUIZ: Record<string, Record<string, string>> = {
   [REFRESHER_A_COMBINED_QUIZ_ID]: {
     "what is the sound of the soft tissue of the upper airway creating impedance or partial obstruction to the flow of air": "Correct answer: Snoring. Snoring is caused by relaxed soft tissue partially obstructing the upper airway, so repositioning and airway support should stay front of mind.",
@@ -230,7 +242,7 @@ let cachedApnsJwt = "";
 let cachedApnsJwtExp = 0;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
@@ -262,7 +274,11 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname === "/instructor/scan") {
-        return await instructorScan(request, env);
+        return await instructorScan(request, env, ctx);
+      }
+
+      if (request.method === "POST" && url.pathname === "/instructor/attendance/submit") {
+        return await instructorAttendanceSubmit(request, env);
       }
 
       if (request.method === "GET" && url.pathname === "/instructor/dashboard") {
@@ -432,7 +448,7 @@ async function instructorAuth(request: Request, env: Env): Promise<Response> {
   return json({ error: "instructor_not_authorized" }, 404);
 }
 
-async function instructorScan(request: Request, env: Env): Promise<Response> {
+async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const body = await readJson(request);
   const personId = stringField(body, "personId");
   const deviceId = stringField(body, "deviceId");
@@ -448,19 +464,19 @@ async function instructorScan(request: Request, env: Env): Promise<Response> {
      ON CONFLICT(person_id) DO UPDATE SET updated_at = excluded.updated_at`
   ).bind(personId, knownInstructorName(personId) ?? "Instructor", now).run();
 
-  const attendanceId = `${personId}:${now.slice(0, 10)}`;
-  await env.DB.prepare(
-    `INSERT INTO instructor_attendance (id, person_id, device_id, checked_in_at, updated_at)
-     VALUES (?1, ?2, ?3, ?4, ?4)
-     ON CONFLICT(id) DO UPDATE SET
-       device_id = COALESCE(excluded.device_id, instructor_attendance.device_id),
-       updated_at = excluded.updated_at`
-  ).bind(attendanceId, personId, deviceId ?? null, now).run();
+  ctx?.waitUntil(fetchRegistrationCourses(env).catch((error) => {
+    console.warn("background registration course refresh failed", error);
+  }));
+  const courses = await resolveInstructorCourses(env);
+  const defaultCourse = courses.find((course) => course.isToday) ?? courses[0];
 
   await audit(env, "instructor.scan", {
     actorId: personId,
     deviceId,
-    payload: { attendanceId }
+    payload: {
+      defaultCourseId: defaultCourse?.id ?? null,
+      courseCount: courses.length
+    }
   });
 
   return json({
@@ -469,57 +485,226 @@ async function instructorScan(request: Request, env: Env): Promise<Response> {
       personId,
       fullName: knownInstructorName(personId) ?? "Instructor"
     },
+    defaultCourse: defaultCourse ?? null,
+    courses
+  });
+}
+
+async function instructorAttendanceSubmit(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const personId = stringField(body, "personId");
+  const inOut = stringField(body, "inOut");
+  const deviceId = stringField(body, "deviceId");
+  const attestation = recordField(body, "attestation");
+  const course = recordField(body, "course");
+
+  if (!personId || !inOut || !course || !attestation) {
+    return json({ error: "missing_instructor_attendance_fields" }, 400);
+  }
+
+  const classSessionId = stringField(course, "classSessionId");
+  const courseTitle = stringField(course, "title") ?? stringField(course, "courseTitle") ?? "Class Session";
+  const courseDate = stringField(course, "date") ?? stringField(course, "courseDate") ?? classSessionId;
+  const courseId = stringField(course, "courseId");
+  if (!classSessionId || !courseDate) {
+    return json({ error: "missing_instructor_course" }, 400);
+  }
+
+  const now = new Date().toISOString();
+  const attendanceId = `${personId}:${classSessionId}`;
+  const isCheckIn = inOut === "Check-In";
+  const isCheckOut = inOut === "Check-Out";
+  if (!isCheckIn && !isCheckOut) {
+    return json({ error: "invalid_inout" }, 400);
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO instructors (person_id, full_name, updated_at)
+     VALUES (?1, ?2, ?3)
+     ON CONFLICT(person_id) DO UPDATE SET updated_at = excluded.updated_at`
+  ).bind(personId, knownInstructorName(personId) ?? "Instructor", now).run();
+
+  await env.DB.prepare(
+    `INSERT INTO instructor_attendance (
+       id, person_id, device_id, class_session_id, course_id, course_title,
+       course_date, source, checked_in_at, checked_out_at, updated_at
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'classmanager_app', ?8, ?9, ?10)
+     ON CONFLICT(id) DO UPDATE SET
+       device_id = COALESCE(excluded.device_id, instructor_attendance.device_id),
+       class_session_id = COALESCE(excluded.class_session_id, instructor_attendance.class_session_id),
+       course_id = COALESCE(excluded.course_id, instructor_attendance.course_id),
+       course_title = COALESCE(excluded.course_title, instructor_attendance.course_title),
+       course_date = COALESCE(excluded.course_date, instructor_attendance.course_date),
+       checked_in_at = COALESCE(instructor_attendance.checked_in_at, excluded.checked_in_at),
+       checked_out_at = COALESCE(excluded.checked_out_at, instructor_attendance.checked_out_at),
+       updated_at = excluded.updated_at`
+  ).bind(
+    attendanceId,
+    personId,
+    deviceId ?? null,
+    classSessionId,
+    courseId ?? null,
+    courseTitle,
+    courseDate,
+    isCheckIn ? now : now,
+    isCheckOut ? now : null,
+    now
+  ).run();
+
+  await touchInstructorDeviceContext(env, {
+    deviceId,
+    personId,
+    classSessionId
+  });
+
+  const warnings: string[] = [];
+  let rms: { ok: boolean; attestationId?: string } | undefined;
+  if (env.ACADEMY_RMS_BASE_URL && env.ACADEMY_RMS_ATTENDANCE_SECRET) {
+    try {
+      rms = await postAcademyRmsAttendance(env, {
+        kind: "instructor_attendance",
+        personId,
+        inOut,
+        classSessionId,
+        courseId,
+        courseTitle,
+        courseDate,
+        attestation,
+        deviceId,
+        submittedAt: now
+      });
+    } catch (error) {
+      console.error("rms instructor attendance submit failed", error);
+      warnings.push("rms_submit_failed");
+    }
+  } else {
+    warnings.push("rms_attendance_not_configured");
+  }
+
+  await audit(env, "instructor.attendance_submit", {
+    actorId: personId,
+    classSessionId,
+    deviceId,
+    payload: {
+      attendanceId,
+      inOut,
+      courseId: courseId ?? null,
+      courseTitle,
+      rmsAttestationId: rms?.attestationId ?? null,
+      warnings
+    }
+  });
+
+  return json({
+    ok: true,
     attendance: {
       id: attendanceId,
-      checkedInAt: now
-    }
+      checkedInAt: isCheckIn ? now : await existingInstructorCheckIn(env, attendanceId),
+      checkedOutAt: isCheckOut ? now : null,
+      classSessionId,
+      courseId,
+      courseTitle,
+      courseDate
+    },
+    rmsAttestationId: rms?.attestationId,
+    warnings,
+    updatedAt: now
   });
 }
 
 async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   const limit = Math.min(Math.max(numberFromUnknown(url.searchParams.get("limit")) ?? 100, 1), 250);
+  const courses = await resolveInstructorCourses(env);
+  const classSessionId = url.searchParams.get("classSessionId")?.trim() || courses.find((course) => course.isToday)?.classSessionId || courses[0]?.classSessionId;
+  const selectedCourse = courses.find((course) => course.classSessionId === classSessionId);
+  if (!classSessionId) {
+    return json({
+      ok: true,
+      generatedAt: new Date().toISOString(),
+      course: null,
+      courses,
+      students: [],
+      quizResults: [],
+      finalResults: [],
+      skillsVerifications: []
+    });
+  }
+
   const rows = await env.DB.prepare(
     `SELECT
+       COALESCE(scs.student_id, sp.student_id) AS student_id,
+       COALESCE(scs.class_session_id, sp.class_session_id) AS class_session_id,
+       COALESCE(sp.did_check_in, 0) AS did_check_in,
+       COALESCE(sp.did_check_out, 0) AS did_check_out,
+       sp.did_open_skills, sp.did_open_quiz, sp.check_in_at, sp.check_out_at,
+       sp.updated_at AS progress_updated_at,
+       COALESCE(scs.first_name, s.first_name) AS first_name,
+       COALESCE(scs.last_name, s.last_name) AS last_name,
+       COALESCE(scs.email, s.email) AS email,
+       COALESCE(scs.oems_id, s.oems_id) AS oems_id,
+       COALESCE(scs.course_title, cs.course_title) AS course_title,
+       COALESCE(scs.course_date, cs.course_date) AS course_date,
+       COALESCE(scs.course_id, cs.course_id) AS course_id,
+       CASE WHEN scs.id IS NULL THEN 0 ELSE 1 END AS expected
+     FROM scheduled_course_students scs
+     LEFT JOIN student_progress sp
+       ON sp.student_id = scs.student_id AND sp.class_session_id = scs.class_session_id
+     LEFT JOIN students s ON s.id = COALESCE(sp.student_id, scs.student_id)
+     LEFT JOIN class_sessions cs ON cs.id = COALESCE(sp.class_session_id, scs.class_session_id)
+     WHERE scs.class_session_id = ?1
+     UNION
+     SELECT
        sp.student_id, sp.class_session_id, sp.did_check_in, sp.did_check_out,
        sp.did_open_skills, sp.did_open_quiz, sp.check_in_at, sp.check_out_at,
        sp.updated_at AS progress_updated_at,
        s.first_name, s.last_name, s.email, s.oems_id,
-       cs.course_title, cs.course_date, cs.course_id
+       cs.course_title, cs.course_date, cs.course_id,
+       0 AS expected
      FROM student_progress sp
      JOIN students s ON s.id = sp.student_id
      JOIN class_sessions cs ON cs.id = sp.class_session_id
-     ORDER BY sp.updated_at DESC
-     LIMIT ?1`
-  ).bind(limit).all<JsonRecord>();
+     WHERE sp.class_session_id = ?1
+       AND NOT EXISTS (
+         SELECT 1 FROM scheduled_course_students scs
+         WHERE scs.class_session_id = sp.class_session_id AND scs.student_id = sp.student_id
+       )
+     ORDER BY last_name, first_name
+     LIMIT ?2`
+  ).bind(classSessionId, limit).all<JsonRecord>();
 
   const attempts = await env.DB.prepare(
     `SELECT qa.student_id, qa.class_session_id, qa.quiz_id, qa.result_text,
             qa.score_text, qa.passed, qa.completed_at, qa.updated_at
      FROM quiz_attempts qa
+     WHERE qa.class_session_id = ?1
      ORDER BY COALESCE(qa.completed_at, qa.updated_at) DESC
      LIMIT 500`
-  ).all<JsonRecord>();
+  ).bind(classSessionId).all<JsonRecord>();
 
   const finals = await env.DB.prepare(
     `SELECT student_id, class_session_id, quiz_id, quiz_name, response_id,
             score_text, result_text, passed, percentage_score, points,
             available_points, completed_at, updated_at
      FROM final_exam_results
+     WHERE class_session_id = ?1
      ORDER BY COALESCE(completed_at, updated_at) DESC
      LIMIT 250`
-  ).all<JsonRecord>();
+  ).bind(classSessionId).all<JsonRecord>();
 
   const skills = await env.DB.prepare(
     `SELECT student_id, class_session_id, instructor_person_id, opened_at,
             completed_at, updated_at
      FROM skills_verifications
+     WHERE class_session_id = ?1
      ORDER BY opened_at DESC
      LIMIT 250`
-  ).all<JsonRecord>();
+  ).bind(classSessionId).all<JsonRecord>();
 
   return json({
     ok: true,
     generatedAt: new Date().toISOString(),
+    course: selectedCourse ?? null,
+    courses,
     students: (rows.results ?? []).map(dashboardStudent),
     quizResults: (attempts.results ?? []).map(dashboardQuizResult),
     finalResults: (finals.results ?? []).map(dashboardFinalResult),
@@ -635,6 +820,251 @@ function knownInstructorName(personId: string): string | undefined {
   return known[personId];
 }
 
+async function existingInstructorCheckIn(env: Env, attendanceId: string): Promise<string | undefined> {
+  const row = await env.DB.prepare(
+    `SELECT checked_in_at FROM instructor_attendance WHERE id = ?1`
+  ).bind(attendanceId).first<JsonRecord>();
+  return row ? stringField(row, "checked_in_at") : undefined;
+}
+
+async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {
+  const rows = await env.DB.prepare(
+    `SELECT id, class_session_id, course_id, course_title, course_date, course_location, expected_count
+     FROM scheduled_courses
+     ORDER BY course_date DESC, course_title
+     LIMIT 150`
+  ).all<JsonRecord>();
+  const scheduled = (rows.results ?? []).map(courseFromScheduledRow);
+  if (scheduled.length > 0) {
+    return scheduled.sort(compareInstructorCourses);
+  }
+
+  const sessions = await env.DB.prepare(
+    `SELECT id, course_id, course_title, course_date
+     FROM class_sessions
+     ORDER BY updated_at DESC
+     LIMIT 100`
+  ).all<JsonRecord>();
+  return (sessions.results ?? []).map((row) => {
+    const date = stringField(row, "course_date") ?? "";
+    const classSessionId = stringField(row, "id") ?? sessionIdFor(date);
+    const title = stringField(row, "course_title") ?? "Class Session";
+    const courseId = stringField(row, "course_id");
+    return {
+      id: [classSessionId, courseId, title].filter(Boolean).join(":"),
+      classSessionId,
+      courseId,
+      title,
+      date,
+      expectedCount: 0,
+      isToday: datesMatchToday(date)
+    };
+  }).sort(compareInstructorCourses);
+}
+
+async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
+  const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/form/${REGISTRATION_FORM_ID}/submissions`));
+  url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
+  url.searchParams.set("limit", "250");
+  url.searchParams.set("orderby", "id");
+
+  const response = await fetch(url, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(12_000)
+  });
+  if (!response.ok) {
+    throw new HttpError(502, "registration_course_lookup_failed");
+  }
+
+  const data = await response.json<JsonRecord>().catch(() => ({}));
+  const submissions = arrayField(data, "content").filter(isJsonRecord);
+  const courseMap = new Map<string, { course: InstructorCourse; students: JsonRecord[] }>();
+
+  for (const submission of submissions) {
+    const answers = recordField(submission, "answers");
+    const submissionId = stringField(submission, "id");
+    const formId = stringField(submission, "form_id") ?? REGISTRATION_FORM_ID;
+    if (!answers || !submissionId || !answer(answers, "39")) {
+      continue;
+    }
+
+    const normalized = normalizeRegistrationSubmission(answers, submissionId, formId);
+    for (const option of normalized.options) {
+      const attendee = attendeeWithOption(normalized.attendee, option);
+      const course = instructorCourseFromAttendee(attendee, formId);
+      const existing = courseMap.get(course.id) ?? { course, students: [] };
+      existing.students.push({
+        attendee,
+        formId,
+        course
+      });
+      existing.course.expectedCount = existing.students.length;
+      courseMap.set(course.id, existing);
+    }
+  }
+
+  const now = new Date().toISOString();
+  for (const entry of courseMap.values()) {
+    await upsertScheduledCourse(env, entry.course, now);
+    for (const student of entry.students) {
+      await upsertScheduledStudent(env, student, now);
+    }
+  }
+
+  return [...courseMap.values()]
+    .map((entry) => entry.course)
+    .sort(compareInstructorCourses);
+}
+
+function instructorCourseFromAttendee(attendee: NormalizedAttendee, formId: string): InstructorCourse {
+  const date = normalizeDateToMMDDYYYY(attendee.courseDate ?? "");
+  const classSessionId = sessionIdFor(date || attendee.courseId || attendee.submissionId);
+  const title = attendee.courseType || "Class Session";
+  const courseId = attendee.courseId;
+  const id = [classSessionId, courseId, title].filter(Boolean).join(":");
+  return {
+    id,
+    classSessionId,
+    courseId,
+    title,
+    date,
+    location: attendee.courseLocation,
+    expectedCount: 0,
+    isToday: datesMatchToday(date)
+  };
+}
+
+async function upsertScheduledCourse(env: Env, course: InstructorCourse, now: string): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO scheduled_courses (
+      id, class_session_id, course_id, course_title, course_date, course_location,
+      source_form_id, expected_count, raw_json, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+    ON CONFLICT(id) DO UPDATE SET
+      class_session_id = excluded.class_session_id,
+      course_id = excluded.course_id,
+      course_title = excluded.course_title,
+      course_date = excluded.course_date,
+      course_location = excluded.course_location,
+      source_form_id = excluded.source_form_id,
+      expected_count = excluded.expected_count,
+      raw_json = excluded.raw_json,
+      updated_at = excluded.updated_at`
+  ).bind(
+    course.id,
+    course.classSessionId,
+    course.courseId ?? null,
+    course.title,
+    course.date,
+    course.location ?? null,
+    REGISTRATION_FORM_ID,
+    course.expectedCount,
+    JSON.stringify(course),
+    now
+  ).run();
+}
+
+async function upsertScheduledStudent(env: Env, row: JsonRecord, now: string): Promise<void> {
+  const attendee = recordField(row, "attendee") as NormalizedAttendee | undefined;
+  const course = recordField(row, "course") as InstructorCourse | undefined;
+  const formId = stringField(row, "formId") ?? REGISTRATION_FORM_ID;
+  if (!attendee || !course) {
+    return;
+  }
+
+  const studentId = attendee.oemsId || attendee.submissionId;
+  const id = `${course.classSessionId}:${studentId}:${attendee.submissionId}`;
+  await env.DB.prepare(
+    `INSERT INTO scheduled_course_students (
+      id, class_session_id, course_id, submission_id, student_id,
+      first_name, last_name, email, oems_id, course_title, course_date,
+      course_location, dob, raw_json, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+    ON CONFLICT(class_session_id, student_id, submission_id) DO UPDATE SET
+      course_id = excluded.course_id,
+      first_name = excluded.first_name,
+      last_name = excluded.last_name,
+      email = excluded.email,
+      oems_id = excluded.oems_id,
+      course_title = excluded.course_title,
+      course_date = excluded.course_date,
+      course_location = excluded.course_location,
+      dob = excluded.dob,
+      raw_json = excluded.raw_json,
+      updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    course.classSessionId,
+    course.courseId ?? null,
+    attendee.submissionId,
+    studentId,
+    attendee.firstName || "Unknown",
+    attendee.lastName || "Student",
+    attendee.email || null,
+    attendee.oemsId || null,
+    course.title,
+    course.date,
+    course.location ?? null,
+    attendee.dob ?? null,
+    JSON.stringify(attendee),
+    now
+  ).run();
+}
+
+function courseFromScheduledRow(row: JsonRecord): InstructorCourse {
+  const date = stringField(row, "course_date") ?? "";
+  return {
+    id: stringField(row, "id") ?? [stringField(row, "class_session_id"), stringField(row, "course_id"), stringField(row, "course_title")].filter(Boolean).join(":"),
+    classSessionId: stringField(row, "class_session_id") ?? sessionIdFor(date),
+    courseId: stringField(row, "course_id"),
+    title: stringField(row, "course_title") ?? "Class Session",
+    date,
+    location: stringField(row, "course_location"),
+    expectedCount: numberFromUnknown(row.expected_count) ?? 0,
+    isToday: datesMatchToday(date)
+  };
+}
+
+function compareInstructorCourses(a: InstructorCourse, b: InstructorCourse): number {
+  if (a.isToday !== b.isToday) {
+    return a.isToday ? -1 : 1;
+  }
+  const today = dateSortValue(todayEasternDate());
+  const aValue = dateSortValue(a.date);
+  const bValue = dateSortValue(b.date);
+  const aFuture = aValue >= today;
+  const bFuture = bValue >= today;
+  if (aFuture !== bFuture) {
+    return aFuture ? -1 : 1;
+  }
+  if (aValue !== bValue) {
+    return aFuture ? aValue - bValue : bValue - aValue;
+  }
+  return a.title.localeCompare(b.title);
+}
+
+function datesMatchToday(rawDate: string): boolean {
+  return normalizeDateToMMDDYYYY(rawDate) === todayEasternDate();
+}
+
+function dateSortValue(rawDate: string): number {
+  const normalized = normalizeDateToMMDDYYYY(rawDate);
+  const match = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return Number(`${match[3]}${match[1]}${match[2]}`);
+}
+
+function todayEasternDate(): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric"
+  }).format(new Date());
+}
+
 function dashboardStudent(row: JsonRecord): JsonRecord {
   return {
     studentId: stringField(row, "student_id"),
@@ -650,6 +1080,7 @@ function dashboardStudent(row: JsonRecord): JsonRecord {
     didCheckOut: boolFromUnknown(row.did_check_out) ?? false,
     didOpenSkills: boolFromUnknown(row.did_open_skills) ?? false,
     didOpenQuiz: boolFromUnknown(row.did_open_quiz) ?? false,
+    expected: boolFromUnknown(row.expected) ?? false,
     checkInAt: stringField(row, "check_in_at"),
     checkOutAt: stringField(row, "check_out_at"),
     updatedAt: stringField(row, "progress_updated_at")
@@ -1036,6 +1467,10 @@ async function patchProgress(request: Request, url: URL, env: Env): Promise<Resp
     email: stringField(body, "email")
   });
 
+  if (boolFromUnknown(body.didCheckOut) === true) {
+    await maybeSendInstructorCheckoutReminder(env, classSessionId);
+  }
+
   return json({ ok: true, id, updatedAt: now });
 }
 
@@ -1103,6 +1538,33 @@ async function touchDeviceContext(
     input.classSessionId ?? null,
     input.email ?? null,
     input.flexiquizUserId ?? null,
+    new Date().toISOString()
+  ).run();
+}
+
+async function touchInstructorDeviceContext(
+  env: Env,
+  input: {
+    deviceId?: string | null;
+    personId?: string | null;
+    classSessionId?: string | null;
+  }
+): Promise<void> {
+  const deviceId = input.deviceId?.trim();
+  if (!deviceId) {
+    return;
+  }
+
+  await env.DB.prepare(
+    `UPDATE device_tokens
+     SET instructor_person_id = COALESCE(?2, instructor_person_id),
+         instructor_class_session_id = COALESCE(?3, instructor_class_session_id),
+         updated_at = ?4
+     WHERE device_id = ?1`
+  ).bind(
+    deviceId,
+    input.personId ?? null,
+    input.classSessionId ?? null,
     new Date().toISOString()
   ).run();
 }
@@ -1212,6 +1674,10 @@ async function submitAttendance(request: Request, env: Env): Promise<Response> {
       warnings
     }
   });
+
+  if (didCheckOut) {
+    await maybeSendInstructorCheckoutReminder(env, classSessionId);
+  }
 
   return json({
     ok: true,
@@ -2042,6 +2508,59 @@ async function matchingDeviceContexts(
     unique.push(row);
   }
   return unique;
+}
+
+async function maybeSendInstructorCheckoutReminder(env: Env, classSessionId: string): Promise<void> {
+  const counts = await env.DB.prepare(
+    `SELECT
+       SUM(CASE WHEN did_check_in = 1 THEN 1 ELSE 0 END) AS checked_in_count,
+       SUM(CASE WHEN did_check_in = 1 AND did_check_out = 1 THEN 1 ELSE 0 END) AS checked_out_count
+     FROM student_progress
+     WHERE class_session_id = ?1`
+  ).bind(classSessionId).first<JsonRecord>();
+  const checkedIn = numberFromUnknown(counts?.checked_in_count) ?? 0;
+  const checkedOut = numberFromUnknown(counts?.checked_out_count) ?? 0;
+  if (checkedIn === 0 || checkedIn !== checkedOut) {
+    return;
+  }
+
+  const instructors = await env.DB.prepare(
+    `SELECT ia.id, ia.person_id, ia.course_title, dt.token, dt.apns_environment
+     FROM instructor_attendance ia
+     JOIN device_tokens dt
+       ON dt.instructor_person_id = ia.person_id
+      AND dt.instructor_class_session_id = ia.class_session_id
+     WHERE ia.class_session_id = ?1
+       AND ia.checked_out_at IS NULL
+       AND ia.checkout_reminder_sent_at IS NULL
+     ORDER BY ia.checked_in_at DESC
+     LIMIT 20`
+  ).bind(classSessionId).all<JsonRecord>();
+
+  for (const row of instructors.results ?? []) {
+    const token = stringField(row, "token");
+    const attendanceId = stringField(row, "id");
+    if (!token || !attendanceId) {
+      continue;
+    }
+    try {
+      await sendInstructorReminderApns(env, {
+        token,
+        apnsEnvironment: normalizeApnsEnvironment(stringField(row, "apns_environment")),
+        classSessionId,
+        title: "Instructor checkout needed",
+        body: `All students are checked out for ${stringField(row, "course_title") ?? "this class"}. Please complete instructor checkout.`
+      });
+      await env.DB.prepare(
+        `UPDATE instructor_attendance
+         SET checkout_reminder_sent_at = ?2, updated_at = ?2
+         WHERE id = ?1`
+      ).bind(attendanceId, new Date().toISOString()).run();
+    } catch (error) {
+      await handleApnsFailure(env, token, error);
+      console.warn("instructor checkout APNs failed", { tokenSuffix: token.slice(-8), error: String(error) });
+    }
+  }
 }
 
 function finalExamResultFromRms(result: JsonRecord): FinalExamResult {
@@ -3770,6 +4289,53 @@ async function sendFinalExamApns(
       scoreText: input.result.scoreText ?? null,
       percentageScore: input.result.percentageScore ?? null,
       completedAt: input.result.completedAt ?? null
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`apns_${response.status}_${text}`);
+  }
+}
+
+async function sendInstructorReminderApns(
+  env: Env,
+  input: {
+    token: string;
+    apnsEnvironment: "prod" | "sandbox";
+    classSessionId: string;
+    title: string;
+    body: string;
+  }
+): Promise<void> {
+  const topic = (env.APNS_BUNDLE_ID ?? "").trim();
+  if (!topic) {
+    throw new Error("missing_apns_topic");
+  }
+
+  const host = input.apnsEnvironment === "sandbox"
+    ? "https://api.sandbox.push.apple.com"
+    : "https://api.push.apple.com";
+  const jwt = await apnsJwt(env);
+
+  const response = await fetch(`${host}/3/device/${input.token}`, {
+    method: "POST",
+    headers: {
+      authorization: `bearer ${jwt}`,
+      "apns-topic": topic,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+      "apns-collapse-id": `instructor-checkout-${input.classSessionId}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      aps: {
+        alert: { title: input.title, body: input.body },
+        sound: "default",
+        "content-available": 1
+      },
+      type: "classmanager.instructor_checkout_reminder",
+      classSessionId: input.classSessionId
     })
   });
 

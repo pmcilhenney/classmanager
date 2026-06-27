@@ -23,7 +23,8 @@ struct InstructorPhoneView: View {
                 jotform: jotform,
                 flexi: flexi,
                 instructor: instructorSession.instructor,
-                attendance: instructorSession.attendance
+                initialCourse: instructorSession.defaultCourse,
+                courses: instructorSession.courses
             )
         } else {
             instructorLoginView
