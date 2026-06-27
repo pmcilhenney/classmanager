@@ -1,0 +1,2090 @@
+{
+  "title": "Refresher C - Class Manager App",
+  "generatedAt": "2026-06-27T20:18:24.330Z",
+  "source": "RMS flexiquiz_exam_results.response_questions_json latest submitted payload per mini quiz",
+  "totalQuestions": 50,
+  "segments": [
+    {
+      "page": 1,
+      "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+      "sourceQuizName": "Refresher C - 1",
+      "questionCount": 13,
+      "questions": [
+        {
+          "page": 1,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 1,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "18c7eaa5-19f8-4b02-9438-c30d18f6c1f0",
+          "questionType": "radio_button",
+          "text": "For an adult patient, a fall from which height is considered significant:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "10 feet",
+              "correct": true,
+              "sourceOptionId": "4cb80ba0-3ae0-42da-8f20-a252c80c56eb"
+            },
+            {
+              "label": "B",
+              "text": "20 feet",
+              "correct": false,
+              "sourceOptionId": "06d9876d-9b4b-4294-a281-90a8c30bd9b0"
+            },
+            {
+              "label": "C",
+              "text": "15 feet",
+              "correct": false,
+              "sourceOptionId": "e3a31df3-793c-406b-8f29-9680e2ae67d3"
+            },
+            {
+              "label": "D",
+              "text": "5 feet",
+              "correct": false,
+              "sourceOptionId": "589f3ec5-a9b5-4fb3-be8b-45ffb1cb6ab6"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: 10 feet. This item is tied to the concept in the question stem: For an adult patient, a fall from which height is considered significant. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 2,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "e8ee6646-4625-4ce9-aad3-a19086d4d3d0",
+          "questionType": "radio_button",
+          "text": "When evaluating the severity of a fall, the EMT should take the height of the fall and _______________ into consideration.",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "The type of surface struck",
+              "correct": true,
+              "sourceOptionId": "2c4b2b48-4160-4c2f-867b-2bf30e07d13d"
+            },
+            {
+              "label": "B",
+              "text": "The patient’s ideal body weight",
+              "correct": false,
+              "sourceOptionId": "aeea3f60-9ee2-4ff4-aac1-3900a1a8d2c0"
+            },
+            {
+              "label": "C",
+              "text": "The ambient air temperature",
+              "correct": false,
+              "sourceOptionId": "67d775ce-baeb-4d37-b547-9e165c341ff0"
+            },
+            {
+              "label": "D",
+              "text": "The ethnicity of the patient",
+              "correct": false,
+              "sourceOptionId": "95ccfa5a-9d39-43d7-b457-5f0fe4715753"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: The type of surface struck. This item is tied to the concept in the question stem: When evaluating the severity of a fall, the EMT should take the height of the fall and _______________ into consideration. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 3,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "00e614a7-84bc-4bd7-9330-1e830a107028",
+          "questionType": "radio_button",
+          "text": "Battle Signs & Raccoon Eyes are late signs of what injury:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Skull Fracture",
+              "correct": true,
+              "sourceOptionId": "d05f1c84-77ff-4f2b-afd4-951f5ac98d33"
+            },
+            {
+              "label": "B",
+              "text": "Compression injuries",
+              "correct": false,
+              "sourceOptionId": "f5898252-86d3-4e96-890c-c4bcce0e3389"
+            },
+            {
+              "label": "C",
+              "text": "Internal Bleeding",
+              "correct": false,
+              "sourceOptionId": "03be5eda-5c34-4e44-9ab7-7df48b9fb2f2"
+            },
+            {
+              "label": "D",
+              "text": "Lacerations to the face",
+              "correct": false,
+              "sourceOptionId": "f511ca85-2d39-4828-af34-32447924a7ce"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Skull Fracture. This item is tied to the concept in the question stem: Battle Signs & Raccoon Eyes are late signs of what injury. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 4,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "d3e41be3-b9de-478e-a1d2-5b377c4b616e",
+          "questionType": "radio_button",
+          "text": "A patient has been critically hurt in a nighttime motor vehicle collision. She was wearing a seat belt and hit a tree at 70 mph. The car she was driving weighed 2 tons and was equipped with air bags that did deploy. Which factor had the greatest impact on the injuries she sustained?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Speed of the vehicle at impact",
+              "correct": true,
+              "sourceOptionId": "327b587e-bead-48a9-92f1-ef28b41c7eca"
+            },
+            {
+              "label": "B",
+              "text": "Weight of the vehicle",
+              "correct": false,
+              "sourceOptionId": "e19aa49e-8c4a-4a3a-b8bb-9af12d2008b0"
+            },
+            {
+              "label": "C",
+              "text": "Nighttime conditions",
+              "correct": false,
+              "sourceOptionId": "24e015d7-f647-4744-89f9-0270f34b86da"
+            },
+            {
+              "label": "D",
+              "text": "Deployment of air bags",
+              "correct": false,
+              "sourceOptionId": "0d54d6ac-4c92-4dad-8b3a-cc5b49a4000a"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Speed of the vehicle at impact. This item is tied to the concept in the question stem: A patient has been critically hurt in a nighttime motor vehicle collision. She was wearing a seat belt and hit a tree at 70 mph. The car she was driving weighed 2 tons and was equipped with air bags that did deploy. Which factor had the greatest impact on the injuries she sustained. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 5,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "b1c0606f-cac0-4c83-a686-3c15e60b4c01",
+          "questionType": "radio_button",
+          "text": "Your patient just fell off the second-story roof while hanging holiday lights, and is presenting with confusion and the following vital signs: HR: 110 RR: 22 BP: 90/70 SpO2: 91% What priority or level of severity is this patient?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Priority 1 - Severe",
+              "correct": true,
+              "sourceOptionId": "676726dc-8a3d-4e2d-a2e1-b1bed87e7fe2"
+            },
+            {
+              "label": "B",
+              "text": "Priority 2 - Moderate",
+              "correct": false,
+              "sourceOptionId": "5d61d0a6-8a55-4741-be01-0235b9493d4e"
+            },
+            {
+              "label": "C",
+              "text": "Priority 3 - Minor",
+              "correct": false,
+              "sourceOptionId": "f8e853d9-ce82-4a25-a5eb-4749cc01771d"
+            },
+            {
+              "label": "D",
+              "text": "Not Injured",
+              "correct": false,
+              "sourceOptionId": "8653b76e-4e24-455e-b8af-c70456d0f55c"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Priority 1 - Severe. This item is tied to the concept in the question stem: Your patient just fell off the second-story roof while hanging holiday lights, and is presenting with confusion and the following vital signs: HR: 110 RR: 22 BP: 90/70 SpO2: 91% What priority or level of severity is this patient. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 6,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "d4ada1ad-1ec9-42ce-a805-120e45ea72a9",
+          "questionType": "radio_button",
+          "text": "A patient in the prone position would be found:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Laying on his chest",
+              "correct": true,
+              "sourceOptionId": "fb0bc81a-d4f1-4c90-a254-703ba09afce6"
+            },
+            {
+              "label": "B",
+              "text": "Stating upright",
+              "correct": false,
+              "sourceOptionId": "575349cf-54f4-4a53-905c-fe7baf820ff6"
+            },
+            {
+              "label": "C",
+              "text": "Laying on his back",
+              "correct": false,
+              "sourceOptionId": "4cf8f3ed-7278-4b7e-a475-c06c156acb80"
+            },
+            {
+              "label": "D",
+              "text": "Laying on his side",
+              "correct": false,
+              "sourceOptionId": "6d6f3934-7ced-432c-be7f-ff49a92b04e1"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Laying on his chest. This item is tied to the concept in the question stem: A patient in the prone position would be found. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 7,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "bf3f63c3-fd90-4110-8d5c-c2dff15706f8",
+          "questionType": "radio_button",
+          "text": "The Mechanism of Injury is:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "The way the traumatic injuries occur",
+              "correct": true,
+              "sourceOptionId": "4464a8c9-0434-4b3f-9a4f-239d2d5f8484"
+            },
+            {
+              "label": "B",
+              "text": "Trauma vs. Medical",
+              "correct": false,
+              "sourceOptionId": "e41b4cef-83c2-47d5-b3a2-a6f92a1cb0a3"
+            },
+            {
+              "label": "C",
+              "text": "Drive vs. Fly criteria",
+              "correct": false,
+              "sourceOptionId": "3f6421c8-623d-4b35-85fb-f61e4736f2d4"
+            },
+            {
+              "label": "D",
+              "text": "When to transport to a trauma center",
+              "correct": false,
+              "sourceOptionId": "df1ca8f4-3309-44a9-962a-33e7f64518b2"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: The way the traumatic injuries occur. This item is tied to the concept in the question stem: The Mechanism of Injury is. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 8,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "2a2a9543-9061-463d-ba2e-44348193cfd4",
+          "questionType": "radio_button",
+          "text": "Evidence of internal bleeding includes an abdomen that is hot, bruised, tender, and:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Rigid",
+              "correct": true,
+              "sourceOptionId": "44ae83f2-5afb-4b12-9cdc-50e572a7fd15"
+            },
+            {
+              "label": "B",
+              "text": "Depressed",
+              "correct": false,
+              "sourceOptionId": "9ffcc58f-c260-4135-8d31-f3827a876c0d"
+            },
+            {
+              "label": "C",
+              "text": "Squishy",
+              "correct": false,
+              "sourceOptionId": "4e36fd1c-31d2-435d-8ce2-5c1d33ad4abf"
+            },
+            {
+              "label": "D",
+              "text": "Smooth",
+              "correct": false,
+              "sourceOptionId": "97675586-f790-45c9-9bc8-b361993498c7"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Rigid. This item is tied to the concept in the question stem: Evidence of internal bleeding includes an abdomen that is hot, bruised, tender, and. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 9,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "07289063-c028-4bd5-8fd5-cfed85b994d4",
+          "questionType": "radio_button",
+          "text": "Which injury is most serious, warranting immediate and rapid transport to the local trauma center?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Instability and crepitus to the left lateral chest wall",
+              "correct": true,
+              "sourceOptionId": "e8488428-2609-42cc-b435-b1356ebbe55f"
+            },
+            {
+              "label": "B",
+              "text": "Large, deep laceration to the arm with bone visible",
+              "correct": false,
+              "sourceOptionId": "719efe8e-c258-41eb-9e1b-a30b7139fd7e"
+            },
+            {
+              "label": "C",
+              "text": "Open fracture to the left lower leg",
+              "correct": false,
+              "sourceOptionId": "335abd8a-c09e-42ea-87fc-4fc9e3f6248f"
+            },
+            {
+              "label": "D",
+              "text": "Deformity to the right ankle with pain rated as a 10/10",
+              "correct": false,
+              "sourceOptionId": "8c4cbc80-a19c-4378-b7d2-46e83222ca4f"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Instability and crepitus to the left lateral chest wall. This item is tied to the concept in the question stem: Which injury is most serious, warranting immediate and rapid transport to the local trauma center. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 10,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "9efd1a89-778f-43cb-beeb-585380b352ab",
+          "questionType": "radio_button",
+          "text": "An EMT’s awareness and concern for potentially serious underlying or unseen injuries is:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Index of Suspicion",
+              "correct": true,
+              "sourceOptionId": "68ae2d5e-fbdf-4b10-82dc-559700dc49f2"
+            },
+            {
+              "label": "B",
+              "text": "Fatal attraction",
+              "correct": false,
+              "sourceOptionId": "d377c9b9-2382-41e6-a470-e48a921cfc8e"
+            },
+            {
+              "label": "C",
+              "text": "Mobile X-Ray Certification",
+              "correct": false,
+              "sourceOptionId": "03767ef1-167b-42d5-b328-55c4dcf4b2ae"
+            },
+            {
+              "label": "D",
+              "text": "Field experience",
+              "correct": false,
+              "sourceOptionId": "69e96024-89de-4dc9-b396-2a38d52826b0"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Index of Suspicion. This item is tied to the concept in the question stem: An EMT’s awareness and concern for potentially serious underlying or unseen injuries is. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 11,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "b86486aa-bebc-42ff-87be-044c1278e918",
+          "questionType": "radio_button",
+          "text": "What is the long bone of the upper portion of the arm?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Humerus",
+              "correct": true,
+              "sourceOptionId": "d7e033c8-9614-43d4-86cf-2a0e6dd485d0"
+            },
+            {
+              "label": "B",
+              "text": "Scapula",
+              "correct": false,
+              "sourceOptionId": "c324669c-d73c-4377-ae4c-df7088b26cd9"
+            },
+            {
+              "label": "C",
+              "text": "Radius",
+              "correct": false,
+              "sourceOptionId": "8e9b2f1c-1a02-489a-8ae0-947e745b9802"
+            },
+            {
+              "label": "D",
+              "text": "Ulna",
+              "correct": false,
+              "sourceOptionId": "cb154f37-84b8-4238-ac97-09ac7ed702b8"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Humerus. This item is tied to the concept in the question stem: What is the long bone of the upper portion of the arm. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 12,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "75eccdee-9551-4ee0-868b-807bea92432b",
+          "questionType": "radio_button",
+          "text": "The proper anatomical position includes",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "The patient facing forward, with arms at sides",
+              "correct": true,
+              "sourceOptionId": "4d95b895-d87a-497c-99e8-f7fe202b4f01"
+            },
+            {
+              "label": "B",
+              "text": "The patient in a tripod position",
+              "correct": false,
+              "sourceOptionId": "4582e540-efee-4234-ad2f-24a7657831ba"
+            },
+            {
+              "label": "C",
+              "text": "The patient supine, with knees bent",
+              "correct": false,
+              "sourceOptionId": "60bf50d6-b18e-4fef-b275-9a8077dc8b83"
+            },
+            {
+              "label": "D",
+              "text": "The patient prone, with face off to one side",
+              "correct": false,
+              "sourceOptionId": "11e8bfb9-ab37-4590-a148-c05ec214f0d0"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: The patient facing forward, with arms at sides. This item is tied to the concept in the question stem: The proper anatomical position includes. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 13,
+          "combinedQuestionNumber": 13,
+          "sourceQuizId": "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+          "sourceQuizName": "Refresher C - 1",
+          "sourceQuestionId": "21657597-abfb-4f38-a7a4-122dcc96dbfa",
+          "questionType": "radio_button",
+          "text": "In which of the following locations is the femoral pulse palpated?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "In the crease between the abdomen and the groin",
+              "correct": true,
+              "sourceOptionId": "6023564a-eb50-4c25-b24d-ad37d34c234f"
+            },
+            {
+              "label": "B",
+              "text": "On the medial side of the ankle, posterior to the tibia",
+              "correct": false,
+              "sourceOptionId": "cdd427b0-7258-4b19-b456-32ed0db823cc"
+            },
+            {
+              "label": "C",
+              "text": "On the medial side of the upper arm",
+              "correct": false,
+              "sourceOptionId": "5abc25bc-ae40-4c04-adc3-f575c4c8f70b"
+            },
+            {
+              "label": "D",
+              "text": "Behind the knee",
+              "correct": false,
+              "sourceOptionId": "41380bb6-79f4-4058-9bb5-a708af79a1a9"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: In the crease between the abdomen and the groin. This item is tied to the concept in the question stem: In which of the following locations is the femoral pulse palpated. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        }
+      ]
+    },
+    {
+      "page": 2,
+      "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+      "sourceQuizName": "Refresher C - 2",
+      "questionCount": 12,
+      "questions": [
+        {
+          "page": 2,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 14,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "3cf15c07-ecb0-40f8-accd-f54b75acbbbf",
+          "questionType": "radio_button",
+          "text": "Best practices for applying restraints is to have a minimum of ______ personnel present.",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "4",
+              "correct": true,
+              "sourceOptionId": "1fed756b-d8c1-4455-965a-73309b40437c"
+            },
+            {
+              "label": "B",
+              "text": "3",
+              "correct": false,
+              "sourceOptionId": "5f0ff2de-feb9-4664-830f-9d5862790cc3"
+            },
+            {
+              "label": "C",
+              "text": "2",
+              "correct": false,
+              "sourceOptionId": "b936e2fd-d09b-4855-bc4a-c1b9b6474cee"
+            },
+            {
+              "label": "D",
+              "text": "1",
+              "correct": false,
+              "sourceOptionId": "fcc15376-44d0-4d39-920e-91d204db1a22"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: 4. This item is tied to the concept in the question stem: Best practices for applying restraints is to have a minimum of ______ personnel present. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 15,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "c67cadd5-01ca-4a67-9aa9-707138ba6db3",
+          "questionType": "radio_button",
+          "text": "Mechanical Restraints are indicated for:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Medical patients that are also combative",
+              "correct": true,
+              "sourceOptionId": "3fa5b5a5-2699-4b9c-8f13-599cd3f9ffc8"
+            },
+            {
+              "label": "B",
+              "text": "Patients that suffer from depression",
+              "correct": false,
+              "sourceOptionId": "3c082c1a-dfe2-445f-b78d-44741583dd03"
+            },
+            {
+              "label": "C",
+              "text": "Patients with a behavioral issue",
+              "correct": false,
+              "sourceOptionId": "4573689f-63b9-4c04-b00a-f55451ab0149"
+            },
+            {
+              "label": "D",
+              "text": "Patients that are refusing transport",
+              "correct": false,
+              "sourceOptionId": "db8470a7-ffc6-4aa9-ae17-ebb53466fa43"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Medical patients that are also combative. This item is tied to the concept in the question stem: Mechanical Restraints are indicated for. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 16,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "525c364f-c237-4bf2-b081-70dd47fcd801",
+          "questionType": "radio_button",
+          "text": "When removing a child from a car seat, the child’s head:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Should be kept in the neutral position",
+              "correct": true,
+              "sourceOptionId": "4ef6e043-3f49-4efb-8162-95dc36a4bdc4"
+            },
+            {
+              "label": "B",
+              "text": "Should be hyperextended",
+              "correct": false,
+              "sourceOptionId": "987fc0d2-e0d4-4a52-8579-6c55ad47ad5a"
+            },
+            {
+              "label": "C",
+              "text": "Should be restrained with cravats",
+              "correct": false,
+              "sourceOptionId": "500141ba-925a-41f1-8ff6-20dd36ce8d4b"
+            },
+            {
+              "label": "D",
+              "text": "Should be immobilized with tape",
+              "correct": false,
+              "sourceOptionId": "f7d600bd-99f1-4c4e-ba48-9a6732318759"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Should be kept in the neutral position. This item is tied to the concept in the question stem: When removing a child from a car seat, the child’s head. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 17,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "aa69d927-9a8d-4526-884e-22109908a8a8",
+          "questionType": "radio_button",
+          "text": "According to CDC guidelines, a systolic blood pressure (BP) of less than ________ indicates a patient should be transported to a trauma center.",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "90",
+              "correct": true,
+              "sourceOptionId": "8cb90218-22fe-468b-945a-2f7e1e546f6d"
+            },
+            {
+              "label": "B",
+              "text": "110",
+              "correct": false,
+              "sourceOptionId": "bb3f0efa-9aa9-43d1-82c7-31fbe77b3807"
+            },
+            {
+              "label": "C",
+              "text": "100",
+              "correct": false,
+              "sourceOptionId": "f2ff2e8e-05e0-4707-8e21-99c9b5559bb2"
+            },
+            {
+              "label": "D",
+              "text": "80",
+              "correct": false,
+              "sourceOptionId": "32ec929e-4a4e-42ba-948f-02b86ac0b016"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: 90. This item is tied to the concept in the question stem: According to CDC guidelines, a systolic blood pressure (BP) of less than ________ indicates a patient should be transported to a trauma center. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 18,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "a70dec37-7925-47db-87f9-a6dbe142e737",
+          "questionType": "radio_button",
+          "text": "An unrestrained 48-year-old male who was the front seat passenger in a high-speed car crash struck his face on the dash. He has abnormal movement of his maxilla. You should suspect a:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "fracture.",
+              "correct": true,
+              "sourceOptionId": "2b9fcbe6-ec36-4570-a882-f0dfb52554ab"
+            },
+            {
+              "label": "B",
+              "text": "Le Fort III injury.",
+              "correct": false,
+              "sourceOptionId": "1a3d8338-8ea2-490b-a329-8d2a84e8f7f0"
+            },
+            {
+              "label": "C",
+              "text": "TMJ dislocation.",
+              "correct": false,
+              "sourceOptionId": "6f8602a8-4433-4fdb-858b-7c09307a4c59"
+            },
+            {
+              "label": "D",
+              "text": "muscle spasm.",
+              "correct": false,
+              "sourceOptionId": "cd23f687-6f2d-4541-a4d6-c556ce34a283"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: fracture.. This item is tied to the concept in the question stem: An unrestrained 48-year-old male who was the front seat passenger in a high-speed car crash struck his face on the dash. He has abnormal movement of his maxilla. You should suspect a. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 19,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "2776c47e-5f7b-4e2a-99b0-539ae6e24d1d",
+          "questionType": "radio_button",
+          "text": "As pressure within the cranium increases, which of the following is the result?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Increased blood pressure, decreased pulse",
+              "correct": true,
+              "sourceOptionId": "e6d184fe-ebe5-45b3-a0b1-f810cc1b2806"
+            },
+            {
+              "label": "B",
+              "text": "Decreased blood pressure, decreased pulse",
+              "correct": false,
+              "sourceOptionId": "db50e4b6-bede-4523-b9e9-df5c71d47175"
+            },
+            {
+              "label": "C",
+              "text": "Decreased blood pressure, increased pulse",
+              "correct": false,
+              "sourceOptionId": "252abe2b-9a60-49f4-9fd2-43d92d901ad2"
+            },
+            {
+              "label": "D",
+              "text": "Increased blood pressure, increased pulse",
+              "correct": false,
+              "sourceOptionId": "ac841f22-3dfc-4477-8bbd-5096b3f6f370"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Increased blood pressure, decreased pulse. This item is tied to the concept in the question stem: As pressure within the cranium increases, which of the following is the result. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 20,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "6202d62d-207d-4357-a378-7367021926b1",
+          "questionType": "radio_button",
+          "text": "The sound or feeling of the ends of broken bones rubbing together is called:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "crepitus.",
+              "correct": true,
+              "sourceOptionId": "ae75811d-c61f-4bbc-b0ab-225958c02cb6"
+            },
+            {
+              "label": "B",
+              "text": "paresthesia.",
+              "correct": false,
+              "sourceOptionId": "bc7ad3ae-e80d-4056-ac31-1abb2f71e0db"
+            },
+            {
+              "label": "C",
+              "text": "angulation.",
+              "correct": false,
+              "sourceOptionId": "ce130563-2626-4767-a0ea-950094bc814a"
+            },
+            {
+              "label": "D",
+              "text": "deformity.",
+              "correct": false,
+              "sourceOptionId": "288f29e1-263c-4153-9ba7-64bf8a781093"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: crepitus.. This item is tied to the concept in the question stem: The sound or feeling of the ends of broken bones rubbing together is called. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 21,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "25be428b-9f70-47f4-ba28-9f66353a352b",
+          "questionType": "radio_button",
+          "text": "Which of the following is appropriate in the examination of a painful, swollen extremity of a conscious patient?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Comparing the injured side to the uninjured side",
+              "correct": true,
+              "sourceOptionId": "5b8b3ae5-6a8b-4ee7-9411-3d757865b06b"
+            },
+            {
+              "label": "B",
+              "text": "Seeing if you can elicit crepitus on palpation",
+              "correct": false,
+              "sourceOptionId": "99de5c4c-3551-481c-aec3-c112a46aef75"
+            },
+            {
+              "label": "C",
+              "text": "Gently attempting to flex the mid-portion of the bone to check for angulation",
+              "correct": false,
+              "sourceOptionId": "d90cef98-7568-4d9d-a71a-87c62489ad5a"
+            },
+            {
+              "label": "D",
+              "text": "Asking the patient to see if he can bear weight on the extremity",
+              "correct": false,
+              "sourceOptionId": "d4e2fbab-26fd-4f56-8e62-29fbfe73b777"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Comparing the injured side to the uninjured side. This item is tied to the concept in the question stem: Which of the following is appropriate in the examination of a painful, swollen extremity of a conscious patient. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 22,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "ed387ce7-2ba6-4b28-80aa-e2f35765ea88",
+          "questionType": "radio_button",
+          "text": "Which type of wound has a small opening into the skin, but may be quite deep, and is often caused by instruments such as nails, ice picks, or pencils?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Puncture",
+              "correct": true,
+              "sourceOptionId": "e89e9882-44d6-4cdd-b5b3-a634fd7e5b14"
+            },
+            {
+              "label": "B",
+              "text": "Laceration",
+              "correct": false,
+              "sourceOptionId": "d34b4084-087f-4f45-a8b5-fabc4cbfd101"
+            },
+            {
+              "label": "C",
+              "text": "Incision",
+              "correct": false,
+              "sourceOptionId": "05d16249-a65b-4799-9981-13463ee450ca"
+            },
+            {
+              "label": "D",
+              "text": "Avulsion",
+              "correct": false,
+              "sourceOptionId": "fc845d73-75a8-4594-9d31-ddbfbbf75f0f"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Puncture. This item is tied to the concept in the question stem: Which type of wound has a small opening into the skin, but may be quite deep, and is often caused by instruments such as nails, ice picks, or pencils. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 23,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "8a26683b-11f7-4647-bfc1-c77f77ef0c21",
+          "questionType": "radio_button",
+          "text": "You are en route to the trauma center with a patient who was injured when he was thrown from a horse. You suspect multiple trauma injuries including a closed head injury. You will monitor his mental status using the Glasgow Coma Scale (GCS) per your protocols. Which of the following will you check?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Eye opening, motor response, and verbal response",
+              "correct": true,
+              "sourceOptionId": "7c00eebe-be34-4089-bb29-73d96f36a9f3"
+            },
+            {
+              "label": "B",
+              "text": "Verbal responses, motor skills, and mental status",
+              "correct": false,
+              "sourceOptionId": "20c41190-54b2-4d1e-9f0b-6b656a830681"
+            },
+            {
+              "label": "C",
+              "text": "Speech patterns, motor patterns, and mental status",
+              "correct": false,
+              "sourceOptionId": "dc8de015-fbab-47b9-9bc8-8d57267d1e28"
+            },
+            {
+              "label": "D",
+              "text": "Motor response, verbal response, and attentiveness",
+              "correct": false,
+              "sourceOptionId": "6c707c29-18f7-42c5-8281-4f0eab097271"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Eye opening, motor response, and verbal response. This item is tied to the concept in the question stem: You are en route to the trauma center with a patient who was injured when he was thrown from a horse. You suspect multiple trauma injuries including a closed head injury. You will monitor his mental status using the Glasgow Coma Scale (GCS) per your protocols. Which of the following will you check. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 24,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "c3e9d00c-7250-4c29-936b-0f866c95a197",
+          "questionType": "radio_button",
+          "text": "You are transporting a stable patient who was involved in a minor fall from a ladder at a height of about 10 feet to a local community hospital. You provide appropirate spinal motion restriction, not only because the patient has midline back pain, but also because he was knocked unconscious. While transporting, the patient begins to become increasingly confused, develop an irregular respiratory rate, and experience a drop in heart rate with an increase in blood pressure. You just called in a radio report and are about 7 minutes from the hospital. A trauma center is about 10 minutes away. Which of the following is your transport decision?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Divert to the trauma center because the patient is becoming symptomatic.",
+              "correct": true,
+              "sourceOptionId": "95c53eac-4a90-4629-ae4b-1103c9bd9f13"
+            },
+            {
+              "label": "B",
+              "text": "Continue transporting to the local hospital because it's the closest facility.",
+              "correct": false,
+              "sourceOptionId": "5302a60b-7611-4e8e-bdc8-afd8b3dce6fa"
+            },
+            {
+              "label": "C",
+              "text": "Continue transporting to the local hospital because you've already given your report and they accepted the patient.",
+              "correct": false,
+              "sourceOptionId": "38c35474-2707-41c6-89f8-581022c0a479"
+            },
+            {
+              "label": "D",
+              "text": "Call medical control for advice from the trauma center.",
+              "correct": false,
+              "sourceOptionId": "90bbcdd5-6464-47c9-b1b8-ba3c1909f627"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Divert to the trauma center because the patient is becoming symptomatic.. This item is tied to the concept in the question stem: You are transporting a stable patient who was involved in a minor fall from a ladder at a height of about 10 feet to a local community hospital. You provide appropirate spinal motion restriction, not only because the patient has midline back pain, but also because he was knocked unconscious. While transporting, the patient begins to become increasingly confused, develop an irregular respiratory rate, and experience a drop in heart rate with an increase in blood pressure. You just called in a radio report and are about 7 minutes from the hospital. A trauma center is about 10 minutes away. Which of the following is your transport decision. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 25,
+          "sourceQuizId": "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+          "sourceQuizName": "Refresher C - 2",
+          "sourceQuestionId": "518dcd33-67da-4e54-a3ea-24477c251c05",
+          "questionType": "radio_button",
+          "text": "Your patient is a 14-year-old male who was run over by a tractor and is now unresponsive. During the rapid assessment, you should look for clear drainage coming from the patient's ________ indicating a serious injury.",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "ears",
+              "correct": true,
+              "sourceOptionId": "d011dfca-af60-42d4-b995-c7f06b2bfea1"
+            },
+            {
+              "label": "B",
+              "text": "rectum",
+              "correct": false,
+              "sourceOptionId": "90cb0b85-a830-4988-968b-f8ab0e23d741"
+            },
+            {
+              "label": "C",
+              "text": "mouth",
+              "correct": false,
+              "sourceOptionId": "2681b505-2a26-4810-bb6f-ad177564a003"
+            },
+            {
+              "label": "D",
+              "text": "eyes",
+              "correct": false,
+              "sourceOptionId": "fc4e05ca-d657-41d3-904c-a3c5761866cc"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: ears. This item is tied to the concept in the question stem: Your patient is a 14-year-old male who was run over by a tractor and is now unresponsive. During the rapid assessment, you should look for clear drainage coming from the patient's ________ indicating a serious injury. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        }
+      ]
+    },
+    {
+      "page": 3,
+      "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+      "sourceQuizName": "Refresher C - 3",
+      "questionCount": 13,
+      "questions": [
+        {
+          "page": 3,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 26,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "b0642fd4-b6d8-4c9a-94cc-6949b667f0f8",
+          "questionType": "radio_button",
+          "text": "A 9-year-old female was struck by a car while she was riding her bicycle. She complains of pain in her left forearm, right shoulder, and abdomen. Her skin is pale and cool. Her right shoulder appears uninjured. You observe an angulated injury to her forearm, and distal pulses are present. She has an abrasion to her right upper abdominal quadrant, and the pain increases with palpation. You should perform spinal motion restriction,",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "administer oxygen, and transport immediately.",
+              "correct": true,
+              "sourceOptionId": "c30e1034-4b4b-4c3e-a499-5e910916e148"
+            },
+            {
+              "label": "B",
+              "text": "splint her left arm in the position found, and apply a cold pack.",
+              "correct": false,
+              "sourceOptionId": "323488af-010a-49a1-89c6-c31377c0fb8b"
+            },
+            {
+              "label": "C",
+              "text": "splint her left arm, and apply a sling to her right arm.",
+              "correct": false,
+              "sourceOptionId": "116d61f2-ad1e-4a8a-a241-bc7db3bc23e9"
+            },
+            {
+              "label": "D",
+              "text": "gently realign her left arm into the position of function, and apply a splint.",
+              "correct": false,
+              "sourceOptionId": "6f325e51-231a-4c38-803c-9de4bf97217b"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: administer oxygen, and transport immediately.. This item is tied to the concept in the question stem: A 9-year-old female was struck by a car while she was riding her bicycle. She complains of pain in her left forearm, right shoulder, and abdomen. Her skin is pale and cool. Her right shoulder appears uninjured. You observe an angulated injury to her forearm, and distal pulses are present. She has an abrasion to her right upper abdominal quadrant, and the pain increases with palpation. You should perform spinal motion restriction,. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 27,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "102f9918-cc68-4309-b691-85096038e182",
+          "questionType": "radio_button",
+          "text": "After assessing these patients, which would the EMT identify as suffering from multisystem trauma?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "A 61-year-old male who became dizzy and fell down five stairs, and who has a laceration to the head and open fracture of the left lower leg",
+              "correct": true,
+              "sourceOptionId": "bcdd406b-27ad-4a61-b268-fb7492b93d35"
+            },
+            {
+              "label": "B",
+              "text": "A 24-year-old male who slipped on ice and has tenderness to the right shoulder",
+              "correct": false,
+              "sourceOptionId": "6a8b30d6-ed58-4d1d-8b7d-d24359931f9a"
+            },
+            {
+              "label": "C",
+              "text": "A 31-year-old female who has a large laceration to her leg from a hunting knife, with bleeding controlled",
+              "correct": false,
+              "sourceOptionId": "f1fcf02d-b043-4dfc-9319-ee17d5b2f9f0"
+            },
+            {
+              "label": "D",
+              "text": "An 89-year-old female who fell in a nursing home and has a hematoma to the back of her head",
+              "correct": false,
+              "sourceOptionId": "526aeb76-89de-4394-833f-fefa12886a55"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: A 61-year-old male who became dizzy and fell down five stairs, and who has a laceration to the head and open fracture of the left lower leg. This item is tied to the concept in the question stem: After assessing these patients, which would the EMT identify as suffering from multisystem trauma. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 28,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "ff701d9b-d962-45c6-a5c5-44230830cdb4",
+          "questionType": "radio_button",
+          "text": "An unrestrained driver of a car that has struck a tree at 45 mph has suffered a contusion to his heart. The EMT would recognize that this injury occurred during which impact of the collision?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Organ into body collision",
+              "correct": true,
+              "sourceOptionId": "f898b5d1-a0aa-42a1-af58-f689e96032bd"
+            },
+            {
+              "label": "B",
+              "text": "Vehicle into object collision",
+              "correct": false,
+              "sourceOptionId": "1705227a-0434-4347-925d-cb44bca911ff"
+            },
+            {
+              "label": "C",
+              "text": "Physiological collision",
+              "correct": false,
+              "sourceOptionId": "2af1afd6-9a05-460c-8061-ba4b1c606704"
+            },
+            {
+              "label": "D",
+              "text": "Body into vehicle collision",
+              "correct": false,
+              "sourceOptionId": "279d5e83-97ca-4aee-80f3-5c469221f15e"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Organ into body collision. This item is tied to the concept in the question stem: An unrestrained driver of a car that has struck a tree at 45 mph has suffered a contusion to his heart. The EMT would recognize that this injury occurred during which impact of the collision. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 29,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "1db1d019-d8d4-43c1-b663-9fe78ef23e5f",
+          "questionType": "radio_button",
+          "text": "Which injury is most serious, warranting immediate and rapid transport to the local trauma center?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Instability and crepitus to the left lateral chest wall",
+              "correct": true,
+              "sourceOptionId": "aaf694c7-6ea8-4d7f-b22e-c7a613d33493"
+            },
+            {
+              "label": "B",
+              "text": "Deformity to the right ankle with pain rated as a 10/10",
+              "correct": false,
+              "sourceOptionId": "7fff9469-6e93-4d59-8c26-13240829cc85"
+            },
+            {
+              "label": "C",
+              "text": "Large, deep laceration to the arm with bone visible",
+              "correct": false,
+              "sourceOptionId": "e27ec2c1-0e36-49db-992f-050224680740"
+            },
+            {
+              "label": "D",
+              "text": "Open fracture to the left lower leg",
+              "correct": false,
+              "sourceOptionId": "5a211f96-8856-418d-9a6b-0ab0b0a0c545"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Instability and crepitus to the left lateral chest wall. This item is tied to the concept in the question stem: Which injury is most serious, warranting immediate and rapid transport to the local trauma center. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 30,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "9714b79d-be6a-4a27-ac0f-e0579f8df7d8",
+          "questionType": "radio_button",
+          "text": "If you properly assess and stabilize a patient at the scene, driving to the hospital with excessive speed:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "will decrease the driver’s reaction time.",
+              "correct": true,
+              "sourceOptionId": "9454af36-85f8-468b-88ca-3c86edec2066"
+            },
+            {
+              "label": "B",
+              "text": "increases the patient’s chance for survival.",
+              "correct": false,
+              "sourceOptionId": "6a459063-f324-4536-bf6e-8616ad561412"
+            },
+            {
+              "label": "C",
+              "text": "is allowable according to state law.",
+              "correct": false,
+              "sourceOptionId": "f4c38da7-08c2-452c-bebc-d562ee8a2a13"
+            },
+            {
+              "label": "D",
+              "text": "Is often necessary if the patient is critical.",
+              "correct": false,
+              "sourceOptionId": "407f8181-c2fb-4473-8794-47eb56c0d37c"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: will decrease the driver’s reaction time.. This item is tied to the concept in the question stem: If you properly assess and stabilize a patient at the scene, driving to the hospital with excessive speed. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 31,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "7a9372b5-1c5e-4c2e-a7a4-c8d3b093e05b",
+          "questionType": "radio_button",
+          "text": "You're an off-duty EMT who encounters a patient sitting behind the wheel of a vehicle that ran off an isolated county road. It appears the patient was not wearing a seat belt and struck the steering wheel with his chest. On assessment, you notice a paradoxical motion to the patient's chest on inspiration and expiration. When you radio for dispatch of an ambulance, which of the following pieces of information would you be sure to include?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "The patient may have a flail chest.",
+              "correct": true,
+              "sourceOptionId": "3625bc9b-61f5-47b2-b7e0-91940e56232b"
+            },
+            {
+              "label": "B",
+              "text": "the patient may have an abdominal evisceration.",
+              "correct": false,
+              "sourceOptionId": "3a9dc2ee-97c6-467b-8ec5-a468672c1311"
+            },
+            {
+              "label": "C",
+              "text": "The patient is showing signs of abdominal bleeding.",
+              "correct": false,
+              "sourceOptionId": "a7b733d0-9f5d-41d1-a282-7a95e186ac08"
+            },
+            {
+              "label": "D",
+              "text": "The patient is showing signs of an open chest injury.",
+              "correct": false,
+              "sourceOptionId": "87b7fed0-ace1-4ae8-b84f-b6ea8de66a9f"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: The patient may have a flail chest.. This item is tied to the concept in the question stem: You're an off-duty EMT who encounters a patient sitting behind the wheel of a vehicle that ran off an isolated county road. It appears the patient was not wearing a seat belt and struck the steering wheel with his chest. On assessment, you notice a paradoxical motion to the patient's chest on inspiration and expiration. When you radio for dispatch of an ambulance, which of the following pieces of information would you be sure to include. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 32,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "eaecd48a-35ae-4317-a614-063db88af9dd",
+          "questionType": "radio_button",
+          "text": "Your patient is an 11-year-old male who has a swollen, painful, and angulated right lower arm after falling from his bicycle onto his hands. Which of the following should be considered in the immobilization of his injured extremity?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Check pulse, movement, and sensation distal to the injury before and after splinting.",
+              "correct": true,
+              "sourceOptionId": "8bbce8e4-ddba-4aef-80e3-c51665604fa6"
+            },
+            {
+              "label": "B",
+              "text": "Immobilize from the shoulder to the wrist.",
+              "correct": false,
+              "sourceOptionId": "eab7980d-5ad8-41fc-b184-093df7ac535b"
+            },
+            {
+              "label": "C",
+              "text": "Do not attempt to realign the extremity before splinting.",
+              "correct": false,
+              "sourceOptionId": "f5c19a7c-31c8-4371-b9fa-1b78476640e1"
+            },
+            {
+              "label": "D",
+              "text": "Use an upper extremity traction splint.",
+              "correct": false,
+              "sourceOptionId": "03cba356-7e3c-4758-9b4f-8e52cc4f4f20"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Check pulse, movement, and sensation distal to the injury before and after splinting.. This item is tied to the concept in the question stem: Your patient is an 11-year-old male who has a swollen, painful, and angulated right lower arm after falling from his bicycle onto his hands. Which of the following should be considered in the immobilization of his injured extremity. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 33,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "501b65ac-8044-4ba2-99d3-fe6acc3cb4e6",
+          "questionType": "radio_button",
+          "text": "You respond to a 32-year-old male who fell 20 feet off a ladder. He is responsive to painful stimuli. He has snoring respirations at 20 a minute with decent chest rise and fall. He has a broken femur, a broken wrist, and a lacerated radial artery that is bleeding profusely. Which of these injuries is the highest priority?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Arterial bleed",
+              "correct": true,
+              "sourceOptionId": "aecdbe9a-5748-400a-8375-28951d0803ae"
+            },
+            {
+              "label": "B",
+              "text": "Broken wrist",
+              "correct": false,
+              "sourceOptionId": "15ee76c7-8c81-4c92-b297-e1113dafe20f"
+            },
+            {
+              "label": "C",
+              "text": "Snoring respirations",
+              "correct": false,
+              "sourceOptionId": "be7c4f72-5159-4e03-a7c0-e897b0697ec8"
+            },
+            {
+              "label": "D",
+              "text": "Femur fracture",
+              "correct": false,
+              "sourceOptionId": "d9f4bba4-3457-42a0-848f-81e738778445"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Arterial bleed. This item is tied to the concept in the question stem: You respond to a 32-year-old male who fell 20 feet off a ladder. He is responsive to painful stimuli. He has snoring respirations at 20 a minute with decent chest rise and fall. He has a broken femur, a broken wrist, and a lacerated radial artery that is bleeding profusely. Which of these injuries is the highest priority. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 34,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "833f5f4b-bfed-4dd6-92d1-861cf4af3127",
+          "questionType": "radio_button",
+          "text": "A young man was riding a motorcycle when he was hit head on by a car and thrown from the bike. Your scene size-up reveals him to be lying supine in the roadway with obvious deformity to his right thigh and left ankle, with blood noted on his pants in these areas. The patient assessment reveals he is unresponsive with snoring respirations and is breathing irregularly at 16 times per minute. His radial pulse is moderate in strength, and his skin is warm and dry. Which action should be performed first by the EMT?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Provide manual cervical spine motion restriction",
+              "correct": true,
+              "sourceOptionId": "dc4361fb-5665-4333-bb99-3f2370668142"
+            },
+            {
+              "label": "B",
+              "text": "Open the airway using the head-tilt, chin-lift maneuver",
+              "correct": false,
+              "sourceOptionId": "7fb7dcb5-c35a-4553-8363-f054c5c523da"
+            },
+            {
+              "label": "C",
+              "text": "Check for distal pulses in both lower extremities",
+              "correct": false,
+              "sourceOptionId": "2ca12f3f-6a1e-4e36-ba73-81e23d11bf51"
+            },
+            {
+              "label": "D",
+              "text": "Expose and splint both legs to prevent further injury",
+              "correct": false,
+              "sourceOptionId": "5e733753-0dfe-49a8-8617-928db99ab6cc"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Provide manual cervical spine motion restriction. This item is tied to the concept in the question stem: A young man was riding a motorcycle when he was hit head on by a car and thrown from the bike. Your scene size-up reveals him to be lying supine in the roadway with obvious deformity to his right thigh and left ankle, with blood noted on his pants in these areas. The patient assessment reveals he is unresponsive with snoring respirations and is breathing irregularly at 16 times per minute. His radial pulse is moderate in strength, and his skin is warm and dry. Which action should be performed first by the EMT. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 35,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "d6863979-07ed-4dcd-9a2e-c058fb0e73ce",
+          "questionType": "radio_button",
+          "text": "An unresponsive 10-year-old male was struck by a car while riding his bike. He has blood on his face and presents with snoring respirations. Respirations are approximately 10 breaths per minute, with cyanosis noted to his extremities. Manual spine motion restriction to the neck is being held by Emergency Medical Responders. What should you do next?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Perform a jaw-thrust maneuver",
+              "correct": true,
+              "sourceOptionId": "064026fd-52f5-4fdf-a9e6-2e60f2fb281b"
+            },
+            {
+              "label": "B",
+              "text": "Start CPR",
+              "correct": false,
+              "sourceOptionId": "839242ca-f0f9-41b8-8e32-86191a28d864"
+            },
+            {
+              "label": "C",
+              "text": "Complete a Secondary Exam",
+              "correct": false,
+              "sourceOptionId": "8f371e0b-43cb-4e7a-b1fb-86f78dfc6f1c"
+            },
+            {
+              "label": "D",
+              "text": "Contact the patient's parents via cell phone",
+              "correct": false,
+              "sourceOptionId": "40c3c717-3d05-407a-b7ef-3c5937a19a42"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Perform a jaw-thrust maneuver. This item is tied to the concept in the question stem: An unresponsive 10-year-old male was struck by a car while riding his bike. He has blood on his face and presents with snoring respirations. Respirations are approximately 10 breaths per minute, with cyanosis noted to his extremities. Manual spine motion restriction to the neck is being held by Emergency Medical Responders. What should you do next. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 36,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "4ca4464f-a727-4194-95a7-d16646d63b38",
+          "questionType": "radio_button",
+          "text": "What type of trauma triage criteria regarding transport would a finger amputation receive?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Any hospital with surgical facilities",
+              "correct": true,
+              "sourceOptionId": "8858f162-cf16-4625-80bb-6cb857fbc2dc"
+            },
+            {
+              "label": "B",
+              "text": "Patient's choice of destination",
+              "correct": false,
+              "sourceOptionId": "f7a1035d-8635-4c4a-92ef-c336bdceb10d"
+            },
+            {
+              "label": "C",
+              "text": "Trauma center",
+              "correct": false,
+              "sourceOptionId": "4fced052-5430-4988-85f8-06a0562229d8"
+            },
+            {
+              "label": "D",
+              "text": "Any hospital, as long as on-line medical direction approves the facility's capabilities",
+              "correct": false,
+              "sourceOptionId": "f0a8c88b-389f-4916-9763-3c05600674f5"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Any hospital with surgical facilities. This item is tied to the concept in the question stem: What type of trauma triage criteria regarding transport would a finger amputation receive. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 37,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "12ec0e5e-7c10-414c-8b4a-3461c2976c09",
+          "questionType": "radio_button",
+          "text": "When deciding where to transport a patient who is in hypovolemic shock or who has the potential for developing hypovolemic shock, which of the following is the MOST important service to be provided by the receiving hospital?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Immediate surgical capabilities",
+              "correct": true,
+              "sourceOptionId": "f24b44a4-e334-4255-8584-b4c441f00af1"
+            },
+            {
+              "label": "B",
+              "text": "Availability of a chaplain",
+              "correct": false,
+              "sourceOptionId": "a75fbb5b-a4ee-4f33-a381-e9417b9a81e0"
+            },
+            {
+              "label": "C",
+              "text": "Critical-care nursing",
+              "correct": false,
+              "sourceOptionId": "7658867e-fb5f-4872-95d2-17402f711a2f"
+            },
+            {
+              "label": "D",
+              "text": "Rehabilitation services",
+              "correct": false,
+              "sourceOptionId": "87a1d175-c300-45eb-8d09-06b9100c2d39"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Immediate surgical capabilities. This item is tied to the concept in the question stem: When deciding where to transport a patient who is in hypovolemic shock or who has the potential for developing hypovolemic shock, which of the following is the MOST important service to be provided by the receiving hospital. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 13,
+          "combinedQuestionNumber": 38,
+          "sourceQuizId": "b7adaf94-a911-4dad-8152-a5853cb02e35",
+          "sourceQuizName": "Refresher C - 3",
+          "sourceQuestionId": "3f97d7b4-90f3-4375-9d41-33cdf6053d0d",
+          "questionType": "radio_button",
+          "text": "Which of the following describes the proper position of the patient's head for spinal restriction?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Neutral, in-line \"eyes forward\" position",
+              "correct": true,
+              "sourceOptionId": "7bd43bf5-5f3f-4a61-a784-dbfe8807b506"
+            },
+            {
+              "label": "B",
+              "text": "Stabilized in position found",
+              "correct": false,
+              "sourceOptionId": "ca4a0e88-e734-46d3-a23d-97744dff8f34"
+            },
+            {
+              "label": "C",
+              "text": "Chin tilted upward for airway maintenance",
+              "correct": false,
+              "sourceOptionId": "1c3cf3a5-2a43-4bee-9302-0c26036afcd0"
+            },
+            {
+              "label": "D",
+              "text": "The \"sniffing\" position",
+              "correct": false,
+              "sourceOptionId": "079a99b4-c892-4bd1-a5ec-92341e1cb20b"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Neutral, in-line \"eyes forward\" position. This item is tied to the concept in the question stem: Which of the following describes the proper position of the patient's head for spinal restriction. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        }
+      ]
+    },
+    {
+      "page": 4,
+      "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+      "sourceQuizName": "Refresher C - 4",
+      "questionCount": 12,
+      "questions": [
+        {
+          "page": 4,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 39,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "c77568a8-be01-497f-8b91-e28791fec55a",
+          "questionType": "radio_button",
+          "text": "Which of the following is a characteristic of arterial bleeding?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Spurting under pressure",
+              "correct": true,
+              "sourceOptionId": "344496b3-79b7-4beb-b7bd-c0f85ce541a5"
+            },
+            {
+              "label": "B",
+              "text": "Steady flow",
+              "correct": false,
+              "sourceOptionId": "1adfbe1f-98e8-49db-9440-20c097ac92d0"
+            },
+            {
+              "label": "C",
+              "text": "Dark red color",
+              "correct": false,
+              "sourceOptionId": "79e8ff10-8f4b-4519-b31d-833c442cfcbd"
+            },
+            {
+              "label": "D",
+              "text": "Oozing",
+              "correct": false,
+              "sourceOptionId": "51d7431d-e3fe-4f1e-aec6-f2446547a6a9"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Spurting under pressure. This item is tied to the concept in the question stem: Which of the following is a characteristic of arterial bleeding. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 40,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "0ea4f8ee-0a64-4b9c-84b0-4a8782842775",
+          "questionType": "radio_button",
+          "text": "Your patient is a 33-year-old man who has a gunshot wound to his right leg and has active, steady, dark red bleeding. He is awake, pale, and diaphoretic. He has a strong radial pulse of 112 per minute, a respiratory rate of 24 breaths per minute, and a blood pressure of 122/82 mmHg. He has no other injuries or complaints. Which of the following is the treatment sequence of steps in the management of this patient?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Direct pressure, high-concentration oxygen, and splinting the leg",
+              "correct": true,
+              "sourceOptionId": "dec64908-2389-4956-9e2f-0b3edd12e7eb"
+            },
+            {
+              "label": "B",
+              "text": "High-concentration oxygen, elevation of the extremity, and application of ice",
+              "correct": false,
+              "sourceOptionId": "ad2e8f4f-0440-487e-ab0d-77316abaa3e6"
+            },
+            {
+              "label": "C",
+              "text": "High-concentration oxygen, tourniquet, PASG, and elevation of the extremity",
+              "correct": false,
+              "sourceOptionId": "bab3bbf8-de6b-44a4-97cb-1d94999f9e95"
+            },
+            {
+              "label": "D",
+              "text": "Cervical spine immobilization, high-concentration oxygen, direct pressure, and pressure point compression",
+              "correct": false,
+              "sourceOptionId": "9978c935-4a41-451d-8f62-3bf11b8651a6"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Direct pressure, high-concentration oxygen, and splinting the leg. This item is tied to the concept in the question stem: Your patient is a 33-year-old man who has a gunshot wound to his right leg and has active, steady, dark red bleeding. He is awake, pale, and diaphoretic. He has a strong radial pulse of 112 per minute, a respiratory rate of 24 breaths per minute, and a blood pressure of 122/82 mmHg. He has no other injuries or complaints. Which of the following is the treatment sequence of steps in the management of this patient. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 41,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "07a54179-53d3-41f4-9dab-787de66bfec2",
+          "questionType": "radio_button",
+          "text": "Your patient is a 12-year-old boy who ran his arm through a glass window and has an 8-inch laceration on his anterior forearm. You have applied a pressure dressing and bandage, but these have become saturated due to continued bleeding. Which of the following should you do now?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Elevate the arm and prepare to apply a tourniquet or consider administering a hemostatic agent.",
+              "correct": true,
+              "sourceOptionId": "195546f3-1061-4835-93a6-126108378f23"
+            },
+            {
+              "label": "B",
+              "text": "Remove the pressure dressing and bandage, apply an ice pack to the wound, and bandage it in place with an elastic bandage.",
+              "correct": false,
+              "sourceOptionId": "a1f13465-ba63-4ca9-9bc4-a8559a86ece7"
+            },
+            {
+              "label": "C",
+              "text": "Apply additional dressing material, bandage it in place, and apply pressure to the brachial artery.",
+              "correct": false,
+              "sourceOptionId": "e4bfadae-242c-4825-8350-279c3b3be4ee"
+            },
+            {
+              "label": "D",
+              "text": "Remove the pressure dressing and bandage, apply direct pressure with your gloved hand, and elevate the arm.",
+              "correct": false,
+              "sourceOptionId": "e22033ac-a091-446b-8dac-2c79ada6d761"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Elevate the arm and prepare to apply a tourniquet or consider administering a hemostatic agent.. This item is tied to the concept in the question stem: Your patient is a 12-year-old boy who ran his arm through a glass window and has an 8-inch laceration on his anterior forearm. You have applied a pressure dressing and bandage, but these have become saturated due to continued bleeding. Which of the following should you do now. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 42,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "6e8497eb-3062-486e-af27-69926c084e36",
+          "questionType": "radio_button",
+          "text": "Which of the following is the primary reason for controlling external bleeding?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "To prevent and manage hypoperfusion",
+              "correct": true,
+              "sourceOptionId": "84875010-6367-4e11-8f97-06f44283942e"
+            },
+            {
+              "label": "B",
+              "text": "To prevent the patient from becoming upset at the sight of blood",
+              "correct": false,
+              "sourceOptionId": "2a649d69-f818-4a6d-9c6e-b349a1d0bcf7"
+            },
+            {
+              "label": "C",
+              "text": "To make clean-up of the ambulance and your equipment easier after the call",
+              "correct": false,
+              "sourceOptionId": "8a8d5441-9daa-4796-821c-38893e5bc52d"
+            },
+            {
+              "label": "D",
+              "text": "To prevent the spread of infectious diseases",
+              "correct": false,
+              "sourceOptionId": "0f24d05b-8aef-4010-aa19-39b9f788c5e6"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: To prevent and manage hypoperfusion. This item is tied to the concept in the question stem: Which of the following is the primary reason for controlling external bleeding. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 43,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "aa5662ad-e8a3-427f-a1c2-16bd4bcf5d7a",
+          "questionType": "radio_button",
+          "text": "Which of the following is a vascular organ in the abdomen that can produce blood loss quickly enough to result in life-threatening hemorrhage following high mechanism of injury blunt trauma?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Liver",
+              "correct": true,
+              "sourceOptionId": "7fbf5982-f42d-4ba0-98f2-c39b37b4824d"
+            },
+            {
+              "label": "B",
+              "text": "Kidneys",
+              "correct": false,
+              "sourceOptionId": "b947bced-41f5-48aa-b8b4-97ca40452387"
+            },
+            {
+              "label": "C",
+              "text": "Intestines",
+              "correct": false,
+              "sourceOptionId": "4e34da74-2f46-4947-8f92-2b3c4acad834"
+            },
+            {
+              "label": "D",
+              "text": "Pancreas",
+              "correct": false,
+              "sourceOptionId": "b41b9dc1-23c1-4921-94c6-a9f6bd81f690"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Liver. This item is tied to the concept in the question stem: Which of the following is a vascular organ in the abdomen that can produce blood loss quickly enough to result in life-threatening hemorrhage following high mechanism of injury blunt trauma. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 44,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "bdf58d59-ef0e-41b2-8799-4cf39070bccd",
+          "questionType": "radio_button",
+          "text": "Bleeding from soft-tissue injuries should initially be controlled with which one of the following techniques?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Direct pressure",
+              "correct": true,
+              "sourceOptionId": "5d888a43-73a4-4169-8ce6-0b8420627f6d"
+            },
+            {
+              "label": "B",
+              "text": "Elevation of the injured part",
+              "correct": false,
+              "sourceOptionId": "1343c2db-fb55-437b-a597-83e6792be5b7"
+            },
+            {
+              "label": "C",
+              "text": "Application of an ice pack or chemical cold pack",
+              "correct": false,
+              "sourceOptionId": "7667fff8-6676-4cad-84ca-c8e40c675de1"
+            },
+            {
+              "label": "D",
+              "text": "Running cold water over the wound",
+              "correct": false,
+              "sourceOptionId": "20142eaf-77f5-4c84-90ad-3c8585992bff"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Direct pressure. This item is tied to the concept in the question stem: Bleeding from soft-tissue injuries should initially be controlled with which one of the following techniques. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 45,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "e4f69b2f-8299-49c9-a4bb-86cd7caf0efa",
+          "questionType": "radio_button",
+          "text": "You are participating in a training exercise for an attack with a weapon of mass destruction involving the release of a nerve agent. In the triage area, you are presented with a patient who responds to painful stimuli and has an open airway. He is breathing 8 times per minute and has a weak radial pulse. He is wheezing and has pinpoint pupils. In his pocket, you see a metered-dose inhaler containing albuterol. When caring for this patient, you should first:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Administer positive pressure ventilation",
+              "correct": true,
+              "sourceOptionId": "41e7a267-440c-40f0-83bc-1495203c6f88"
+            },
+            {
+              "label": "B",
+              "text": "Administer albuterol with the metered-dose inhaler",
+              "correct": false,
+              "sourceOptionId": "9ad52458-4439-449f-ac13-b051c595d4e4"
+            },
+            {
+              "label": "C",
+              "text": "Look for an injury causing shock",
+              "correct": false,
+              "sourceOptionId": "c07cb030-48d0-42c0-add4-1077dfb81858"
+            },
+            {
+              "label": "D",
+              "text": "Obtain vital signs, including the patient's temperature",
+              "correct": false,
+              "sourceOptionId": "04f7e0f5-372b-4720-ba89-3a5905721f9c"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Administer positive pressure ventilation. This item is tied to the concept in the question stem: You are participating in a training exercise for an attack with a weapon of mass destruction involving the release of a nerve agent. In the triage area, you are presented with a patient who responds to painful stimuli and has an open airway. He is breathing 8 times per minute and has a weak radial pulse. He is wheezing and has pinpoint pupils. In his pocket, you see a metered-dose inhaler containing albuterol. When caring for this patient, you should first. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 46,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "b413b984-6a97-434a-a8a0-b2e7cb5c802f",
+          "questionType": "radio_button",
+          "text": "You have responded to a bar for a fight involving approximately 8 to 10 patrons. Weapons were used in the fight, and all the patrons have varying degrees and types of injuries. You are in charge of triage and must use the Respirations, Perfusion, Mental Status (RPM) sequence of the Simple Triage and Rapid Transport (START) system. You find a young person lying on the floor with blood covering his shirt. Quick assessment reveals him to be breathing at 24 times per minute. What should you do next?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Check for a radial pulse",
+              "correct": true,
+              "sourceOptionId": "11261f61-f2fa-4bfd-a355-24b7dcfff641"
+            },
+            {
+              "label": "B",
+              "text": "Determine the mental status",
+              "correct": false,
+              "sourceOptionId": "5854d1a0-0b0d-4650-9af8-2117bcc68ea5"
+            },
+            {
+              "label": "C",
+              "text": "Place a yellow tag on his wrist",
+              "correct": false,
+              "sourceOptionId": "330847c5-952f-474d-8c67-1046091f08e9"
+            },
+            {
+              "label": "D",
+              "text": "Start positive pressure ventilation",
+              "correct": false,
+              "sourceOptionId": "21c1b857-8c1e-4a91-906d-9b7fdd947df3"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Check for a radial pulse. This item is tied to the concept in the question stem: You have responded to a bar for a fight involving approximately 8 to 10 patrons. Weapons were used in the fight, and all the patrons have varying degrees and types of injuries. You are in charge of triage and must use the Respirations, Perfusion, Mental Status (RPM) sequence of the Simple Triage and Rapid Transport (START) system. You find a young person lying on the floor with blood covering his shirt. Quick assessment reveals him to be breathing at 24 times per minute. What should you do next. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 47,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "1e4f9d34-8a18-4379-abf8-605475461e68",
+          "questionType": "radio_button",
+          "text": "You responded to an explosion at an outside concert venue and were assigned to triage. While triaging patients, you should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "look for secondary devices.",
+              "correct": true,
+              "sourceOptionId": "141a5fdf-00e9-4ab1-9663-ddc9197f5e5e"
+            },
+            {
+              "label": "B",
+              "text": "apply pressure dressings to uncontrolled bleeding from an arm injury.",
+              "correct": false,
+              "sourceOptionId": "83fa5062-1757-4abe-b30e-fd63a67f313a"
+            },
+            {
+              "label": "C",
+              "text": "ventilate an apneic patient 12 times/minute.",
+              "correct": false,
+              "sourceOptionId": "390f714c-9224-487c-86d7-ef0b7e818189"
+            },
+            {
+              "label": "D",
+              "text": "preserve evidence in paper bags.",
+              "correct": false,
+              "sourceOptionId": "9521f0e3-c7eb-4751-aafc-b00a9b10316d"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: look for secondary devices.. This item is tied to the concept in the question stem: You responded to an explosion at an outside concert venue and were assigned to triage. While triaging patients, you should. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 48,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "c841a0dc-2468-41b5-b1fb-92671cd835c0",
+          "questionType": "radio_button",
+          "text": "Simple Triage and Rapid Treatment (START) is a system that relies on some simple commands and what three physiologic parameters?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Respiration, perfusion, and mental status",
+              "correct": true,
+              "sourceOptionId": "ae9e5a27-b2f5-4fe2-9270-f44bbb8b452b"
+            },
+            {
+              "label": "B",
+              "text": "Respiration, sensory, and motor status",
+              "correct": false,
+              "sourceOptionId": "9f8d2a20-16bd-4b92-8447-31ecb90b2161"
+            },
+            {
+              "label": "C",
+              "text": "Respiration, pain, and mental status",
+              "correct": false,
+              "sourceOptionId": "d66dc6b5-6e67-42ae-9360-6872575a9c04"
+            },
+            {
+              "label": "D",
+              "text": "Circulation, sensory, and motor status",
+              "correct": false,
+              "sourceOptionId": "687f70af-c3dd-4c37-bc1c-0ea03e73c084"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Respiration, perfusion, and mental status. This item is tied to the concept in the question stem: Simple Triage and Rapid Treatment (START) is a system that relies on some simple commands and what three physiologic parameters. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 49,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "648ba0a1-c144-4a57-a7a4-cf826f8e21e9",
+          "questionType": "radio_button",
+          "text": "You are beginning triage at the scene of a mass-casualty incident in which a commuter train has derailed. Which of the following should you do first?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Announce that everyone who can get up and walk needs to go to the parking lot of a nearby building.",
+              "correct": true,
+              "sourceOptionId": "252505d8-21c8-4c47-8dbc-40013fa16ed8"
+            },
+            {
+              "label": "B",
+              "text": "Identify all red tag patients.",
+              "correct": false,
+              "sourceOptionId": "e688f804-f3a7-4964-9739-1cef61b7d6a0"
+            },
+            {
+              "label": "C",
+              "text": "Do a quick pulse check on all patients at the scene.",
+              "correct": false,
+              "sourceOptionId": "b68b8c76-3a70-489c-918b-b2613fa5899f"
+            },
+            {
+              "label": "D",
+              "text": "Check the airway status of all patients who do not appear to be moving.",
+              "correct": false,
+              "sourceOptionId": "e879a101-0905-408b-b5fd-1e1e5276cc00"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Announce that everyone who can get up and walk needs to go to the parking lot of a nearby building.. This item is tied to the concept in the question stem: You are beginning triage at the scene of a mass-casualty incident in which a commuter train has derailed. Which of the following should you do first. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 50,
+          "sourceQuizId": "b938cd8b-913c-41bf-b247-1406b11115f2",
+          "sourceQuizName": "Refresher C - 4",
+          "sourceQuestionId": "fd28cbe4-fa37-448c-b7d6-d00117658d1b",
+          "questionType": "radio_button",
+          "text": "You are on scene of a synagogue that was the site of several explosions. The police have deemed the scene safe and you are the first arriving medical unit. With START triage, you ask all the patients who can walk to move to one area. These patients are categorized as:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Green",
+              "correct": true,
+              "sourceOptionId": "268e828b-70c3-4b98-9ed7-8d3868447b5c"
+            },
+            {
+              "label": "B",
+              "text": "Yellow",
+              "correct": false,
+              "sourceOptionId": "4b23d1b9-cf8f-407e-816b-d051143022d3"
+            },
+            {
+              "label": "C",
+              "text": "Red",
+              "correct": false,
+              "sourceOptionId": "94657dcd-0bc7-4b34-83e1-b9f0b95067af"
+            },
+            {
+              "label": "D",
+              "text": "Black",
+              "correct": false,
+              "sourceOptionId": "06deec0a-5af0-4a92-a738-24ab43c4b303"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Green. This item is tied to the concept in the question stem: You are on scene of a synagogue that was the site of several explosions. The police have deemed the scene safe and you are the first arriving medical unit. With START triage, you ask all the patients who can walk to move to one area. These patients are categorized as. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        }
+      ]
+    }
+  ]
+}

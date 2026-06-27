@@ -1,0 +1,2108 @@
+{
+  "title": "Refresher B - Class Manager App",
+  "generatedAt": "2026-06-27T20:18:19.807Z",
+  "source": "RMS flexiquiz_exam_results.response_questions_json latest submitted payload per mini quiz",
+  "totalQuestions": 50,
+  "segments": [
+    {
+      "page": 1,
+      "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+      "sourceQuizName": "Refresher B - 1",
+      "questionCount": 12,
+      "questions": [
+        {
+          "page": 1,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 1,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "e4a05808-9993-4f4d-9cd4-6e45af06d303",
+          "questionType": "radio_button",
+          "text": "Your patient is a 25-year-old female with a history of diabetes. She is confused, agitated, and verbally abusive to you, and she is very sweaty. Although she refuses to give a history of the present illness, you should suspect which of the following as the likely cause of the patient's presentation?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Failure to intake sufficient sugar",
+              "correct": true,
+              "sourceOptionId": "3f354eee-4f56-42b3-b55c-d981bd4cae56"
+            },
+            {
+              "label": "B",
+              "text": "Failure to take her insulin",
+              "correct": false,
+              "sourceOptionId": "2c524f15-4ff1-4221-a7cd-1a3fc45aae80"
+            },
+            {
+              "label": "C",
+              "text": "Excessive intake of foods high in sugar, such as soda or candy",
+              "correct": false,
+              "sourceOptionId": "6fb56920-c537-4ef0-aa58-9ddf2582bf41"
+            },
+            {
+              "label": "D",
+              "text": "A nondiabetic-related problem, such as a head injury or mental illness",
+              "correct": false,
+              "sourceOptionId": "418ec4f9-46be-460f-b89a-ba920b9f157e"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Failure to intake sufficient sugar. This item is tied to the concept in the question stem: Your patient is a 25-year-old female with a history of diabetes. She is confused, agitated, and verbally abusive to you, and she is very sweaty. Although she refuses to give a history of the present illness, you should suspect which of the following as the likely cause of the patient's presentation. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 2,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "293a76d5-21aa-490d-92e0-5a4d24243ca0",
+          "questionType": "radio_button",
+          "text": "You respond, along with fire department Emergency Medical Responders, to a 48-year-old female having a syncope episode in the bathroom. You find the patient sitting on the commode vomiting into the trash can. The vomitus appears to look like coffee grounds and has a foul smell. The patient is pale and has been weak for the past few days. She has:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "GI bleeding.",
+              "correct": true,
+              "sourceOptionId": "72cf5246-de0c-4b65-9e8c-a6b65adec722"
+            },
+            {
+              "label": "B",
+              "text": "peritonitis.",
+              "correct": false,
+              "sourceOptionId": "719d265a-4178-4871-9c7d-5cc08b1218e8"
+            },
+            {
+              "label": "C",
+              "text": "hernia.",
+              "correct": false,
+              "sourceOptionId": "d698fbc0-a2dc-487d-a18b-fb6e6fd97e45"
+            },
+            {
+              "label": "D",
+              "text": "abdominal aortic aneurysm.",
+              "correct": false,
+              "sourceOptionId": "7f5e8d6e-dad9-4109-a876-e3cf33679bb9"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: GI bleeding.. This item is tied to the concept in the question stem: You respond, along with fire department Emergency Medical Responders, to a 48-year-old female having a syncope episode in the bathroom. You find the patient sitting on the commode vomiting into the trash can. The vomitus appears to look like coffee grounds and has a foul smell. The patient is pale and has been weak for the past few days. She has. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 3,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "96c47d98-5fb1-4130-be3c-f5120f448784",
+          "questionType": "radio_button",
+          "text": "Compared to hypoglycemia, which of the following is true of hyperglycemia?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Its onset is more gradual.",
+              "correct": true,
+              "sourceOptionId": "0ef07338-f233-46e2-837d-9c05ee805b85"
+            },
+            {
+              "label": "B",
+              "text": "Its onset is more sudden.",
+              "correct": false,
+              "sourceOptionId": "1b8290e0-9d12-4a8b-a3ec-78fedfeb5ae1"
+            },
+            {
+              "label": "C",
+              "text": "It is more easily treated in the prehospital environment than hypoglycemia.",
+              "correct": false,
+              "sourceOptionId": "c472cbe5-64b1-4d7a-a4d4-2b0f0fd7de68"
+            },
+            {
+              "label": "D",
+              "text": "Its onset is preceded by an aura, such as hallucinations or detecting unusual odors.",
+              "correct": false,
+              "sourceOptionId": "a91110c6-0ae8-42ac-9c02-da3ca71b5b90"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Its onset is more gradual.. This item is tied to the concept in the question stem: Compared to hypoglycemia, which of the following is true of hyperglycemia. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 4,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "09917df4-5000-40da-b647-8cad548b7a0d",
+          "questionType": "radio_button",
+          "text": "The EMT, after administering any medication, must do which of the following?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Document the administration, reassess the patient, and report to the receiving facility.",
+              "correct": true,
+              "sourceOptionId": "2beef53c-2de5-4876-81c7-30b3f2c3a9c5"
+            },
+            {
+              "label": "B",
+              "text": "Document the route, dose, and time; reassess the patient; and re-administer the medication.",
+              "correct": false,
+              "sourceOptionId": "424e27a4-ce0a-4871-8be2-3a2c89b55ab5"
+            },
+            {
+              "label": "C",
+              "text": "Wait 5 minutes, repeat the medication if needed.",
+              "correct": false,
+              "sourceOptionId": "86ca0ab6-80f7-46fb-bb1e-70e810cf04df"
+            },
+            {
+              "label": "D",
+              "text": "Reconsider the five rights, reassess the patient, and contact medical control.",
+              "correct": false,
+              "sourceOptionId": "c7c0ccb2-12b2-4286-84ca-b7c703ae468e"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Document the administration, reassess the patient, and report to the receiving facility.. This item is tied to the concept in the question stem: The EMT, after administering any medication, must do which of the following. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 5,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "da8cde13-c445-4736-8aba-379d1da41c04",
+          "questionType": "radio_button",
+          "text": "Failure of the liver would result in which of the following?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Inability to detoxify harmful substances in the bloodstream",
+              "correct": true,
+              "sourceOptionId": "d70a03af-4c08-4552-adef-cbaf3a4ef147"
+            },
+            {
+              "label": "B",
+              "text": "Inability to regulate temperature",
+              "correct": false,
+              "sourceOptionId": "887b7bb4-44f2-4de5-a5dd-16dac2c15062"
+            },
+            {
+              "label": "C",
+              "text": "Inability to secrete insulin",
+              "correct": false,
+              "sourceOptionId": "0e72ae04-84e1-4684-a379-1acd64a71408"
+            },
+            {
+              "label": "D",
+              "text": "Inability to filter out old and damaged blood cells",
+              "correct": false,
+              "sourceOptionId": "e50a7b58-5fb3-457e-a8e1-82649d7972e3"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Inability to detoxify harmful substances in the bloodstream. This item is tied to the concept in the question stem: Failure of the liver would result in which of the following. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 6,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "6fa34555-fef2-4c84-8fda-d27ca2902a06",
+          "questionType": "radio_button",
+          "text": "What two components are directly related to aerobic metabolism?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Oxygen and glucose",
+              "correct": true,
+              "sourceOptionId": "6dcb4250-0976-4d24-8c20-a38856c4154f"
+            },
+            {
+              "label": "B",
+              "text": "Carbolic acid and air",
+              "correct": false,
+              "sourceOptionId": "621eef48-4c57-4ac2-9711-4a52866f08f6"
+            },
+            {
+              "label": "C",
+              "text": "Electrolytes and carbohydrates",
+              "correct": false,
+              "sourceOptionId": "0305161f-f2a4-4428-a5d8-b113de9ce0df"
+            },
+            {
+              "label": "D",
+              "text": "Exercise and water",
+              "correct": false,
+              "sourceOptionId": "b1967673-ccfc-4fb8-b1f5-e7c5ce19914a"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Oxygen and glucose. This item is tied to the concept in the question stem: What two components are directly related to aerobic metabolism. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 7,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "feb12d23-2e4b-4f55-be9f-8a2dc019cf8b",
+          "questionType": "radio_button",
+          "text": "Which of the following body systems primarily produces hormones?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Endocrine",
+              "correct": true,
+              "sourceOptionId": "e3ba3f3e-fb8c-4f4f-9a70-074e5ade9bae"
+            },
+            {
+              "label": "B",
+              "text": "Gastrointestinal",
+              "correct": false,
+              "sourceOptionId": "98ea5b14-5b09-44ad-a521-77c4d98bb07b"
+            },
+            {
+              "label": "C",
+              "text": "Cardiovascular",
+              "correct": false,
+              "sourceOptionId": "785552dd-eeb0-46ed-9de5-6a62a09aed1c"
+            },
+            {
+              "label": "D",
+              "text": "Exocrine",
+              "correct": false,
+              "sourceOptionId": "c9eef020-c590-4773-bd3b-e84ed3f5ac2c"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Endocrine. This item is tied to the concept in the question stem: Which of the following body systems primarily produces hormones. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 8,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "df10c6e9-1c6c-4b9d-b9e1-91412dcdb372",
+          "questionType": "radio_button",
+          "text": "Which of the following structures allows food to move from the mouth to the stomach?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Esophagus",
+              "correct": true,
+              "sourceOptionId": "0537e8c8-9673-4bc4-98b9-8d0afa8e946d"
+            },
+            {
+              "label": "B",
+              "text": "Venae cavae",
+              "correct": false,
+              "sourceOptionId": "701389ba-7add-4409-83d9-e154c1984355"
+            },
+            {
+              "label": "C",
+              "text": "Duodenum",
+              "correct": false,
+              "sourceOptionId": "85ff644f-4550-431b-92a5-fd2dc88c0338"
+            },
+            {
+              "label": "D",
+              "text": "Trachea",
+              "correct": false,
+              "sourceOptionId": "80ec648b-b41b-41ea-ae0d-02c437c11a9c"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Esophagus. This item is tied to the concept in the question stem: Which of the following structures allows food to move from the mouth to the stomach. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 9,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "cf0c3d27-207f-414c-8b45-11dea8041cb1",
+          "questionType": "radio_button",
+          "text": "Which organ secretes insulin after a person eats a large meal?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Pancreas",
+              "correct": true,
+              "sourceOptionId": "789b7ee1-76a6-428b-bf03-96edb0b359f3"
+            },
+            {
+              "label": "B",
+              "text": "Liver",
+              "correct": false,
+              "sourceOptionId": "3aaa05d2-f8fd-4c90-840c-80eee5e7c2f5"
+            },
+            {
+              "label": "C",
+              "text": "Gallbladder",
+              "correct": false,
+              "sourceOptionId": "14f565d5-9c59-458c-8dcb-265689c0f042"
+            },
+            {
+              "label": "D",
+              "text": "Spleen",
+              "correct": false,
+              "sourceOptionId": "40a0570e-53a4-4210-89d5-4984cbf42a51"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Pancreas. This item is tied to the concept in the question stem: Which organ secretes insulin after a person eats a large meal. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 10,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "3fdaceac-2bbc-47a0-9142-d8541c9a4d5a",
+          "questionType": "radio_button",
+          "text": "Diabetic ketoacidosis occurs when:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "insulin is not available in the body.",
+              "correct": true,
+              "sourceOptionId": "ab693652-af15-41f8-828e-223f6016fd08"
+            },
+            {
+              "label": "B",
+              "text": "the pancreas produces excess insulin.",
+              "correct": false,
+              "sourceOptionId": "8456522b-acc3-476f-b52d-210cc9adbfee"
+            },
+            {
+              "label": "C",
+              "text": "the cells rapidly metabolize glucose.",
+              "correct": false,
+              "sourceOptionId": "d4dff999-22ea-4c77-8455-37da65bdf79a"
+            },
+            {
+              "label": "D",
+              "text": "blood glucose levels rapidly fall.",
+              "correct": false,
+              "sourceOptionId": "b2accee8-16f2-4788-9c4c-cb90bcaf3631"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: insulin is not available in the body.. This item is tied to the concept in the question stem: Diabetic ketoacidosis occurs when. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 11,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "e36d0cf7-1350-4c88-afb9-8c9f1e56cc5e",
+          "questionType": "radio_button",
+          "text": "In general, oral glucose should be given to any patient who:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "has an altered mental status and a history of diabetes.",
+              "correct": true,
+              "sourceOptionId": "41a0810c-d3f2-4c27-87dc-ca843eab8535"
+            },
+            {
+              "label": "B",
+              "text": "is unresponsive, even in the absence of a history of diabetes.",
+              "correct": false,
+              "sourceOptionId": "735e5161-a620-434d-8385-52c4a1e504a5"
+            },
+            {
+              "label": "C",
+              "text": "has a blood glucose level that is less than 100 mg/dL.",
+              "correct": false,
+              "sourceOptionId": "dae8cfc4-a990-40e3-b741-35dde468e75d"
+            },
+            {
+              "label": "D",
+              "text": "has documented hypoglycemia and an absent gag reflex.",
+              "correct": false,
+              "sourceOptionId": "ad8bb52f-4a84-4947-907d-72897f57264a"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: has an altered mental status and a history of diabetes.. This item is tied to the concept in the question stem: In general, oral glucose should be given to any patient who. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 1,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 12,
+          "sourceQuizId": "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+          "sourceQuizName": "Refresher B - 1",
+          "sourceQuestionId": "1d753cc0-4a84-44e3-bc58-e03dd678abf2",
+          "questionType": "radio_button",
+          "text": "Patients with uncontrolled diabetes experience polyuria because:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "excess glucose in the blood is excreted by the kidneys.",
+              "correct": true,
+              "sourceOptionId": "aef7f0fe-31ac-4046-bb9b-8b2f77665620"
+            },
+            {
+              "label": "B",
+              "text": "high blood sugar levels cause permanent kidney damage.",
+              "correct": false,
+              "sourceOptionId": "04b39216-cc01-4e91-9825-3d0aecaf3021"
+            },
+            {
+              "label": "C",
+              "text": "low blood glucose levels result in cellular dehydration.",
+              "correct": false,
+              "sourceOptionId": "0328cc06-cb5b-4cce-8bf9-9034e4bd5b37"
+            },
+            {
+              "label": "D",
+              "text": "they drink excess amounts of water due to dehydration.",
+              "correct": false,
+              "sourceOptionId": "6447320c-2007-48e2-a2b6-09f2c84b3bcb"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: excess glucose in the blood is excreted by the kidneys.. This item is tied to the concept in the question stem: Patients with uncontrolled diabetes experience polyuria because. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        }
+      ]
+    },
+    {
+      "page": 2,
+      "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+      "sourceQuizName": "Refresher B - 2",
+      "questionCount": 13,
+      "questions": [
+        {
+          "page": 2,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 13,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "1039e1ac-c876-4663-897d-8cd8dd267b66",
+          "questionType": "radio_button",
+          "text": "As you prepare to enter a patient's room in a nursing home, you see a sign posted on the door indicating that the patient has a latex allergy. Which of the following is the BEST way to care for the patient?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Don synthetic exam gloves prior to making contact with this patient.",
+              "correct": true,
+              "sourceOptionId": "0a07c1fe-81f7-42f4-8d22-c66b170e63a2"
+            },
+            {
+              "label": "B",
+              "text": "Put on latex gloves anyway; you must protect yourself with BSI.",
+              "correct": false,
+              "sourceOptionId": "be173b88-20a9-4282-85f4-305b3ed1c30f"
+            },
+            {
+              "label": "C",
+              "text": "Only perform a history on this patient, not a physical exam, so you can avoid contacting him with your gloves.",
+              "correct": false,
+              "sourceOptionId": "f1282651-df5c-49c2-9ad6-c2027c0e8774"
+            },
+            {
+              "label": "D",
+              "text": "Ask the nursing staff if the patient has an epinephrine auto-injector available in case of a reaction to your gloves.",
+              "correct": false,
+              "sourceOptionId": "80d1f9c5-4f5a-41a5-a247-ea856a85367a"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Don synthetic exam gloves prior to making contact with this patient.. This item is tied to the concept in the question stem: As you prepare to enter a patient's room in a nursing home, you see a sign posted on the door indicating that the patient has a latex allergy. Which of the following is the BEST way to care for the patient. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 14,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "2fb5e540-9939-401f-a1e4-81411617c74a",
+          "questionType": "radio_button",
+          "text": "Upon assessing your 37 year old patient, you find her to have severe respiratory distress, hypotension, tachycardia, and urticaria. The patient reports beginning a new medication today. Your treatment plan should include:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Giving 0.3mg of Epinephrine via Auto-Injector",
+              "correct": true,
+              "sourceOptionId": "f4872cfa-c766-4df9-bb78-d1c268768e39"
+            },
+            {
+              "label": "B",
+              "text": "Giving 81mg of Aspirin, PO",
+              "correct": false,
+              "sourceOptionId": "ddf12237-f355-4bcb-a8f1-cbefa79d5252"
+            },
+            {
+              "label": "C",
+              "text": "Giving 0.15mg of Epinephrine via Auto-Injector",
+              "correct": false,
+              "sourceOptionId": "67884b9d-e180-4254-9238-b296f08134be"
+            },
+            {
+              "label": "D",
+              "text": "Giving 2mg of Naloxone, IN",
+              "correct": false,
+              "sourceOptionId": "e8633917-d2de-4362-aa12-2f4baea7e4e7"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Giving 0.3mg of Epinephrine via Auto-Injector. This item is tied to the concept in the question stem: Upon assessing your 37 year old patient, you find her to have severe respiratory distress, hypotension, tachycardia, and urticaria. The patient reports beginning a new medication today. Your treatment plan should include. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 15,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "1351fe70-e574-4eb3-a08f-5c2d15c8b0fb",
+          "questionType": "radio_button",
+          "text": "At which of the following sites should the EMT administer an epinephrine auto-injector?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Thigh",
+              "correct": true,
+              "sourceOptionId": "592efc9a-ba04-466c-ad6d-a995140ca1e9"
+            },
+            {
+              "label": "B",
+              "text": "Upper arm",
+              "correct": false,
+              "sourceOptionId": "2ea89760-61ca-4fca-a307-6ef0ac069921"
+            },
+            {
+              "label": "C",
+              "text": "Buttocks",
+              "correct": false,
+              "sourceOptionId": "240ca837-3b02-4fdf-b901-83f7f7132c48"
+            },
+            {
+              "label": "D",
+              "text": "Abdomen",
+              "correct": false,
+              "sourceOptionId": "38940644-9dcc-4d35-8012-25d1b3d762a8"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Thigh. This item is tied to the concept in the question stem: At which of the following sites should the EMT administer an epinephrine auto-injector. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 16,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "b2c662f0-409d-4024-8d31-4b73b5e44e34",
+          "questionType": "radio_button",
+          "text": "Which of the following is MOST likely to be a complaint of a patient suffering from anaphylaxis?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "\"My throat feels like it is closing.\"",
+              "correct": true,
+              "sourceOptionId": "50fc06c7-2012-4e2a-a9a7-f5a48adb199c"
+            },
+            {
+              "label": "B",
+              "text": "\"My legs are numb and I can't move them.\"",
+              "correct": false,
+              "sourceOptionId": "775aec8a-aca8-4fac-aa5a-17ac7302c13b"
+            },
+            {
+              "label": "C",
+              "text": "\"I am having severe muscle pains.\"",
+              "correct": false,
+              "sourceOptionId": "f3a22db3-1975-46e8-95ab-283c59b6cc08"
+            },
+            {
+              "label": "D",
+              "text": "\"I can't remember what happened.\"",
+              "correct": false,
+              "sourceOptionId": "9f4cc39b-135b-48d4-a791-10673cef6f44"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: \"My throat feels like it is closing.\". This item is tied to the concept in the question stem: Which of the following is MOST likely to be a complaint of a patient suffering from anaphylaxis. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 17,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "6e836355-0320-40e7-b882-0a9af2f6af8b",
+          "questionType": "radio_button",
+          "text": "You are called to a farmhouse on a sunny spring afternoon. Upon arrival, a frantic mother tells you that her 3-year-old daughter was playing in the yard, accidentally stepped on a hornets' nest, and was stung repeatedly. The patient is alert, screaming and crying, and can follow her mother's commands. Her arms and legs are swollen and show the marks of several stings. Her body is covered in hives. Her vital signs are blood pressure 90/40, pulse 110, respiratory rate 24, and oxygen saturation 99%. Her lung sounds are clear and equal bilaterally. Her mother states she put \"nox-a-sting\" on the bites but the bites only seemed to get worse. What condition is the patient suffering from?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Allergic reaction from the hornets' stings",
+              "correct": true,
+              "sourceOptionId": "15b13b45-1a74-4139-9b7b-c5fee5151cf6"
+            },
+            {
+              "label": "B",
+              "text": "Moderate anaphylactic reaction",
+              "correct": false,
+              "sourceOptionId": "85649eef-acab-4e68-a52a-d3e5f9041b50"
+            },
+            {
+              "label": "C",
+              "text": "Anaphylactic reaction from the \"nox-a-sting\" swabs",
+              "correct": false,
+              "sourceOptionId": "ccf46547-0b14-4364-9ad1-443046540f07"
+            },
+            {
+              "label": "D",
+              "text": "Minor anaphylactic reaction",
+              "correct": false,
+              "sourceOptionId": "ac7e4a6d-2178-404e-b530-844565ba3e96"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Allergic reaction from the hornets' stings. This item is tied to the concept in the question stem: You are called to a farmhouse on a sunny spring afternoon. Upon arrival, a frantic mother tells you that her 3-year-old daughter was playing in the yard, accidentally stepped on a hornets' nest, and was stung repeatedly. The patient is alert, screaming and crying, and can follow her mother's commands. Her arms and legs are swollen and show the marks of several stings. Her body is covered in hives. Her vital signs are blood pressure 90/40, pulse 110, respiratory rate 24, and oxygen saturation 99%. Her lung sounds are clear and equal bilaterally. Her mother states she put \"nox-a-sting\" on the bites but the bites only seemed to get worse. What condition is the patient suffering from. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 18,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "24d698d7-f68f-47c9-966d-e5dccd624389",
+          "questionType": "radio_button",
+          "text": "Which of the following is a general term for a substance to which the body may have an anaphylactic reaction?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Allergen",
+              "correct": true,
+              "sourceOptionId": "0c9c7051-5ed7-48cc-b453-ecec1c88567b"
+            },
+            {
+              "label": "B",
+              "text": "Pathogen",
+              "correct": false,
+              "sourceOptionId": "4f354c6e-77e6-4307-8d36-6ce2e7f1a3d2"
+            },
+            {
+              "label": "C",
+              "text": "Pyrogen",
+              "correct": false,
+              "sourceOptionId": "659e5438-3d6f-4ff4-b26f-f62c6fab16cd"
+            },
+            {
+              "label": "D",
+              "text": "Antibody",
+              "correct": false,
+              "sourceOptionId": "593c33e9-8964-4b1e-9cf4-3a45503ab8db"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Allergen. This item is tied to the concept in the question stem: Which of the following is a general term for a substance to which the body may have an anaphylactic reaction. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 19,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "a31a3e50-df36-4a2f-ae53-5f28239c27e6",
+          "questionType": "radio_button",
+          "text": "You have arrived at the side of a 35-year-old female who is 37 weeks pregnant and in labor. Your exam reveals crowning with contractions 60 seconds apart. Your immediate action would be to:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Place the patient on her back, and then open and prepare the OB kit",
+              "correct": true,
+              "sourceOptionId": "3a11851a-de0f-433f-b576-2d3af6cf7c01"
+            },
+            {
+              "label": "B",
+              "text": "Obtain vital signs, and then move the patient to the ambulance for a nonemergency transport",
+              "correct": false,
+              "sourceOptionId": "25dd98ab-337b-43bb-834a-473d7c7ae008"
+            },
+            {
+              "label": "C",
+              "text": "Place the patient on the cot in the left lateral recumbent position, and then proceed with emergency transport",
+              "correct": false,
+              "sourceOptionId": "74c98775-e01b-468d-a64c-4be535df53e0"
+            },
+            {
+              "label": "D",
+              "text": "Have the patient hold her legs together, and then move her to the ambulance for delivery of the baby",
+              "correct": false,
+              "sourceOptionId": "4eea85bd-7e91-43b2-b72a-3c567d2e0a52"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Place the patient on her back, and then open and prepare the OB kit. This item is tied to the concept in the question stem: You have arrived at the side of a 35-year-old female who is 37 weeks pregnant and in labor. Your exam reveals crowning with contractions 60 seconds apart. Your immediate action would be to. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 20,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "ddd4c2f5-35ed-4d8f-a2ca-4508847866d4",
+          "questionType": "multiple_choice",
+          "text": "As you are assessing a 32-year-old asthmatic woman who has called EMS due to difficulty breathing, her husband enters the home through a back door and shouts, \"Get your hands off her; she doesn't need your help. She needs to be taught a lesson about her smart mouth.\" Which of the following is the best course of action?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Leave the scene and patient, then notify police.",
+              "correct": true,
+              "sourceOptionId": "b92b47c6-29c3-4430-b9a7-1b9e117ff0a0"
+            },
+            {
+              "label": "B",
+              "text": "Let the husband know that his behavior is inappropriate, and if it continues you will call for the police.",
+              "correct": false,
+              "sourceOptionId": "72a7ad6d-6121-41ee-b47f-7379fe47da8a"
+            },
+            {
+              "label": "C",
+              "text": "Continue assessment and respond that the patient is sick and needs medical attention.",
+              "correct": false,
+              "sourceOptionId": "7f33dd81-71ee-4ba0-9933-bc327d95201b"
+            },
+            {
+              "label": "D",
+              "text": "Attempt to remove the patient from the home and continue treatment en route to thehospital.",
+              "correct": false,
+              "sourceOptionId": "72ff8838-8321-489e-8702-cabda1d1e931"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Leave the scene and patient, then notify police.. This item is tied to the concept in the question stem: As you are assessing a 32-year-old asthmatic woman who has called EMS due to difficulty breathing, her husband enters the home through a back door and shouts, \"Get your hands off her; she doesn't need your help. She needs to be taught a lesson about her smart mouth.\" Which of the following is the best course of action. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 21,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "196db42b-6f95-4c34-9a95-a4f7bfd4dc5f",
+          "questionType": "radio_button",
+          "text": "A female patient has acute onset of right-sided abdominal pain, describes it as sharp, and rates it as 9/10. The primary survey reveals no life threats, but her skin is cool and diaphoretic. She states that she has been going to the bathroom more and is worried because her father has diabetes. Her last period was nine weeks ago, and she has a history of irregular periods. Her heart rate is 122 beats/min, respirations are 20 breaths/min, blood pressure is 138/68 mmHg, and SaO2 is 97%. In this scenario, which bit of information is of most concern to the EMT?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Last period nine weeks ago",
+              "correct": true,
+              "sourceOptionId": "684e1f8c-98b2-47e6-92b1-73b547b0721b"
+            },
+            {
+              "label": "B",
+              "text": "Increased urination",
+              "correct": false,
+              "sourceOptionId": "33ae056e-155a-49ee-967b-2fe4343a7d2b"
+            },
+            {
+              "label": "C",
+              "text": "Periods irregular in nature",
+              "correct": false,
+              "sourceOptionId": "deed2d53-ee33-4304-898f-d49557337d5d"
+            },
+            {
+              "label": "D",
+              "text": "Family history of diabetes",
+              "correct": false,
+              "sourceOptionId": "7ab58c07-90c7-48c1-a9de-bcf26bff86bc"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Last period nine weeks ago. This item is tied to the concept in the question stem: A female patient has acute onset of right-sided abdominal pain, describes it as sharp, and rates it as 9/10. The primary survey reveals no life threats, but her skin is cool and diaphoretic. She states that she has been going to the bathroom more and is worried because her father has diabetes. Her last period was nine weeks ago, and she has a history of irregular periods. Her heart rate is 122 beats/min, respirations are 20 breaths/min, blood pressure is 138/68 mmHg, and SaO2 is 97%. In this scenario, which bit of information is of most concern to the EMT. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 22,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "26afad40-fd2a-4930-8c5f-734c46bf3944",
+          "questionType": "radio_button",
+          "text": "Fill in the missing information, in the highlighted section, from the choices below Epinephrine 1:1,000 (EpiPen, EpiPen Jr.) Class Vasoconstrictor & Bronchodilator Action Indications Signs & Symptoms of Anaphylactic Shock Contraindications None when the indications and 5 Rights are present Dose 0.3 mg – adult EpiPen 0.15 mg – EpiPen Jr. Route Intramuscular (lateral thigh) Side Effects Increased heart rate, increased blood pressure, anxiety, headache, nausea/vomiting",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Constricts blood vessels, raising blood pressure & dilates bronchi, reducing respiratory distress",
+              "correct": true,
+              "sourceOptionId": "3c306c26-3028-43e8-9487-440648cfc64e"
+            },
+            {
+              "label": "B",
+              "text": "Binds to opiate receptors and blocks the opiate from entering the cell",
+              "correct": false,
+              "sourceOptionId": "778e7787-c97b-4bde-a55e-e40ec6304174"
+            },
+            {
+              "label": "C",
+              "text": "Dilates the coronary vessels, reduces pre-load",
+              "correct": false,
+              "sourceOptionId": "7de8121b-0760-4c92-bf3c-7a8c50e7a536"
+            },
+            {
+              "label": "D",
+              "text": "Increases circulating blood sugar",
+              "correct": false,
+              "sourceOptionId": "20268d6f-16da-421d-b2cf-5cd6848da0b2"
+            },
+            {
+              "label": "E",
+              "text": "Binds to red blood cells, provides perfusion to all cells of the body",
+              "correct": false,
+              "sourceOptionId": "bb3b7944-843b-4895-88ec-e5ddbc0de7e3"
+            },
+            {
+              "label": "F",
+              "text": "Reduces clotting ability of blood, prevents and treats clots associated with myocardial infarction",
+              "correct": false,
+              "sourceOptionId": "821e7d98-da51-4fa5-8f22-756f175bbf16"
+            },
+            {
+              "label": "G",
+              "text": "Absorbs some poisons (bind them to the surface of the charcoal) to prevent them from being absorbed by the body",
+              "correct": false,
+              "sourceOptionId": "acd38996-d36f-4a3f-b3cd-bf18cb89babc"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Constricts blood vessels, raising blood pressure & dilates bronchi, reducing respiratory distress. This item is tied to the concept in the question stem: Fill in the missing information, in the highlighted section, from the choices below Epinephrine 1:1,000 (EpiPen, EpiPen Jr.) Class Vasoconstrictor & Bronchodilator Action Indications Signs & Symptoms of Anaphylactic Shock Contraindications None when the indications and 5 Rights are present Dose 0.3 mg – adult EpiPen 0.15 mg – EpiPen Jr. Route Intramuscular (lateral thigh) Side Effects Increased heart rate, increased blood pressure, anxiety, headache, nausea/vomiting. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 23,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "caa20698-ec7d-442f-87a9-323e2712a394",
+          "questionType": "radio_button",
+          "text": "When treating a patient whom you believe has an ectopic pregnancy, you know that the primary threat to the patient's life is:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Hemorrhage",
+              "correct": true,
+              "sourceOptionId": "bd380dda-e42a-4e8a-bace-d483b72b1565"
+            },
+            {
+              "label": "B",
+              "text": "Pelvic organ damage",
+              "correct": false,
+              "sourceOptionId": "b4c2abb7-3802-44cc-b1e7-440ab98359cd"
+            },
+            {
+              "label": "C",
+              "text": "Infection",
+              "correct": false,
+              "sourceOptionId": "20720c98-e443-40c9-9b73-491a5c9663a5"
+            },
+            {
+              "label": "D",
+              "text": "Severe pain",
+              "correct": false,
+              "sourceOptionId": "409aa6ca-1f3a-474a-8b72-b44c99480a91"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Hemorrhage. This item is tied to the concept in the question stem: When treating a patient whom you believe has an ectopic pregnancy, you know that the primary threat to the patient's life is. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 24,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "17ef4963-527a-4022-8532-d5843d757600",
+          "questionType": "radio_button",
+          "text": "Which medical emergency would most likely be treated with the use of epinephrine by the EMT?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Bee sting",
+              "correct": true,
+              "sourceOptionId": "9db2a1c9-ee21-4e67-a79d-917e44785b70"
+            },
+            {
+              "label": "B",
+              "text": "Hypoglycemia",
+              "correct": false,
+              "sourceOptionId": "64fb201c-26dd-42d2-8b1f-60ab2a04a3da"
+            },
+            {
+              "label": "C",
+              "text": "Asthma",
+              "correct": false,
+              "sourceOptionId": "38d619b3-1a6d-4187-8ec9-cbde9747b41f"
+            },
+            {
+              "label": "D",
+              "text": "Cardiac arrest",
+              "correct": false,
+              "sourceOptionId": "7349ed23-58d8-49d9-9892-312a1bed87d3"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Bee sting. This item is tied to the concept in the question stem: Which medical emergency would most likely be treated with the use of epinephrine by the EMT. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 2,
+          "pageQuestionNumber": 13,
+          "combinedQuestionNumber": 25,
+          "sourceQuizId": "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+          "sourceQuizName": "Refresher B - 2",
+          "sourceQuestionId": "6eb130a5-7ee7-4302-8ed5-775e2ef80ff3",
+          "questionType": "radio_button",
+          "text": "A 73-year-old female had a syncopal episode. She tells you that she is taking a new medication for her hypertension. Her vital signs are P 60, R 14, BP 94/72, and SpO2 is 93% on room air. You should:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "administer oxygen by nasal cannula.",
+              "correct": true,
+              "sourceOptionId": "c8330cbf-4cf2-43e4-bbf0-247b7e37b48f"
+            },
+            {
+              "label": "B",
+              "text": "transport her.",
+              "correct": false,
+              "sourceOptionId": "9186673f-ff54-46ed-9013-e28c0384d447"
+            },
+            {
+              "label": "C",
+              "text": "assist with the administration of her nitroglycerin.",
+              "correct": false,
+              "sourceOptionId": "1c8668c6-e37d-46fe-ac6b-2df055349f43"
+            },
+            {
+              "label": "D",
+              "text": "administer oxygen by non-rebreather mask.",
+              "correct": false,
+              "sourceOptionId": "b7722c9c-a6aa-4c29-84a3-8e02463d00a9"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: administer oxygen by nasal cannula.. This item is tied to the concept in the question stem: A 73-year-old female had a syncopal episode. She tells you that she is taking a new medication for her hypertension. Her vital signs are P 60, R 14, BP 94/72, and SpO2 is 93% on room air. You should. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        }
+      ]
+    },
+    {
+      "page": 3,
+      "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+      "sourceQuizName": "Refresher B - 3",
+      "questionCount": 12,
+      "questions": [
+        {
+          "page": 3,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 26,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "82c9fde7-e8d5-41f5-a0f8-3d7bd1e1b0b2",
+          "questionType": "radio_button",
+          "text": "A 55-year-old female complains of pressure in her chest. She tells you it started while she was sitting at her desk doing paperwork. She has a history of hypertension and high cholesterol. Her vital signs are P 88 and irregular, R 16, BP 140/86, and SpO2 is 95% on room air. You should administer:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "aspirin.",
+              "correct": true,
+              "sourceOptionId": "8971ba84-3235-4179-a312-8f3f7233631f"
+            },
+            {
+              "label": "B",
+              "text": "antacid.",
+              "correct": false,
+              "sourceOptionId": "b6939218-70ca-4f17-8ea9-19418a203bf6"
+            },
+            {
+              "label": "C",
+              "text": "oxygen by nasal cannula.",
+              "correct": false,
+              "sourceOptionId": "6003e731-2648-4607-9981-cf45d17583f8"
+            },
+            {
+              "label": "D",
+              "text": "oxygen by simple face mask.",
+              "correct": false,
+              "sourceOptionId": "51b8a8c1-1982-42f6-a339-08a2ef7171c7"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: aspirin.. This item is tied to the concept in the question stem: A 55-year-old female complains of pressure in her chest. She tells you it started while she was sitting at her desk doing paperwork. She has a history of hypertension and high cholesterol. Her vital signs are P 88 and irregular, R 16, BP 140/86, and SpO2 is 95% on room air. You should administer. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 27,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "e89aa29f-be3e-42a4-978f-03327b4536f5",
+          "questionType": "radio_button",
+          "text": "You are treating a patient with severe crushing chest pain. She has had two heart attacks in the past, and you believe that she is currently in cardiogenic shock. Blood pressure is 86/66 mmHg, respirations are 20 breaths/min, heart rate is 102 beats/min, and room-air pulse oximetry reading is 91%. Which intervention is the most appropriate next action in this case?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Supplemental oxygen",
+              "correct": true,
+              "sourceOptionId": "80e8e9cd-ac80-4011-99f3-6bf9a60dfe49"
+            },
+            {
+              "label": "B",
+              "text": "Rapid transport with the patient supine",
+              "correct": false,
+              "sourceOptionId": "200f9aea-8fe2-4071-9ddf-7e23173c19d5"
+            },
+            {
+              "label": "C",
+              "text": "Administration of nitroglycerin",
+              "correct": false,
+              "sourceOptionId": "af521383-6078-4767-b17a-790680b91263"
+            },
+            {
+              "label": "D",
+              "text": "Application of the AED",
+              "correct": false,
+              "sourceOptionId": "1d302c1d-7b55-4b1d-b538-daac12314da8"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Supplemental oxygen. This item is tied to the concept in the question stem: You are treating a patient with severe crushing chest pain. She has had two heart attacks in the past, and you believe that she is currently in cardiogenic shock. Blood pressure is 86/66 mmHg, respirations are 20 breaths/min, heart rate is 102 beats/min, and room-air pulse oximetry reading is 91%. Which intervention is the most appropriate next action in this case. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 28,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "aa790334-1ef9-4feb-afba-64468f08805b",
+          "questionType": "radio_button",
+          "text": "A patient whose mental status can be described as verbal on the AVPU scale is able to:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "respond to speaking or shouting by opening the eyes.",
+              "correct": true,
+              "sourceOptionId": "61f1c24f-9278-4239-b998-4788895a0229"
+            },
+            {
+              "label": "B",
+              "text": "respond only to a stimulus such as the EMT rubbing his sternum with his knuckles.",
+              "correct": false,
+              "sourceOptionId": "4268f87f-b774-4723-8eb0-33670b53ff4d"
+            },
+            {
+              "label": "C",
+              "text": "talk spontaneously and respond to the EMT's questions.",
+              "correct": false,
+              "sourceOptionId": "3b850e92-f6c9-4665-ae49-430e8cbf4d46"
+            },
+            {
+              "label": "D",
+              "text": "tell you his or her name, his or her location, and what day it is.",
+              "correct": false,
+              "sourceOptionId": "10b63ded-6e24-4517-96f4-17bc8730be0b"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: respond to speaking or shouting by opening the eyes.. This item is tied to the concept in the question stem: A patient whose mental status can be described as verbal on the AVPU scale is able to. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 29,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "03108cd8-7af4-4e5d-9245-a555430b59f7",
+          "questionType": "radio_button",
+          "text": "Naloxone works by:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Binding to opioid receptor sites, replacing the opioid",
+              "correct": true,
+              "sourceOptionId": "6f0d7538-637a-400f-9c52-2e33d1b0a536"
+            },
+            {
+              "label": "B",
+              "text": "Being absorbed in the lungs",
+              "correct": false,
+              "sourceOptionId": "fb2c83d6-327d-45d0-9310-1c5f327f8880"
+            },
+            {
+              "label": "C",
+              "text": "Activating barrorecptors inside the nose",
+              "correct": false,
+              "sourceOptionId": "5ba2eb32-f147-4190-a21b-0be6e755791d"
+            },
+            {
+              "label": "D",
+              "text": "Causing the patient to cough",
+              "correct": false,
+              "sourceOptionId": "79758c45-edce-4635-b7cb-d0e942b23cc5"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Binding to opioid receptor sites, replacing the opioid. This item is tied to the concept in the question stem: Naloxone works by. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 30,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "62a11aff-bb0f-4333-8e56-3bdf3374d08d",
+          "questionType": "radio_button",
+          "text": "The NJ Scope of Practice for EMTs allows the administration of Naloxone through what route(s)?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "IN & IM",
+              "correct": true,
+              "sourceOptionId": "66ac12b9-26c6-45eb-ab54-21aeb9c52efa"
+            },
+            {
+              "label": "B",
+              "text": "IV Only",
+              "correct": false,
+              "sourceOptionId": "f4f05721-5982-41a0-9466-3fa4d4dd415c"
+            },
+            {
+              "label": "C",
+              "text": "IV & IM",
+              "correct": false,
+              "sourceOptionId": "bf34ab58-11d6-41e0-ba7f-f1fbb9f1c553"
+            },
+            {
+              "label": "D",
+              "text": "IN Only",
+              "correct": false,
+              "sourceOptionId": "cf838fb1-1595-46ec-91d7-1e44ab2084cc"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: IN & IM. This item is tied to the concept in the question stem: The NJ Scope of Practice for EMTs allows the administration of Naloxone through what route(s). Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 31,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "8ac0fa9c-a5b6-4e74-9286-0046b3be8707",
+          "questionType": "radio_button",
+          "text": "When you give patients nitroglycerin, they sometimes develop a headache. This would be called a(n):",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "side effect.",
+              "correct": true,
+              "sourceOptionId": "5e44aca9-3732-4400-b046-5ecc28ec1ebd"
+            },
+            {
+              "label": "B",
+              "text": "untoward effect.",
+              "correct": false,
+              "sourceOptionId": "93ffe13c-8db0-4cd0-9ecf-79ff80c6b3e0"
+            },
+            {
+              "label": "C",
+              "text": "indication.",
+              "correct": false,
+              "sourceOptionId": "5db11ef9-f161-4e2e-b8cc-828cf9429a10"
+            },
+            {
+              "label": "D",
+              "text": "contraindication.",
+              "correct": false,
+              "sourceOptionId": "477e3c24-e333-460f-8676-164301e7f15c"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: side effect.. This item is tied to the concept in the question stem: When you give patients nitroglycerin, they sometimes develop a headache. This would be called a(n). Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 32,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "906c3f92-e108-4409-a25f-f979ede8c6bb",
+          "questionType": "radio_button",
+          "text": "You are called to the scene of a 17-year-old female patient who is unresponsive. Her mother suspects that she tried to commit suicide by taking her pain pills. The patient is unresponsive to painful stimuli, has agonal respirations, and has vomited. She has a weak carotid pulse. After securing the airway and providing oxygen by bag-valve mask, what is your next action?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Ask the mother the name of her pain medication.",
+              "correct": true,
+              "sourceOptionId": "fc8eb213-5a2b-46ae-b5df-34e6822a641f"
+            },
+            {
+              "label": "B",
+              "text": "Perform a focused assessment.",
+              "correct": false,
+              "sourceOptionId": "bb742d8d-34a6-42f0-ab51-8c09396c3bad"
+            },
+            {
+              "label": "C",
+              "text": "Perform a rapid physical examination of the patient.",
+              "correct": false,
+              "sourceOptionId": "4366497b-0181-481c-ade9-9609ba7192f7"
+            },
+            {
+              "label": "D",
+              "text": "Question the mother about the patient's suicidal tendencies.",
+              "correct": false,
+              "sourceOptionId": "f280f205-bdaa-4930-930d-4d48a1981d2c"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Ask the mother the name of her pain medication.. This item is tied to the concept in the question stem: You are called to the scene of a 17-year-old female patient who is unresponsive. Her mother suspects that she tried to commit suicide by taking her pain pills. The patient is unresponsive to painful stimuli, has agonal respirations, and has vomited. She has a weak carotid pulse. After securing the airway and providing oxygen by bag-valve mask, what is your next action. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 33,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "d665c1fa-e8e8-4cad-8654-d8059237db1d",
+          "questionType": "radio_button",
+          "text": "Human Trafficking involves transporting someone into:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "A situation of exploitation",
+              "correct": true,
+              "sourceOptionId": "9887cc56-0eb0-454e-b726-321e65ec26ee"
+            },
+            {
+              "label": "B",
+              "text": "A mutually agreed upon profession",
+              "correct": false,
+              "sourceOptionId": "5b080830-24c6-43d7-a08a-c68c22b7cd0e"
+            },
+            {
+              "label": "C",
+              "text": "Another Country",
+              "correct": false,
+              "sourceOptionId": "19e9a0b7-56d4-49bc-b3c1-99f647f666c5"
+            },
+            {
+              "label": "D",
+              "text": "Another US State",
+              "correct": false,
+              "sourceOptionId": "83e6e2ab-e719-427f-9655-c0f3415ff9a7"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: A situation of exploitation. This item is tied to the concept in the question stem: Human Trafficking involves transporting someone into. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 34,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "2b74d3a4-0fbc-4ce4-b5ed-200a118ea227",
+          "questionType": "radio_button",
+          "text": "Which of the following incidents is the EMT legally required to report to law enforcement?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Your patient has facial and head injuries and states that her husband beat her with a telephone receiver.",
+              "correct": true,
+              "sourceOptionId": "36abab8d-f533-4a3b-8b82-1e4576819532"
+            },
+            {
+              "label": "B",
+              "text": "You suspect the wife of the patient you are treating for chest pain has been smoking marijuana.",
+              "correct": false,
+              "sourceOptionId": "43bc5ba3-023c-4f31-b7c9-0608c4e27b40"
+            },
+            {
+              "label": "C",
+              "text": "Your patient is a 12-year-old male who fell from his bicycle, breaking his left arm, and tells you his parents are at work.",
+              "correct": false,
+              "sourceOptionId": "3572b97a-bc11-4b00-a918-e61e061bc9a5"
+            },
+            {
+              "label": "D",
+              "text": "Your patient is an 18-year-old college student who has been consuming large amounts of alcohol at a fraternity party.",
+              "correct": false,
+              "sourceOptionId": "6d3221c6-e821-499c-b127-3ee2aed59a66"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Your patient has facial and head injuries and states that her husband beat her with a telephone receiver.. This item is tied to the concept in the question stem: Which of the following incidents is the EMT legally required to report to law enforcement. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 35,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "8ac86adf-fd71-4992-a009-f5cda9a9e529",
+          "questionType": "radio_button",
+          "text": "Which of the following information may be important to law enforcement officers investigating a crime scene?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "How you gained access to the scene",
+              "correct": true,
+              "sourceOptionId": "d9d4de44-e011-47d5-95c8-f0767f4663a7"
+            },
+            {
+              "label": "B",
+              "text": "Your experience as an EMT",
+              "correct": false,
+              "sourceOptionId": "3d057967-566f-4ef9-ba82-6e29a64a9788"
+            },
+            {
+              "label": "C",
+              "text": "What route you took when responding to the scene",
+              "correct": false,
+              "sourceOptionId": "8d8f5508-3d45-48b4-87d4-94d331f9ed8b"
+            },
+            {
+              "label": "D",
+              "text": "Your opinion of what happened before you arrived on scene",
+              "correct": false,
+              "sourceOptionId": "54878407-009f-4073-8659-e3bd07521c6a"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: How you gained access to the scene. This item is tied to the concept in the question stem: Which of the following information may be important to law enforcement officers investigating a crime scene. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 36,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "e743b694-2ca2-43f3-aaa1-69d4a5fac849",
+          "questionType": "radio_button",
+          "text": "An appropriate demonstration of professionalism when your patient is frightened, demanding, or unpleasant is to:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "continue to be nonjudgmental, compassionate, and respectful.",
+              "correct": true,
+              "sourceOptionId": "d11a0a5f-7b8b-478d-aeec-fe8ae466333c"
+            },
+            {
+              "label": "B",
+              "text": "demand that the patient remain quiet and cooperative during transport.",
+              "correct": false,
+              "sourceOptionId": "013cdc60-af0d-45b9-af7b-a636dc377641"
+            },
+            {
+              "label": "C",
+              "text": "reassure the patient that everything will be all right, even if it will not be.",
+              "correct": false,
+              "sourceOptionId": "0e8ac870-4be6-4717-8c3a-768f7b8eb39e"
+            },
+            {
+              "label": "D",
+              "text": "ignore the patient’s feelings and focus on his or her medical complaint.",
+              "correct": false,
+              "sourceOptionId": "725d86ea-0dd3-4bb4-acac-b1cd48185c94"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: continue to be nonjudgmental, compassionate, and respectful.. This item is tied to the concept in the question stem: An appropriate demonstration of professionalism when your patient is frightened, demanding, or unpleasant is to. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 3,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 37,
+          "sourceQuizId": "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+          "sourceQuizName": "Refresher B - 3",
+          "sourceQuestionId": "8b7e0c81-7ef6-4398-8c81-5d97ec7c5f29",
+          "questionType": "radio_button",
+          "text": "You are by the side of a patient who complains of severe chest pain that radiates into his right arm and neck. He is alert and oriented, with an open airway and adequate breathing. His radial pulse is strong, and his skin is cool and diaphoretic. Your partner reports his pulse rate is 84, respirations are 18 breaths/min, blood pressure is 86/62 mmHg, and SpO2 is 98% on room air. You have obtained a medical history and performed the secondary assessment. The patient states that he has had two heart attacks in the past and is allergic to aspirin and sulfa medications. What should you do next?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Transfer the patient to the stretcher and begin transport",
+              "correct": true,
+              "sourceOptionId": "3451f84d-509d-428f-b6f5-cee687083c84"
+            },
+            {
+              "label": "B",
+              "text": "Administer oxygen and nitroglycerin, and then transport the patient",
+              "correct": false,
+              "sourceOptionId": "c806790a-2889-42ad-9e3d-f12c51948503"
+            },
+            {
+              "label": "C",
+              "text": "Assist the patient in taking a nitroglycerin tablet",
+              "correct": false,
+              "sourceOptionId": "d767a2c3-989b-4fab-8ee1-da0535e2e530"
+            },
+            {
+              "label": "D",
+              "text": "Administer baby aspirin to the patient",
+              "correct": false,
+              "sourceOptionId": "fd527434-a1fd-4391-82d7-37877c917665"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Transfer the patient to the stretcher and begin transport. This item is tied to the concept in the question stem: You are by the side of a patient who complains of severe chest pain that radiates into his right arm and neck. He is alert and oriented, with an open airway and adequate breathing. His radial pulse is strong, and his skin is cool and diaphoretic. Your partner reports his pulse rate is 84, respirations are 18 breaths/min, blood pressure is 86/62 mmHg, and SpO2 is 98% on room air. You have obtained a medical history and performed the secondary assessment. The patient states that he has had two heart attacks in the past and is allergic to aspirin and sulfa medications. What should you do next. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        }
+      ]
+    },
+    {
+      "page": 4,
+      "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+      "sourceQuizName": "Refresher B - 4",
+      "questionCount": 13,
+      "questions": [
+        {
+          "page": 4,
+          "pageQuestionNumber": 1,
+          "combinedQuestionNumber": 38,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "561a32d6-891a-42b9-b845-b1ec266138d4",
+          "questionType": "radio_button",
+          "text": "You are called to a residence for a 48-year-old male patient. He is lying in bed, with a marked change in mental status. His blood pressure is 88/50, pulse 136, and respiratory rate of 32. His wife states that he complained of lower right abdominal pain for several days that got progressively worse, and today he is not responding appropirately. The wife states the husband had been refusing to see a doctor, but she finally called 911. You suspect appendicitis and are concerned about the subsequent onset of:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "septic shock.",
+              "correct": true,
+              "sourceOptionId": "b6cad3d9-0b12-4b46-9c58-339ddf641a44"
+            },
+            {
+              "label": "B",
+              "text": "splenic rupture.",
+              "correct": false,
+              "sourceOptionId": "e5e6e5ff-f976-4d91-bf98-ccc71f365ba7"
+            },
+            {
+              "label": "C",
+              "text": "diverticulitis.",
+              "correct": false,
+              "sourceOptionId": "8982a937-592a-4cc5-913a-2362225c4339"
+            },
+            {
+              "label": "D",
+              "text": "renal colic.",
+              "correct": false,
+              "sourceOptionId": "2c2e9a20-d479-4a13-bb44-ab56a8aa1bf9"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: septic shock.. This item is tied to the concept in the question stem: You are called to a residence for a 48-year-old male patient. He is lying in bed, with a marked change in mental status. His blood pressure is 88/50, pulse 136, and respiratory rate of 32. His wife states that he complained of lower right abdominal pain for several days that got progressively worse, and today he is not responding appropirately. The wife states the husband had been refusing to see a doctor, but she finally called 911. You suspect appendicitis and are concerned about the subsequent onset of. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 2,
+          "combinedQuestionNumber": 39,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "47fd7dca-95dd-4a66-8194-0689fe6228bf",
+          "questionType": "radio_button",
+          "text": "For the reticular activating system (RAS) to work correctly, what three substances are needed?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Oxygen to perfuse brain tissue, glucose to nourish brain tissue, and water to keep the brain hydrated",
+              "correct": true,
+              "sourceOptionId": "83d0216f-b340-4cdb-84ca-0f47c4d6e62b"
+            },
+            {
+              "label": "B",
+              "text": "Oxygen to perfuse brain tissue, insulin to nourish brain tissue, and water to keep the brain hydrated",
+              "correct": false,
+              "sourceOptionId": "a46de5bc-8b10-4036-89bc-a5caebd4dc52"
+            },
+            {
+              "label": "C",
+              "text": "Oxygen to perfuse brain tissue, insulin to nourish brain tissue, and sodium to keep the brain hydrated",
+              "correct": false,
+              "sourceOptionId": "b76f6b1f-731b-4181-ad6f-4efd1a66b6d0"
+            },
+            {
+              "label": "D",
+              "text": "Oxygen to perfuse brain tissue, glucose to nourish brain tissue, and sodium to keep the brain hydrated",
+              "correct": false,
+              "sourceOptionId": "58d425d3-8716-4122-834d-f296b960296b"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Oxygen to perfuse brain tissue, glucose to nourish brain tissue, and water to keep the brain hydrated. This item is tied to the concept in the question stem: For the reticular activating system (RAS) to work correctly, what three substances are needed. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 3,
+          "combinedQuestionNumber": 40,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "569f4ca0-8d76-4c52-ad87-04e2bda14b53",
+          "questionType": "radio_button",
+          "text": "Which of the following may cause a patient to exhibit abnormal behavior?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Hypoxia",
+              "correct": true,
+              "sourceOptionId": "f59682d0-92bf-41ce-9dae-cfa1ab462e27"
+            },
+            {
+              "label": "B",
+              "text": "Gastroenteritis",
+              "correct": false,
+              "sourceOptionId": "45ec32e6-006f-41a6-b6e1-fcbf19abad84"
+            },
+            {
+              "label": "C",
+              "text": "Snakebites",
+              "correct": false,
+              "sourceOptionId": "3ff77354-1145-4acf-b192-65c259d5e638"
+            },
+            {
+              "label": "D",
+              "text": "Allergic reaction",
+              "correct": false,
+              "sourceOptionId": "2ce8714b-a17a-4f97-91b5-9d7b8f0cfa76"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Hypoxia. This item is tied to the concept in the question stem: Which of the following may cause a patient to exhibit abnormal behavior. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 4,
+          "combinedQuestionNumber": 41,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "edeacc80-0a9a-4db2-a532-58d5af25990d",
+          "questionType": "radio_button",
+          "text": "The medical term for fainting is:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "syncope.",
+              "correct": true,
+              "sourceOptionId": "4510a2b1-e34f-4943-8fd4-4c344e072165"
+            },
+            {
+              "label": "B",
+              "text": "dehydration.",
+              "correct": false,
+              "sourceOptionId": "89fcae39-f117-49d4-a734-be7f53da8cbe"
+            },
+            {
+              "label": "C",
+              "text": "altered RAS status.",
+              "correct": false,
+              "sourceOptionId": "84ea1efd-5241-4ed4-94f5-a8507c1ae3f5"
+            },
+            {
+              "label": "D",
+              "text": "vertigo.",
+              "correct": false,
+              "sourceOptionId": "8d6cc5a7-efe2-49fd-84ff-8ae3da0ed832"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: syncope.. This item is tied to the concept in the question stem: The medical term for fainting is. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 5,
+          "combinedQuestionNumber": 42,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "39014036-7287-4626-8a45-035684559b88",
+          "questionType": "radio_button",
+          "text": "Which statement below is NOT true about seizures?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Many seizures are followed by an aura.",
+              "correct": true,
+              "sourceOptionId": "6708bbb2-0d87-4624-838f-20ad7b9c1b73"
+            },
+            {
+              "label": "B",
+              "text": "Common seizures that EMTs are likely to be called on is a tonic-clonic seizure.",
+              "correct": false,
+              "sourceOptionId": "9a936931-8083-42ab-97c2-6cd18cea2f1f"
+            },
+            {
+              "label": "C",
+              "text": "A partial seizure affects one part, or one side, of the brain.",
+              "correct": false,
+              "sourceOptionId": "dc6d8da2-dd5d-4dd1-af8e-5ac3a7d8b4e9"
+            },
+            {
+              "label": "D",
+              "text": "A generalized seizure affects the entire brain.",
+              "correct": false,
+              "sourceOptionId": "e1243a88-5832-4c64-8eca-bce1dcd5d665"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Many seizures are followed by an aura.. This item is tied to the concept in the question stem: Which statement below is NOT true about seizures. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 6,
+          "combinedQuestionNumber": 43,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "31917ea5-59e5-45b6-9660-85386e8d5640",
+          "questionType": "radio_button",
+          "text": "The most important task an EMT can make when managing an active seizure is:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Protect the Airway",
+              "correct": true,
+              "sourceOptionId": "8b599f3e-6622-4efe-a24c-6953f3334d49"
+            },
+            {
+              "label": "B",
+              "text": "Check a blood sugar",
+              "correct": false,
+              "sourceOptionId": "9677ab03-0945-4f32-97a8-03e3c4158e8c"
+            },
+            {
+              "label": "C",
+              "text": "Provide a pillow",
+              "correct": false,
+              "sourceOptionId": "bf47968d-33e4-4141-a0df-b36c4ec007e9"
+            },
+            {
+              "label": "D",
+              "text": "Initiate Transport",
+              "correct": false,
+              "sourceOptionId": "684a421c-0d25-4fa1-be02-716677c9c4f2"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Protect the Airway. This item is tied to the concept in the question stem: The most important task an EMT can make when managing an active seizure is. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 7,
+          "combinedQuestionNumber": 44,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "92ac46e9-6518-4fb9-9e05-ff15ed7b2bdf",
+          "questionType": "radio_button",
+          "text": "Your patient is waking up from a seizure; it was the patient's first seizure ever. When you ask what happened, the patient tells you she had the smell of fresh mown grass just before she seized. This sensation is known as a(n):",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "aura.",
+              "correct": true,
+              "sourceOptionId": "9db68275-2c99-4af3-b4bf-ed00e11a4535"
+            },
+            {
+              "label": "B",
+              "text": "tonic phase.",
+              "correct": false,
+              "sourceOptionId": "9016aa80-84b7-4eba-9976-bc3f58ff38d5"
+            },
+            {
+              "label": "C",
+              "text": "postictal phase.",
+              "correct": false,
+              "sourceOptionId": "b9113e39-0bd2-4a2e-bda2-632e40136930"
+            },
+            {
+              "label": "D",
+              "text": "clonic phase.",
+              "correct": false,
+              "sourceOptionId": "7a26b1a1-37f8-49b6-af1a-7877cabba863"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: aura.. This item is tied to the concept in the question stem: Your patient is waking up from a seizure; it was the patient's first seizure ever. When you ask what happened, the patient tells you she had the smell of fresh mown grass just before she seized. This sensation is known as a(n). Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 8,
+          "combinedQuestionNumber": 45,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "95183c3f-e529-4424-af31-29b12c4587d6",
+          "questionType": "radio_button",
+          "text": "Your patient is a 70-year-old man whose wife called EMS because her husband began exhibiting unusual behavior. Upon your arrival you introduce yourself to the patient, who responds, \"Not until nine o'clock.\" This phenomenon is BEST described as:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "receptive aphasia.",
+              "correct": true,
+              "sourceOptionId": "cb610f56-99d4-4c09-bb54-b67526342cbb"
+            },
+            {
+              "label": "B",
+              "text": "disorientation to time.",
+              "correct": false,
+              "sourceOptionId": "08481c58-1e42-47c4-955b-3fd01735242e"
+            },
+            {
+              "label": "C",
+              "text": "expressive aphasia.",
+              "correct": false,
+              "sourceOptionId": "6f1bf7eb-f6f9-4e50-8b73-22a6515ef32b"
+            },
+            {
+              "label": "D",
+              "text": "unresponsive to verbal stimuli.",
+              "correct": false,
+              "sourceOptionId": "f6e1a5d6-5298-4b19-b1cd-cc00de217699"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: receptive aphasia.. This item is tied to the concept in the question stem: Your patient is a 70-year-old man whose wife called EMS because her husband began exhibiting unusual behavior. Upon your arrival you introduce yourself to the patient, who responds, \"Not until nine o'clock.\" This phenomenon is BEST described as. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 9,
+          "combinedQuestionNumber": 46,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "11fd0478-220d-4474-a094-454f26395359",
+          "questionType": "radio_button",
+          "text": "Which of the following is the cause of most strokes?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Blockage of an artery supplying part of the brain",
+              "correct": true,
+              "sourceOptionId": "9c50c22e-67f6-4ddd-8c76-46910b716751"
+            },
+            {
+              "label": "B",
+              "text": "A ruptured cerebral artery due to hypertension",
+              "correct": false,
+              "sourceOptionId": "de543261-9910-424e-bfdd-2703dbec8630"
+            },
+            {
+              "label": "C",
+              "text": "A ruptured cerebral artery due to an aneurysm",
+              "correct": false,
+              "sourceOptionId": "f84a0274-8b23-47e7-b946-8f9e3e3ac1fa"
+            },
+            {
+              "label": "D",
+              "text": "A spasm in an artery supplying part of the brain",
+              "correct": false,
+              "sourceOptionId": "9780bbe5-a72f-424d-ab82-0db8d0e6c5ec"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Blockage of an artery supplying part of the brain. This item is tied to the concept in the question stem: Which of the following is the cause of most strokes. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 10,
+          "combinedQuestionNumber": 47,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "78ec3842-1fcc-4373-979b-2422393338be",
+          "questionType": "radio_button",
+          "text": "What is a Large Vessel Occlusion (LVO) stroke?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "An ischemic stroke caused by a blockage in one of the major arteries of the brain",
+              "correct": true,
+              "sourceOptionId": "669bafa0-69d4-4a47-9e02-c1f2ac7b91f6"
+            },
+            {
+              "label": "B",
+              "text": "An ischemic stroke caused by a blockage in the deep veins of the leg",
+              "correct": false,
+              "sourceOptionId": "23f36deb-2196-47f5-8ad3-eaf3f195678e"
+            },
+            {
+              "label": "C",
+              "text": "A hemorrhagic stroke caused by a blockage in one of the major arteries of the brain",
+              "correct": false,
+              "sourceOptionId": "e6dbb703-6da6-452d-b968-5544b39f7fc2"
+            },
+            {
+              "label": "D",
+              "text": "A hemorrhagic stroke caused by blunt force trauma to the skull",
+              "correct": false,
+              "sourceOptionId": "88a0bc85-9dcd-4b71-87d2-ea902ab12d65"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: An ischemic stroke caused by a blockage in one of the major arteries of the brain. This item is tied to the concept in the question stem: What is a Large Vessel Occlusion (LVO) stroke. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 11,
+          "combinedQuestionNumber": 48,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "653512f2-5a49-46db-9e26-b63101ddb652",
+          "questionType": "radio_button",
+          "text": "How can EMS identify a potential LVO patient in the field?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "Rapid Arterial Occlusion Evaluation greater than or equal to 5",
+              "correct": true,
+              "sourceOptionId": "969d66cf-88a7-4991-b0dd-316c6544258f"
+            },
+            {
+              "label": "B",
+              "text": "Rapid Arterial Occlusion Evaluation less than 5",
+              "correct": false,
+              "sourceOptionId": "e5142d98-fa60-4e8e-b6d3-245df0c8fcc9"
+            },
+            {
+              "label": "C",
+              "text": "RACE greater than 10",
+              "correct": false,
+              "sourceOptionId": "e9491c0d-2c84-4a40-acbb-5f077b0e5982"
+            },
+            {
+              "label": "D",
+              "text": "RACE less than 0",
+              "correct": false,
+              "sourceOptionId": "3412b1d3-52a2-4073-a385-12c91d06782d"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: Rapid Arterial Occlusion Evaluation greater than or equal to 5. This item is tied to the concept in the question stem: How can EMS identify a potential LVO patient in the field. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 12,
+          "combinedQuestionNumber": 49,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "fbf1484e-aa10-4b4e-8a7e-efd758880a66",
+          "questionType": "radio_button",
+          "text": "Are there recommendations for which hospital a patient should be transported to, based on the RACE Scale score?",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "The closest NJ Department of Health Designated Comprehensive Stroke Center",
+              "correct": true,
+              "sourceOptionId": "b5c6ec6f-9325-4687-97b6-fb9a8665b2f8"
+            },
+            {
+              "label": "B",
+              "text": "The closest NJ Department of Health Designated Hospital",
+              "correct": false,
+              "sourceOptionId": "dfa0dec0-752d-41a3-b362-2a656ac5074c"
+            },
+            {
+              "label": "C",
+              "text": "The closest NJ Department of Health Designated PCI Center",
+              "correct": false,
+              "sourceOptionId": "6b7bad97-8483-4cfa-ba36-106aaaa448aa"
+            },
+            {
+              "label": "D",
+              "text": "The closest NJ Department of Health Designated Level 1 Trauma Center",
+              "correct": false,
+              "sourceOptionId": "8ec43c74-627a-47a2-bfe8-cd34a65d9bf3"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: The closest NJ Department of Health Designated Comprehensive Stroke Center. This item is tied to the concept in the question stem: Are there recommendations for which hospital a patient should be transported to, based on the RACE Scale score. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        },
+        {
+          "page": 4,
+          "pageQuestionNumber": 13,
+          "combinedQuestionNumber": 50,
+          "sourceQuizId": "757c48dc-6ab2-4aad-a262-30ed854157c9",
+          "sourceQuizName": "Refresher B - 4",
+          "sourceQuestionId": "7fe57edc-978c-44df-8d69-0ab228864bbf",
+          "questionType": "radio_button",
+          "text": "There are two main types of dialysis, hemodialysis and peritoneal dialysis. The main difference between them is hemodialysis:",
+          "points": 1,
+          "options": [
+            {
+              "label": "A",
+              "text": "is usually done at a special facility and peritoneal dialysis is usually done at home.",
+              "correct": true,
+              "sourceOptionId": "4568eb0b-a4a0-41d5-8ffd-87d49612e7ff"
+            },
+            {
+              "label": "B",
+              "text": "is usually done at home and peritoneal dialysis is usually done at a special facility.",
+              "correct": false,
+              "sourceOptionId": "69364d44-75d0-4bbd-aec6-b6cf04fb66f6"
+            },
+            {
+              "label": "C",
+              "text": "filters the urine and peritoneal dialysis filters the blood.",
+              "correct": false,
+              "sourceOptionId": "95e003e9-b23b-4993-9f3c-032d040d2962"
+            },
+            {
+              "label": "D",
+              "text": "filters the blood and peritoneal dialysis filters the urine.",
+              "correct": false,
+              "sourceOptionId": "139657a9-4c13-4d87-89b4-9cb1f0d1c553"
+            }
+          ],
+          "correctAnswers": [
+            "A"
+          ],
+          "feedback": "Correct answer: is usually done at a special facility and peritoneal dialysis is usually done at home.. This item is tied to the concept in the question stem: There are two main types of dialysis, hemodialysis and peritoneal dialysis. The main difference between them is hemodialysis. Review why the keyed option best fits the presentation, protocol, or EMT decision point described."
+        }
+      ]
+    }
+  ]
+}
