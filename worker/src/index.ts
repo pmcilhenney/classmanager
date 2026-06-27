@@ -831,8 +831,7 @@ async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {
   const rows = await env.DB.prepare(
     `SELECT id, class_session_id, course_id, course_title, course_date, course_location, expected_count
      FROM scheduled_courses
-     ORDER BY course_date DESC, course_title
-     LIMIT 150`
+     ORDER BY course_date DESC, course_title`
   ).all<JsonRecord>();
   const scheduled = (rows.results ?? []).map(courseFromScheduledRow);
   if (scheduled.length > 0) {

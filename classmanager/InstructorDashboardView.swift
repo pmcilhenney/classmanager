@@ -556,7 +556,27 @@ struct InstructorDashboardView: View {
 
     private func coursePickerLabel(_ course: ClassManagerAPIClient.InstructorCourse) -> String {
         let date = course.date.isEmpty ? "No date" : course.date
-        return "\(course.title) - \(date) (\(course.expectedCount))"
+        let timing = course.isToday ? "Today" : (isPastCourse(course) ? "Past" : "Upcoming")
+        return "\(timing): \(course.title) - \(date) (\(course.expectedCount))"
+    }
+
+    private func isPastCourse(_ course: ClassManagerAPIClient.InstructorCourse) -> Bool {
+        guard let courseDate = dateFromCourseString(course.date) else { return false }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        let today = calendar.startOfDay(for: Date())
+        return courseDate < today && !course.isToday
+    }
+
+    private func dateFromCourseString(_ rawValue: String) -> Date? {
+        let formatters = ["MM/dd/yyyy", "M/d/yyyy", "yyyy-MM-dd"].map { pattern -> DateFormatter in
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(identifier: "America/New_York")
+            formatter.dateFormat = pattern
+            return formatter
+        }
+        return formatters.compactMap { $0.date(from: rawValue) }.first
     }
 
     private func studentStatusIcon(_ student: ClassManagerAPIClient.DashboardStudent) -> String {
