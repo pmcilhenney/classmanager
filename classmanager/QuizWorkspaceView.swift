@@ -22,6 +22,7 @@ struct QuizWorkspaceView: View {
     @State private var webViewReloadToken = UUID()
     @State private var pageNavigationEvent: FlexiQuizPageNavigationEvent?
     @State private var isCheckingSectionCompletion = false
+    @State private var reviewQuiz: QuizInfo?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -67,15 +68,17 @@ struct QuizWorkspaceView: View {
                         }
                     )
                 } else if showingReview, let quiz {
+                    let activeReviewQuiz = reviewQuiz ?? quiz
                     QuizReviewView(
                         config: config,
                         attendee: attendee,
-                        quiz: quiz,
+                        quiz: activeReviewQuiz,
                         onLoaded: { review in
-                            onReviewLoaded?(quiz, review)
+                            onReviewLoaded?(activeReviewQuiz, review)
                         },
                         onDone: {
                             showingReview = false
+                            reviewQuiz = nil
                             if let onBack {
                                 onBack()
                             } else {
@@ -106,6 +109,9 @@ struct QuizWorkspaceView: View {
                             onResultDetected: {
                                 isLoading = false
                                 if quiz?.questionRange == nil || quiz?.number == 4 {
+                                    if let quiz, quiz.number == 4 {
+                                        reviewQuiz = fullExamReviewQuiz(from: quiz)
+                                    }
                                     showingReview = true
                                 }
                             },
@@ -143,6 +149,7 @@ struct QuizWorkspaceView: View {
         .onChange(of: quiz?.id) {
             pageNavigationEvent = nil
             showingReview = false
+            reviewQuiz = nil
             webViewError = nil
             currentURL = nil
             lastURL = nil
@@ -177,11 +184,16 @@ struct QuizWorkspaceView: View {
             await MainActor.run {
                 isCheckingSectionCompletion = false
                 guard accepted else {
-                    toast = "FlexiQuiz moved to the next section. Complete \(quiz.title) before reviewing it."
                     return
                 }
-                pageNavigationEvent = event
                 onPageCheckpoint?(quiz, event)
+                if quiz.number == 4 {
+                    reviewQuiz = fullExamReviewQuiz(from: quiz)
+                    showingReview = true
+                    pageNavigationEvent = nil
+                } else {
+                    pageNavigationEvent = event
+                }
             }
         }
     }
@@ -215,6 +227,16 @@ struct QuizWorkspaceView: View {
         }
 
         return false
+    }
+
+    private func fullExamReviewQuiz(from quiz: QuizInfo) -> QuizInfo {
+        QuizInfo(
+            id: "full-exam-review-\(quiz.flexiQuizId)",
+            flexiQuizId: quiz.flexiQuizId,
+            number: 0,
+            title: "Full Exam Review",
+            url: quiz.url
+        )
     }
 
     private func launchOrResumeQuiz() async {

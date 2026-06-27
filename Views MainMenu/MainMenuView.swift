@@ -1287,7 +1287,10 @@ struct MainMenuView: View {
                     QuizInfo.refresherAVersionAReviewMarkerId,
                     result: "Version A review complete"
                 )
+                Task { await progressStore.fetchLatestAndMerge() }
                 toast = "Version A is below the 74% passing standard. Review is complete; complete remediation with your instructor, then start Version B."
+            } else if quiz.flexiQuizId == QuizInfo.refresherACombinedQuizId {
+                Task { await progressStore.fetchLatestAndMerge() }
             } else if quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId {
                 completedQuizzes.insert(quiz.id)
                 progressStore.markQuizResult(quiz.id, result: quizResultSummary(review, quiz: quiz))

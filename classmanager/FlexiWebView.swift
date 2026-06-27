@@ -117,11 +117,37 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        let viewportScript = """
+        (function() {
+          var meta = document.querySelector('meta[name="viewport"]');
+          if (!meta) {
+            meta = document.createElement('meta');
+            meta.name = 'viewport';
+            document.head.appendChild(meta);
+          }
+          meta.content = 'width=device-width, initial-scale=1, maximum-scale=1';
+          var style = document.getElementById('classmanager-flexiquiz-frame-style');
+          if (!style) {
+            style = document.createElement('style');
+            style.id = 'classmanager-flexiquiz-frame-style';
+            style.textContent = 'html, body { max-width: 100% !important; overflow-x: hidden !important; } body { margin-left: 0 !important; margin-right: 0 !important; }';
+            document.head.appendChild(style);
+          }
+        })();
+        """
+        config.userContentController.addUserScript(WKUserScript(
+            source: viewportScript,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        ))
         config.userContentController.add(context.coordinator, name: "classmanagerFlexiQuiz")
         let webView = WKWebView(frame: .zero, configuration: config)
         context.coordinator.webView = webView
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
+        webView.scrollView.alwaysBounceHorizontal = false
+        webView.scrollView.showsHorizontalScrollIndicator = false
+        webView.scrollView.isDirectionalLockEnabled = true
         webView.load(URLRequest(url: url))
         return webView
     }
