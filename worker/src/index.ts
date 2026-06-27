@@ -80,6 +80,11 @@ type QuizReviewPayload = {
   warnings: string[];
 };
 
+const REFRESHER_A_COMBINED_QUIZ_ID = "89db2c06-5052-4ff5-867b-95ef67fcfcd2";
+const KNOWN_QUESTION_RATIONALES_BY_QUIZ: Record<string, Record<string, string>> = {
+  [REFRESHER_A_COMBINED_QUIZ_ID]: {}
+};
+
 type FinalExamResult = {
   quizId: string;
   quizName?: string;
@@ -1430,10 +1435,6 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
     fallbackReportUrl: reportUrl,
     warnings
   });
-  review = filterQuizReviewQuestions(review, questionStart, questionEnd);
-  if (debug) {
-    review.warnings.push("debug_seen");
-  }
 
   try {
     const rmsReview = await fetchRmsQuizReview(env, {
@@ -1459,6 +1460,12 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   } catch (error) {
     console.warn("RMS quiz review merge failed", error);
     review.warnings.push("rms_review_unavailable");
+  }
+
+  review = applyQuestionRationales(review);
+  review = filterQuizReviewQuestions(review, questionStart, questionEnd);
+  if (debug) {
+    review.warnings.push("debug_seen");
   }
 
   if (studentId && classSessionId) {
@@ -2046,6 +2053,78 @@ function filterQuizReviewQuestions(
     questions: review.questions.filter((question) => question.number >= lower && question.number <= upper),
     warnings: [...review.warnings, `question_range_${lower}_${upper}`]
   };
+}
+
+function applyQuestionRationales(review: QuizReviewPayload): QuizReviewPayload {
+  let mappedCount = 0;
+  const questions = review.questions.map((question) => {
+    const existing = question.feedback?.trim();
+    if (existing) {
+      return { ...question, feedback: existing };
+    }
+
+    const mapped = mappedRationaleForQuestion(review.quizId, question);
+    if (mapped) {
+      mappedCount += 1;
+      return { ...question, feedback: mapped };
+    }
+
+    return question;
+  });
+
+  if (mappedCount === 0) {
+    return review;
+  }
+
+  return {
+    ...review,
+    questions,
+    warnings: [...review.warnings, `rationales_mapped_${mappedCount}`]
+  };
+}
+
+function mappedRationaleForQuestion(quizId: string, question: QuizReviewQuestion): string | undefined {
+  const knownRationale = knownRationaleForQuestion(quizId, question);
+  if (knownRationale) {
+    return knownRationale;
+  }
+
+  return fallbackRationaleForQuestion(question);
+}
+
+function knownRationaleForQuestion(quizId: string, question: QuizReviewQuestion): string | undefined {
+  const rationales = KNOWN_QUESTION_RATIONALES_BY_QUIZ[quizId];
+  if (!rationales) {
+    return undefined;
+  }
+  return rationales[questionRationaleKey(question.prompt)]?.trim();
+}
+
+function fallbackRationaleForQuestion(question: QuizReviewQuestion): string | undefined {
+  const correctAnswer = question.correctAnswer?.trim();
+  if (!correctAnswer) {
+    return undefined;
+  }
+
+  const studentAnswer = question.studentAnswer?.trim();
+  if (studentAnswer && question.isCorrect === false) {
+    return `The keyed correct answer is "${correctAnswer}". Your selected answer was "${studentAnswer}", so review the question wording and answer choices that point to "${correctAnswer}".`;
+  }
+
+  if (question.isCorrect === true) {
+    return `The keyed correct answer is "${correctAnswer}". This item was answered correctly; use the question wording and answer choices to reinforce why this option fits best.`;
+  }
+
+  return `The keyed correct answer is "${correctAnswer}". Review the question wording and answer choices that point to this option.`;
+}
+
+function questionRationaleKey(value: string): string {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/[“”]/g, "\"")
+    .replace(/[‘’]/g, "'")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function scoreTextFromSources(sources: JsonRecord[]): string | undefined {
