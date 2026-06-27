@@ -7,9 +7,9 @@ import Foundation
 
 struct QuizInfo: Identifiable {
     static let refresherACombinedQuizId = "89db2c06-5052-4ff5-867b-95ef67fcfcd2"
+    static let refresherBCombinedQuizId = "bcab075c-a56a-459c-b313-f7b3966d7bb4"
+    static let refresherCCombinedQuizId = "7f21b940-8344-4614-a935-49f2ea4218c7"
     static let refresherAVersionBQuizId = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b"
-    static let refresherAVersionAReviewMarkerId = "refresher-a-version-a-review-complete"
-    static let refresherAVersionBStartedMarkerId = "refresher-a-version-b-started"
 
     let id: String
     let flexiQuizId: String
@@ -27,43 +27,51 @@ struct QuizInfo: Identifiable {
         self.questionRange = questionRange
     }
     
-    static func refresherAQuizzes() -> [QuizInfo] {
-        let combinedQuizId = refresherACombinedQuizId
+    static func versionAReviewMarkerId(for combinedQuizId: String) -> String {
+        "\(combinedQuizId)-version-a-review-complete"
+    }
+
+    static func versionBStartedMarkerId(for versionBQuizId: String) -> String {
+        "\(versionBQuizId)-version-b-started"
+    }
+
+    static func isCombinedVersionAQuizId(_ quizId: String) -> Bool {
+        [refresherACombinedQuizId, refresherBCombinedQuizId, refresherCCombinedQuizId].contains(quizId)
+    }
+
+    static func isVersionBQuizId(_ quizId: String) -> Bool {
+        quizId == refresherAVersionBQuizId
+    }
+
+    static func versionBQuiz(forCombinedQuizId combinedQuizId: String) -> QuizInfo? {
+        switch combinedQuizId {
+        case refresherACombinedQuizId:
+            return refresherAVersionBQuiz()
+        default:
+            return nil
+        }
+    }
+
+    private static func combinedQuizzes(courseLetter: String, combinedQuizId: String, ranges: [ClosedRange<Int>]) -> [QuizInfo] {
         let combinedURL = URL(string: "https://www.flexiquiz.com/SC/N/\(combinedQuizId)")!
-        return [
+        return ranges.enumerated().map { index, range in
             QuizInfo(
-                id: "refresher-a-page-1",
+                id: "refresher-\(courseLetter.lowercased())-page-\(index + 1)",
                 flexiQuizId: combinedQuizId,
-                number: 1,
-                title: "Refresher A Mini-Quiz #1",
+                number: index + 1,
+                title: "Refresher \(courseLetter) Mini-Quiz #\(index + 1)",
                 url: combinedURL,
-                questionRange: 1...12
-            ),
-            QuizInfo(
-                id: "refresher-a-page-2",
-                flexiQuizId: combinedQuizId,
-                number: 2,
-                title: "Refresher A Mini-Quiz #2",
-                url: combinedURL,
-                questionRange: 13...25
-            ),
-            QuizInfo(
-                id: "refresher-a-page-3",
-                flexiQuizId: combinedQuizId,
-                number: 3,
-                title: "Refresher A Mini-Quiz #3",
-                url: combinedURL,
-                questionRange: 26...38
-            ),
-            QuizInfo(
-                id: "refresher-a-page-4",
-                flexiQuizId: combinedQuizId,
-                number: 4,
-                title: "Refresher A Mini-Quiz #4",
-                url: combinedURL,
-                questionRange: 39...50
+                questionRange: range
             )
-        ]
+        }
+    }
+
+    static func refresherAQuizzes() -> [QuizInfo] {
+        combinedQuizzes(
+            courseLetter: "A",
+            combinedQuizId: refresherACombinedQuizId,
+            ranges: [1...12, 13...25, 26...38, 39...50]
+        )
     }
 
     static func refresherAVersionBQuiz() -> QuizInfo {
@@ -77,62 +85,18 @@ struct QuizInfo: Identifiable {
     }
     
     static func refresherBQuizzes() -> [QuizInfo] {
-        [
-            QuizInfo(
-            id: "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
-            number: 1,
-            title: "Refresher B Mini-Quiz #1",
-            url: URL(string: "https://www.flexiquiz.com/SC/N/3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8")!
-        ),
-        QuizInfo(
-            id: "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
-            number: 2,
-            title: "Refresher B Mini-Quiz #2",
-            url: URL(string: "https://www.flexiquiz.com/SC/N/67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5")!
-        ),
-        QuizInfo(
-            id: "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
-            number: 3,
-            title: "Refresher B Mini-Quiz #3",
-            url: URL(string: "https://www.flexiquiz.com/SC/N/e5fdb765-119b-4f5e-905b-c9b7d27ed2bb")!
-        ),
-        QuizInfo(
-            id: "757c48dc-6ab2-4aad-a262-30ed854157c9",
-            number: 4,
-            title: "Refresher B Mini-Quiz #4",
-            url: URL(string: "https://www.flexiquiz.com/SC/N/757c48dc-6ab2-4aad-a262-30ed854157c9")!
+        combinedQuizzes(
+            courseLetter: "B",
+            combinedQuizId: refresherBCombinedQuizId,
+            ranges: [1...12, 13...25, 26...37, 38...50]
         )
-        ]
     }
     
     static func refresherCQuizzes() -> [QuizInfo] {
-        [
-            QuizInfo(
-            id: "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
-            number: 1,
-            title: "Refresher C Mini-Quiz #1",
-            url: URL(string: "https://www.flexiquiz.com/SC/N/ab8a5c9d-9e06-42c2-a866-e5759d8b2209")!
-        ),
-        QuizInfo(
-            id: "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
-            number: 2,
-            title: "Refresher C Mini-Quiz #2",
-            url: URL(string: "https://www.flexiquiz.com/SC/N/d76f4483-d8cc-4029-aea6-a2bebbb3d086")!
-        ),
-        QuizInfo(
-            id: "b7adaf94-a911-4dad-8152-a5853cb02e35",
-            number: 3,
-            title: "Refresher C Mini-Quiz #3",
-            url: URL(string: "https://www.flexiquiz.com/SC/N/b7adaf94-a911-4dad-8152-a5853cb02e35")!
-        ),
-        QuizInfo(
-            id: "b938cd8b-913c-41bf-b247-1406b11115f2",
-            number: 4,
-            title: "Refresher C Mini-Quiz #4",
-            url: URL(string: "https://www.flexiquiz.com/SC/N/b938cd8b-913c-41bf-b247-1406b11115f2")!
+        combinedQuizzes(
+            courseLetter: "C",
+            combinedQuizId: refresherCCombinedQuizId,
+            ranges: [1...13, 14...25, 26...38, 39...50]
         )
-            
-            
-        ]
     }
 }

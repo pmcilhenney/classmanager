@@ -231,21 +231,23 @@ struct MainMenuView: View {
 
     private var versionBRequiredOrActive: Bool {
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
-        if completed.contains(QuizInfo.refresherAVersionBStartedMarkerId) {
+        if let versionBQuiz = getVersionBQuizForCourse(),
+           completed.contains(QuizInfo.versionBStartedMarkerId(for: versionBQuiz.flexiQuizId)) {
             return true
         }
         guard let final = progressStore.progress.finalExamResult else {
             return false
         }
-        return final.quizId == QuizInfo.refresherACombinedQuizId && final.passed == false
+        return QuizInfo.isCombinedVersionAQuizId(final.quizId) && final.passed == false && getVersionBQuizForCourse() != nil
     }
 
     private var hasVersionBFinalResult: Bool {
-        if progressStore.progress.finalExamResult?.quizId == QuizInfo.refresherAVersionBQuizId {
+        guard let versionBQuiz = getVersionBQuizForCourse() else { return false }
+        if progressStore.progress.finalExamResult?.quizId == versionBQuiz.flexiQuizId {
             return true
         }
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
-        return completed.contains(QuizInfo.refresherAVersionBQuizId)
+        return completed.contains(versionBQuiz.flexiQuizId)
     }
 
     private var trackedQuizIds: Set<String> {
@@ -556,10 +558,11 @@ struct MainMenuView: View {
                             quiz: quiz,
                             onSSOLoaded: {
                                 progressStore.markQuiz()
-                                if quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId {
-                                    completedQuizzes.insert(QuizInfo.refresherAVersionBStartedMarkerId)
+                                if QuizInfo.isVersionBQuizId(quiz.flexiQuizId) {
+                                    let markerId = QuizInfo.versionBStartedMarkerId(for: quiz.flexiQuizId)
+                                    completedQuizzes.insert(markerId)
                                     progressStore.markQuizResult(
-                                        QuizInfo.refresherAVersionBStartedMarkerId,
+                                        markerId,
                                         result: "Version B started"
                                     )
                                 }
@@ -1345,17 +1348,22 @@ struct MainMenuView: View {
         }
 
         guard trackedQuizIds.contains(quiz.id) else {
-            if quiz.flexiQuizId == QuizInfo.refresherACombinedQuizId && review.passed == false {
-                completedQuizzes.insert(QuizInfo.refresherAVersionAReviewMarkerId)
+            if QuizInfo.isCombinedVersionAQuizId(quiz.flexiQuizId) && review.passed == false {
+                let markerId = QuizInfo.versionAReviewMarkerId(for: quiz.flexiQuizId)
+                completedQuizzes.insert(markerId)
                 progressStore.markQuizResult(
-                    QuizInfo.refresherAVersionAReviewMarkerId,
+                    markerId,
                     result: "Version A review complete"
                 )
                 Task { await progressStore.fetchLatestAndMerge() }
-                toast = "Version A is below the 74% passing standard. Review is complete; complete remediation with your instructor, then start Version B."
-            } else if quiz.flexiQuizId == QuizInfo.refresherACombinedQuizId {
+                if getVersionBQuizForCourse() != nil {
+                    toast = "Version A is below the 74% passing standard. Review is complete; complete remediation with your instructor, then start Version B."
+                } else {
+                    toast = "Version A is below the 74% passing standard. Review is complete; complete remediation with your instructor."
+                }
+            } else if QuizInfo.isCombinedVersionAQuizId(quiz.flexiQuizId) {
                 Task { await progressStore.fetchLatestAndMerge() }
-            } else if quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId {
+            } else if QuizInfo.isVersionBQuizId(quiz.flexiQuizId) {
                 guard answeredQuestionCount(review, quiz: quiz) > 0 else {
                     completedQuizzes.remove(quiz.id)
                     progressStore.clearQuizResult(quiz.id)
@@ -1435,11 +1443,8 @@ struct MainMenuView: View {
     }
 
     private func getVersionBQuizForCourse() -> QuizInfo? {
-        let courseType = cleanCourseName(attendee.courseType).uppercased()
-        if courseType.contains("REFRESHER A") {
-            return QuizInfo.refresherAVersionBQuiz()
-        }
-        return nil
+        guard let combinedQuizId = getQuizzesForCourse().first?.flexiQuizId else { return nil }
+        return QuizInfo.versionBQuiz(forCombinedQuizId: combinedQuizId)
     }
 
     // MARK: - Course Materials

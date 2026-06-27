@@ -164,7 +164,7 @@ struct QuizReviewView: View {
     }
 
     private var passingScoreText: String {
-        quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId ? "80%" : "74%"
+        QuizInfo.isVersionBQuizId(quiz.flexiQuizId) ? "80%" : "74%"
     }
 
     private func filteredQuestions(
@@ -190,7 +190,7 @@ struct QuizReviewView: View {
     private func loadReview() async {
         await MainActor.run {
             isLoading = true
-            loadingMessage = quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId
+            loadingMessage = QuizInfo.isVersionBQuizId(quiz.flexiQuizId)
                 ? "Checking FlexiQuiz for Version B results..."
                 : "Loading exam review..."
             errorText = nil

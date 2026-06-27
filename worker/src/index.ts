@@ -103,9 +103,11 @@ type QuizReviewPayload = {
 };
 
 const REFRESHER_A_COMBINED_QUIZ_ID = "89db2c06-5052-4ff5-867b-95ef67fcfcd2";
+const REFRESHER_B_COMBINED_QUIZ_ID = "bcab075c-a56a-459c-b313-f7b3966d7bb4";
+const REFRESHER_C_COMBINED_QUIZ_ID = "7f21b940-8344-4614-a935-49f2ea4218c7";
 const REFRESHER_A_VERSION_B_QUIZ_ID = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b";
-const REFRESHER_A_VERSION_A_PASSING_SCORE = 74;
-const REFRESHER_A_VERSION_B_PASSING_SCORE = 80;
+const REFRESHER_VERSION_A_PASSING_SCORE = 74;
+const REFRESHER_VERSION_B_PASSING_SCORE = 80;
 const REGISTRATION_FORM_ID = "251265925097060";
 const INSTRUCTOR_PAST_COURSE_DAYS = 45;
 const INSTRUCTOR_UPCOMING_COURSE_DAYS = 120;
@@ -3120,12 +3122,19 @@ function minimumPassingScoreForFinalExam(result: JsonRecord): number {
 function minimumPassingScoreForQuiz(quizId: string, sources: JsonRecord[]): number {
   const quizName = (firstText(sources, ["quiz_name", "quizName", "name", "title"]) ?? "").toLowerCase();
   if (quizId === REFRESHER_A_VERSION_B_QUIZ_ID || quizName.includes("version b")) {
-    return REFRESHER_A_VERSION_B_PASSING_SCORE;
+    return REFRESHER_VERSION_B_PASSING_SCORE;
   }
-  if (quizId === REFRESHER_A_COMBINED_QUIZ_ID || quizName.includes("refresher a")) {
-    return REFRESHER_A_VERSION_A_PASSING_SCORE;
+  if (
+    quizId === REFRESHER_A_COMBINED_QUIZ_ID ||
+    quizId === REFRESHER_B_COMBINED_QUIZ_ID ||
+    quizId === REFRESHER_C_COMBINED_QUIZ_ID ||
+    quizName.includes("refresher a") ||
+    quizName.includes("refresher b") ||
+    quizName.includes("refresher c")
+  ) {
+    return REFRESHER_VERSION_A_PASSING_SCORE;
   }
-  return REFRESHER_A_VERSION_A_PASSING_SCORE;
+  return REFRESHER_VERSION_A_PASSING_SCORE;
 }
 
 async function saveFinalExamResult(
@@ -3336,6 +3345,18 @@ function sectionQuizId(quizId: string, questionStart: number, questionEnd: numbe
     if (questionStart === 13 && questionEnd === 25) return "refresher-a-page-2";
     if (questionStart === 26 && questionEnd === 38) return "refresher-a-page-3";
     if (questionStart === 39 && questionEnd === 50) return "refresher-a-page-4";
+  }
+  if (quizId === REFRESHER_B_COMBINED_QUIZ_ID) {
+    if (questionStart === 1 && questionEnd === 12) return "refresher-b-page-1";
+    if (questionStart === 13 && questionEnd === 25) return "refresher-b-page-2";
+    if (questionStart === 26 && questionEnd === 37) return "refresher-b-page-3";
+    if (questionStart === 38 && questionEnd === 50) return "refresher-b-page-4";
+  }
+  if (quizId === REFRESHER_C_COMBINED_QUIZ_ID) {
+    if (questionStart === 1 && questionEnd === 13) return "refresher-c-page-1";
+    if (questionStart === 14 && questionEnd === 25) return "refresher-c-page-2";
+    if (questionStart === 26 && questionEnd === 38) return "refresher-c-page-3";
+    if (questionStart === 39 && questionEnd === 50) return "refresher-c-page-4";
   }
   return `${quizId}:section:${questionStart}-${questionEnd}`;
 }

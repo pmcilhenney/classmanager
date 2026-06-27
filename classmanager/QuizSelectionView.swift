@@ -144,7 +144,7 @@ struct QuizSelectionView: View {
     private func fullExamReviewCard(_ result: ClassManagerAPIClient.FinalExamResult) -> some View {
         let passed = result.passed
         let color: Color = passed == false ? .red : .green
-        let isVersionB = result.quizId == QuizInfo.refresherAVersionBQuizId
+        let isVersionB = QuizInfo.isVersionBQuizId(result.quizId)
         let status = passed == false
             ? (isVersionB ? "Version B Unsuccessful" : "Version A Remediation Required")
             : (passed == true ? (isVersionB ? "Version B Passed" : "Final Exam Passed") : "Final Exam Result")
@@ -200,7 +200,7 @@ struct QuizSelectionView: View {
 
     private func versionBRetestCard(_ quiz: QuizInfo) -> some View {
         let unlocked = versionAReviewCompleted
-        let completed = progressStore.progress.finalExamResult?.quizId == QuizInfo.refresherAVersionBQuizId
+        let completed = progressStore.progress.finalExamResult?.quizId == quiz.flexiQuizId
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 Image(systemName: completed ? "checkmark.seal.fill" : (unlocked ? "arrow.clockwise.circle.fill" : "lock.fill"))
@@ -288,23 +288,26 @@ struct QuizSelectionView: View {
     }
 
     private func isFailedVersionA(_ result: ClassManagerAPIClient.FinalExamResult) -> Bool {
-        result.quizId == QuizInfo.refresherACombinedQuizId && result.passed == false
+        QuizInfo.isCombinedVersionAQuizId(result.quizId) && result.passed == false
     }
 
     private var versionAReviewCompleted: Bool {
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
-        return completed.contains(QuizInfo.refresherAVersionAReviewMarkerId)
+        guard let finalQuizId = progressStore.progress.finalExamResult?.quizId else { return false }
+        return completed.contains(QuizInfo.versionAReviewMarkerId(for: finalQuizId))
     }
 
     private var versionBInProgress: Bool {
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
-        return completed.contains(QuizInfo.refresherAVersionBStartedMarkerId)
+        guard let versionBQuiz else { return false }
+        return completed.contains(QuizInfo.versionBStartedMarkerId(for: versionBQuiz.flexiQuizId))
     }
 
     private var versionBCompleted: Bool {
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
-        return completed.contains(QuizInfo.refresherAVersionBQuizId)
-            || progressStore.progress.finalExamResult?.quizId == QuizInfo.refresherAVersionBQuizId
+        guard let versionBQuiz else { return false }
+        return completed.contains(versionBQuiz.flexiQuizId)
+            || progressStore.progress.finalExamResult?.quizId == versionBQuiz.flexiQuizId
     }
 
     private func isLocked(_ quiz: QuizInfo) -> Bool {

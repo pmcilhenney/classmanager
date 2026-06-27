@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>COURSE_MATERIALS_ID</key>
-	<string>253331214289050</string>
 	<key>CLASSMANAGER_API_BASE_URL</key>
 	<string>https://classmanagerapp.gcemstrainingacademy.org</string>
+	<key>COURSE_MATERIALS_ID</key>
+	<string>253331214289050</string>
 	<key>DEPT_LOGO_ASSET_NAME</key>
 	<string>gcems_logo</string>
 	<key>Elective_Form_ID</key>
@@ -15,9 +15,9 @@
 	<key>FLEXIQUIZ_MAP_RefresherA</key>
 	<string>89db2c06-5052-4ff5-867b-95ef67fcfcd2</string>
 	<key>FLEXIQUIZ_MAP_RefresherB</key>
-	<string>7f2c59df-47f8-4cb3-8f40-08c4161dbb2a</string>
+	<string>bcab075c-a56a-459c-b313-f7b3966d7bb4</string>
 	<key>FLEXIQUIZ_MAP_RefresherC</key>
-	<string>d1ceddf4-b3dc-4452-b7c4-78b523075aa1</string>
+	<string>7f21b940-8344-4614-a935-49f2ea4218c7</string>
 	<key>FLEXIQUIZ_SSO_AUD</key>
 	<string>FlexiQuiz</string>
 	<key>FLEXIQUIZ_SSO_EMAIL_DOMAIN</key>
@@ -35,21 +35,21 @@
 	<key>FLEXI_REF_A_Q4_URL</key>
 	<string>https://www.flexiquiz.com/SC/N/89db2c06-5052-4ff5-867b-95ef67fcfcd2</string>
 	<key>FLEXI_REF_B_Q1_URL</key>
-	<string>https://www.flexiquiz.com/SC/N/3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8</string>
+	<string>https://www.flexiquiz.com/SC/N/bcab075c-a56a-459c-b313-f7b3966d7bb4</string>
 	<key>FLEXI_REF_B_Q2_URL</key>
-	<string>https://www.flexiquiz.com/SC/N/67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5</string>
+	<string>https://www.flexiquiz.com/SC/N/bcab075c-a56a-459c-b313-f7b3966d7bb4</string>
 	<key>FLEXI_REF_B_Q3_URL</key>
-	<string>https://www.flexiquiz.com/SC/N/e5fdb765-119b-4f5e-905b-c9b7d27ed2bb</string>
+	<string>https://www.flexiquiz.com/SC/N/bcab075c-a56a-459c-b313-f7b3966d7bb4</string>
 	<key>FLEXI_REF_B_Q4_URL</key>
-	<string>https://www.flexiquiz.com/SC/N/757c48dc-6ab2-4aad-a262-30ed854157c9</string>
+	<string>https://www.flexiquiz.com/SC/N/bcab075c-a56a-459c-b313-f7b3966d7bb4</string>
 	<key>FLEXI_REF_C_Q1_URL</key>
-	<string>https://www.flexiquiz.com/SC/N/ab8a5c9d-9e06-42c2-a866-e5759d8b2209</string>
+	<string>https://www.flexiquiz.com/SC/N/7f21b940-8344-4614-a935-49f2ea4218c7</string>
 	<key>FLEXI_REF_C_Q2_URL</key>
-	<string>https://www.flexiquiz.com/SC/N/d76f4483-d8cc-4029-aea6-a2bebbb3d086</string>
+	<string>https://www.flexiquiz.com/SC/N/7f21b940-8344-4614-a935-49f2ea4218c7</string>
 	<key>FLEXI_REF_C_Q3_URL</key>
-	<string>https://www.flexiquiz.com/SC/N/b7adaf94-a911-4dad-8152-a5853cb02e35</string>
+	<string>https://www.flexiquiz.com/SC/N/7f21b940-8344-4614-a935-49f2ea4218c7</string>
 	<key>FLEXI_REF_C_Q4_URL</key>
-	<string>https://www.flexiquiz.com/SC/N/b938cd8b-913c-41bf-b247-1406b11115f2</string>
+	<string>https://www.flexiquiz.com/SC/N/7f21b940-8344-4614-a935-49f2ea4218c7</string>
 	<key>JOTFORM_API_KEY</key>
 	<string>$(JOTFORM_API_KEY)</string>
 	<key>JOTFORM_CHECKIN_FORM_ID</key>

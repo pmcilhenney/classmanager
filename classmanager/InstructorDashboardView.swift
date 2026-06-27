@@ -606,11 +606,21 @@ struct InstructorDashboardView: View {
     private func commonQuizName(_ quizId: String?) -> String {
         switch quizId {
         case "refresher-a-page-1", "refresher-a-quiz-1", "66564166-9de9-4b17-9c2d-6f76bc186970": return "Refresher A Quiz 1"
-        case "refresher-a-page-2", "refresher-a-quiz-2": return "Refresher A Quiz 2"
-        case "refresher-a-page-3", "refresher-a-quiz-3": return "Refresher A Quiz 3"
-        case "refresher-a-page-4", "refresher-a-quiz-4": return "Refresher A Quiz 4"
+        case "refresher-a-page-2", "refresher-a-quiz-2", "78df99bd-d81a-4f24-a855-81ea0a3a71ec": return "Refresher A Quiz 2"
+        case "refresher-a-page-3", "refresher-a-quiz-3", "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7": return "Refresher A Quiz 3"
+        case "refresher-a-page-4", "refresher-a-quiz-4", "16ca7d9a-d3a4-4a24-85fe-ccb49def519d": return "Refresher A Quiz 4"
         case QuizInfo.refresherACombinedQuizId: return "Refresher A Version A"
         case QuizInfo.refresherAVersionBQuizId: return "Refresher A Version B"
+        case "refresher-b-page-1", "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8": return "Refresher B Quiz 1"
+        case "refresher-b-page-2", "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5": return "Refresher B Quiz 2"
+        case "refresher-b-page-3", "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb": return "Refresher B Quiz 3"
+        case "refresher-b-page-4", "757c48dc-6ab2-4aad-a262-30ed854157c9": return "Refresher B Quiz 4"
+        case QuizInfo.refresherBCombinedQuizId: return "Refresher B Version A"
+        case "refresher-c-page-1", "ab8a5c9d-9e06-42c2-a866-e5759d8b2209": return "Refresher C Quiz 1"
+        case "refresher-c-page-2", "d76f4483-d8cc-4029-aea6-a2bebbb3d086": return "Refresher C Quiz 2"
+        case "refresher-c-page-3", "b7adaf94-a911-4dad-8152-a5853cb02e35": return "Refresher C Quiz 3"
+        case "refresher-c-page-4", "b938cd8b-913c-41bf-b247-1406b11115f2": return "Refresher C Quiz 4"
+        case QuizInfo.refresherCCombinedQuizId: return "Refresher C Version A"
         default: return quizId ?? "Quiz"
         }
     }
