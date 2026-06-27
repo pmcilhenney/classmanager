@@ -428,6 +428,7 @@ extension ClassManagerAPIClient {
         let courseId: String?
         let title: String
         let date: String
+        let displayDate: String?
         let location: String?
         let expectedCount: Int
         let isToday: Bool

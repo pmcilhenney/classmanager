@@ -61,9 +61,11 @@ type InstructorCourse = {
   courseId?: string;
   title: string;
   date: string;
+  displayDate?: string;
   location?: string;
   expectedCount: number;
   isToday: boolean;
+  alwaysInclude?: boolean;
 };
 
 type QuizReviewQuestion = {
@@ -99,6 +101,9 @@ const REGISTRATION_FORM_ID = "251265925097060";
 const INSTRUCTOR_PAST_COURSE_DAYS = 45;
 const INSTRUCTOR_UPCOMING_COURSE_DAYS = 120;
 const INSTRUCTOR_MAX_COURSES = 60;
+const INSTRUCTOR_INCLUDED_SUBMISSION_IDS = new Set([
+  "6406705846326091703"
+]);
 const KNOWN_QUESTION_RATIONALES_BY_QUIZ: Record<string, Record<string, string>> = {
   [REFRESHER_A_COMBINED_QUIZ_ID]: {
     "what is the sound of the soft tissue of the upper airway creating impedance or partial obstruction to the flow of air": "Correct answer: Snoring. Snoring is caused by relaxed soft tissue partially obstructing the upper airway, so repositioning and airway support should stay front of mind.",
@@ -832,11 +837,12 @@ async function existingInstructorCheckIn(env: Env, attendanceId: string): Promis
 
 async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {
   const rows = await env.DB.prepare(
-    `SELECT id, class_session_id, course_id, course_title, course_date, course_location, expected_count
+    `SELECT id, class_session_id, course_id, course_title, course_date, course_location, expected_count, raw_json
      FROM scheduled_courses
      ORDER BY course_date DESC, course_title`
   ).all<JsonRecord>();
-  const scheduled = (rows.results ?? []).map(courseFromScheduledRow);
+  const included = await fetchIncludedInstructorCourses(env);
+  const scheduled = [...(rows.results ?? []).map(courseFromScheduledRow), ...included];
   if (scheduled.length > 0) {
     return instructorCourseMenuList(scheduled);
   }
@@ -905,6 +911,18 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
     }
   }
 
+  const includedEntries = await fetchIncludedInstructorCourseEntries(env);
+  for (const entry of includedEntries) {
+    const existing = courseMap.get(entry.course.id) ?? { course: entry.course, students: [] };
+    existing.students.push({
+      attendee: entry.attendee,
+      formId: entry.formId,
+      course: entry.course
+    });
+    existing.course.expectedCount = Math.max(existing.course.expectedCount, existing.students.length);
+    courseMap.set(entry.course.id, existing);
+  }
+
   const now = new Date().toISOString();
   for (const entry of courseMap.values()) {
     await upsertScheduledCourse(env, entry.course, now);
@@ -914,6 +932,65 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
   }
 
   return instructorCourseMenuList([...courseMap.values()].map((entry) => entry.course));
+}
+
+async function fetchIncludedInstructorCourses(env: Env): Promise<InstructorCourse[]> {
+  return (await fetchIncludedInstructorCourseEntries(env)).map((entry) => entry.course);
+}
+
+async function fetchIncludedInstructorCourseEntries(env: Env): Promise<Array<{
+  course: InstructorCourse;
+  attendee: NormalizedAttendee;
+  formId: string;
+}>> {
+  if (!env.JOTFORM_API_KEY || INSTRUCTOR_INCLUDED_SUBMISSION_IDS.size === 0) {
+    return [];
+  }
+
+  const entries: Array<{ course: InstructorCourse; attendee: NormalizedAttendee; formId: string }> = [];
+  for (const submissionId of INSTRUCTOR_INCLUDED_SUBMISSION_IDS) {
+    const source = await fetchJotformSubmission(env, submissionId).catch((error) => {
+      console.warn("included instructor course lookup failed", { submissionId, error: String(error) });
+      return undefined;
+    });
+    if (!source) {
+      continue;
+    }
+    const content = recordField(source, "content");
+    const answers = recordField(content, "answers");
+    const formId = stringField(content ?? {}, "form_id") ?? REGISTRATION_FORM_ID;
+    if (!answers) {
+      continue;
+    }
+
+    const normalized = answer(answers, "39")
+      ? normalizeRegistrationSubmission(answers, submissionId, formId)
+      : normalizeRefresherSubmission(answers, submissionId, formId);
+    const options = normalized.options.length > 0
+      ? normalized.options
+      : [{
+          courseType: normalized.attendee.courseType || "Class Session",
+          datePretty: normalized.attendee.courseDate ?? "",
+          dateRaw: normalized.attendee.courseDate ?? "",
+          courseId: normalized.attendee.courseId,
+          courseLocation: normalized.attendee.courseLocation
+        }];
+
+    for (const option of options) {
+      const attendee = attendeeWithOption(normalized.attendee, option);
+      entries.push({
+        course: {
+          ...instructorCourseFromAttendee(attendee, formId),
+          expectedCount: 1,
+          displayDate: validCourseDate(attendee.courseDate ?? "") ? undefined : "Legacy test course",
+          alwaysInclude: true
+        },
+        attendee,
+        formId
+      });
+    }
+  }
+  return entries;
 }
 
 function instructorCourseFromAttendee(attendee: NormalizedAttendee, formId: string): InstructorCourse {
@@ -1013,15 +1090,18 @@ async function upsertScheduledStudent(env: Env, row: JsonRecord, now: string): P
 
 function courseFromScheduledRow(row: JsonRecord): InstructorCourse {
   const date = stringField(row, "course_date") ?? "";
+  const raw = parseJsonRecord(stringField(row, "raw_json") ?? "") ?? {};
   return {
     id: stringField(row, "id") ?? [stringField(row, "class_session_id"), stringField(row, "course_id"), stringField(row, "course_title")].filter(Boolean).join(":"),
     classSessionId: stringField(row, "class_session_id") ?? sessionIdFor(date),
     courseId: stringField(row, "course_id"),
     title: stringField(row, "course_title") ?? "Class Session",
     date,
+    displayDate: stringField(raw, "displayDate"),
     location: stringField(row, "course_location"),
     expectedCount: numberFromUnknown(row.expected_count) ?? 0,
-    isToday: datesMatchToday(date)
+    isToday: datesMatchToday(date),
+    alwaysInclude: boolFromUnknown(raw.alwaysInclude)
   };
 }
 
@@ -1030,6 +1110,9 @@ function instructorCourseMenuList(courses: InstructorCourse[]): InstructorCourse
   const todayValue = dateSortValue(todayEasternDate());
   const windowed = deduped.filter((course) => {
     if (course.isToday) {
+      return true;
+    }
+    if (course.alwaysInclude) {
       return true;
     }
     const value = dateSortValue(course.date);
@@ -1068,7 +1151,9 @@ function dedupeInstructorCourses(courses: InstructorCourse[]): InstructorCourse[
       title: existing.title.length >= course.title.length ? existing.title : course.title,
       location: existing.location ?? course.location,
       expectedCount: Math.max(existing.expectedCount, course.expectedCount),
-      isToday: existing.isToday || course.isToday
+      displayDate: existing.displayDate ?? course.displayDate,
+      isToday: existing.isToday || course.isToday,
+      alwaysInclude: existing.alwaysInclude || course.alwaysInclude
     });
   }
   return [...merged.values()];
@@ -1081,6 +1166,11 @@ function compareInstructorCourses(a: InstructorCourse, b: InstructorCourse): num
   const today = dateSortValue(todayEasternDate());
   const aValue = dateSortValue(a.date);
   const bValue = dateSortValue(b.date);
+  const aLegacy = Boolean(a.alwaysInclude && aValue === Number.MAX_SAFE_INTEGER);
+  const bLegacy = Boolean(b.alwaysInclude && bValue === Number.MAX_SAFE_INTEGER);
+  if (aLegacy !== bLegacy) {
+    return aLegacy ? -1 : 1;
+  }
   const aPast = aValue < today;
   const bPast = bValue < today;
   if (aPast !== bPast) {
@@ -1102,7 +1192,22 @@ function dateSortValue(rawDate: string): number {
   if (!match) {
     return Number.MAX_SAFE_INTEGER;
   }
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return Number.MAX_SAFE_INTEGER;
+  }
   return Number(`${match[3]}${match[1]}${match[2]}`);
+}
+
+function validCourseDate(rawDate: string): boolean {
+  return dateSortValue(rawDate) !== Number.MAX_SAFE_INTEGER;
 }
 
 function courseDateKey(rawDate: string): string {

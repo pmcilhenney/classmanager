@@ -557,7 +557,7 @@ struct InstructorDashboardView: View {
     }
 
     private func coursePickerLabel(_ course: ClassManagerAPIClient.InstructorCourse) -> String {
-        let date = course.date.isEmpty ? "No date" : course.date
+        let date = course.displayDate ?? (course.date.isEmpty ? "No date" : course.date)
         let timing = course.isToday ? "Today" : (isPastCourse(course) ? "Recent" : "Upcoming")
         return "\(timing): \(date) - \(course.title) (\(course.expectedCount))"
     }
