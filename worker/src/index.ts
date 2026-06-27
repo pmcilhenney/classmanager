@@ -68,6 +68,15 @@ type InstructorCourse = {
   alwaysInclude?: boolean;
 };
 
+type InstructorProfile = {
+  personId: string;
+  fullName: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  oemsId?: string;
+};
+
 type QuizReviewQuestion = {
   id?: string;
   number: number;
@@ -289,6 +298,10 @@ export default {
         return await instructorAttendanceSubmit(request, env);
       }
 
+      if (request.method === "GET" && url.pathname === "/instructor/active") {
+        return await activeInstructor(url, env);
+      }
+
       if (request.method === "GET" && url.pathname === "/instructor/dashboard") {
         return await instructorDashboard(url, env);
       }
@@ -466,11 +479,8 @@ async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext
     return json({ error: "missing_person_id" }, 400);
   }
 
-  await env.DB.prepare(
-    `INSERT INTO instructors (person_id, full_name, updated_at)
-     VALUES (?1, ?2, ?3)
-     ON CONFLICT(person_id) DO UPDATE SET updated_at = excluded.updated_at`
-  ).bind(personId, knownInstructorName(personId) ?? "Instructor", now).run();
+  const instructor = await resolveInstructorProfile(env, personId);
+  await upsertInstructorProfile(env, instructor, now);
 
   ctx?.waitUntil(fetchRegistrationCourses(env).catch((error) => {
     console.warn("background registration course refresh failed", error);
@@ -489,10 +499,7 @@ async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext
 
   return json({
     ok: true,
-    instructor: {
-      personId,
-      fullName: knownInstructorName(personId) ?? "Instructor"
-    },
+    instructor,
     defaultCourse: defaultCourse ?? null,
     courses
   });
@@ -526,11 +533,8 @@ async function instructorAttendanceSubmit(request: Request, env: Env): Promise<R
     return json({ error: "invalid_inout" }, 400);
   }
 
-  await env.DB.prepare(
-    `INSERT INTO instructors (person_id, full_name, updated_at)
-     VALUES (?1, ?2, ?3)
-     ON CONFLICT(person_id) DO UPDATE SET updated_at = excluded.updated_at`
-  ).bind(personId, knownInstructorName(personId) ?? "Instructor", now).run();
+  const instructor = await resolveInstructorProfile(env, personId);
+  await upsertInstructorProfile(env, instructor, now);
 
   await env.DB.prepare(
     `INSERT INTO instructor_attendance (
@@ -912,11 +916,136 @@ async function skillsOpened(request: Request, env: Env): Promise<Response> {
   return json({ ok: true, updatedAt: now });
 }
 
+async function activeInstructor(url: URL, env: Env): Promise<Response> {
+  const classSessionId = url.searchParams.get("classSessionId")?.trim();
+  if (!classSessionId) {
+    return json({ error: "missing_class_session_id" }, 400);
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT i.person_id, i.full_name, i.first_name, i.last_name, i.email, i.oems_id,
+            ia.checked_in_at, ia.checked_out_at, ia.course_title, ia.course_date
+     FROM instructor_attendance ia
+     JOIN instructors i ON i.person_id = ia.person_id
+     WHERE ia.class_session_id = ?1
+     ORDER BY CASE WHEN ia.checked_out_at IS NULL THEN 0 ELSE 1 END,
+              ia.checked_in_at DESC
+     LIMIT 1`
+  ).bind(classSessionId).first<JsonRecord>();
+
+  if (!row) {
+    return json({ ok: true, instructor: null });
+  }
+
+  return json({
+    ok: true,
+    instructor: instructorProfileFromRow(row),
+    attendance: {
+      checkedInAt: stringField(row, "checked_in_at") ?? null,
+      checkedOutAt: stringField(row, "checked_out_at") ?? null,
+      courseTitle: stringField(row, "course_title") ?? null,
+      courseDate: stringField(row, "course_date") ?? null
+    }
+  });
+}
+
 function knownInstructorName(personId: string): string | undefined {
   const known: Record<string, string> = {
     "704bbc3f-9503-44e5-a442-e6cbf21c4ebe": "Patrick McIlhenney"
   };
   return known[personId];
+}
+
+async function resolveInstructorProfile(env: Env, personId: string): Promise<InstructorProfile> {
+  const cached = await env.DB.prepare(
+    `SELECT person_id, full_name, first_name, last_name, email, oems_id
+     FROM instructors
+     WHERE person_id = ?1
+     LIMIT 1`
+  ).bind(personId).first<JsonRecord>();
+
+  const fallback = cached ? instructorProfileFromRow(cached) : {
+    personId,
+    fullName: knownInstructorName(personId) ?? "Instructor"
+  };
+
+  if (!env.ACADEMY_RMS_BASE_URL) {
+    return fallback;
+  }
+
+  try {
+    const params = new URLSearchParams({ person_id: personId });
+    const endpoint = `${joinUrl(env.ACADEMY_RMS_BASE_URL, "/api/classmanager/person-profile")}?${params.toString()}`;
+    const response = await fetch(endpoint, {
+      headers: env.ACADEMY_RMS_ATTENDANCE_SECRET ? {
+        "x-classmanager-secret": env.ACADEMY_RMS_ATTENDANCE_SECRET
+      } : undefined
+    });
+    if (!response.ok) {
+      throw new Error(`rms_person_${response.status}`);
+    }
+    const data = await response.json<JsonRecord>();
+    const person = recordField(data, "person");
+    if (!person) {
+      return fallback;
+    }
+    const firstName = stringField(person, "first_name");
+    const lastName = stringField(person, "last_name");
+    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim() ||
+      stringField(person, "full_name") ||
+      fallback.fullName;
+    return {
+      personId,
+      fullName,
+      firstName,
+      lastName,
+      email: stringField(person, "primary_email") ?? fallback.email,
+      oemsId: stringField(person, "njoems_id") ?? fallback.oemsId
+    };
+  } catch (error) {
+    console.warn("rms instructor profile lookup failed", { personId, error: String(error) });
+    return fallback;
+  }
+}
+
+async function upsertInstructorProfile(env: Env, profile: InstructorProfile, now = new Date().toISOString()): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO instructors (person_id, full_name, email, oems_id, first_name, last_name, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+     ON CONFLICT(person_id) DO UPDATE SET
+       full_name = COALESCE(excluded.full_name, instructors.full_name),
+       email = COALESCE(excluded.email, instructors.email),
+       oems_id = COALESCE(excluded.oems_id, instructors.oems_id),
+       first_name = COALESCE(excluded.first_name, instructors.first_name),
+       last_name = COALESCE(excluded.last_name, instructors.last_name),
+       updated_at = excluded.updated_at`
+  ).bind(
+    profile.personId,
+    profile.fullName,
+    profile.email ?? null,
+    profile.oemsId ?? null,
+    profile.firstName ?? null,
+    profile.lastName ?? null,
+    now
+  ).run();
+}
+
+function instructorProfileFromRow(row: JsonRecord): InstructorProfile {
+  const personId = stringField(row, "person_id") ?? "";
+  const firstName = stringField(row, "first_name");
+  const lastName = stringField(row, "last_name");
+  const fullName = stringField(row, "full_name") ||
+    [firstName, lastName].filter(Boolean).join(" ").trim() ||
+    knownInstructorName(personId) ||
+    "Instructor";
+  return {
+    personId,
+    fullName,
+    firstName,
+    lastName,
+    email: stringField(row, "email"),
+    oemsId: stringField(row, "oems_id")
+  };
 }
 
 async function existingInstructorCheckIn(env: Env, attendanceId: string): Promise<string | undefined> {

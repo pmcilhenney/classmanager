@@ -494,7 +494,8 @@ struct InstructorDashboardView: View {
         add("courseId", student.courseId)
         add("studentEmail", student.email)
         add("instructorFirst", instructor.fullName)
-        add("instructor6digit", instructor.personId)
+        add("instructor6digit", instructor.oemsId ?? instructor.personId)
+        add("instructorEmail", instructor.email)
         add("theseComments", aiComment)
         addDateQueryItems(student.courseDate, to: &items)
         comps.queryItems = items

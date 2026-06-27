@@ -830,17 +830,7 @@ struct MainMenuView: View {
         }
         // If this is a check-out action, present the required completion survey first.
         if inOut == "Check-Out" {
-            // Build checkout survey URL with courseType param populated from the attendee's course name
-            if var comps = URLComponents(string: "https://form.jotform.com/240184388762060") {
-                var items: [URLQueryItem] = comps.queryItems ?? []
-                let courseName = cleanCourseName(attendee.courseType)
-                items.append(URLQueryItem(name: "courseType", value: courseName))
-                comps.queryItems = items
-                checkoutSurveyURL = comps.url
-            } else {
-                checkoutSurveyURL = URL(string: "https://form.jotform.com/240184388762060")
-            }
-            showingCheckoutSurvey = true
+            Task { await prepareCheckoutSurvey() }
             return
         }
 
@@ -849,6 +839,51 @@ struct MainMenuView: View {
         } else {
             beginAttendanceCapture(inOut: inOut)
         }
+    }
+
+    @MainActor
+    private func prepareCheckoutSurvey() async {
+        busy = true
+        defer { busy = false }
+
+        let activeInstructor: ClassManagerAPIClient.InstructorDashboardInstructor?
+        do {
+            let response = try await ClassManagerAPIClient.shared.fetchActiveInstructor(
+                classSessionId: classSessionIdForCurrentAttendee()
+            )
+            activeInstructor = response.instructor
+        } catch {
+            activeInstructor = nil
+        }
+
+        checkoutSurveyURL = buildCheckoutSurveyURL(activeInstructor: activeInstructor)
+        showingCheckoutSurvey = true
+    }
+
+    private func buildCheckoutSurveyURL(activeInstructor: ClassManagerAPIClient.InstructorDashboardInstructor?) -> URL? {
+        guard var comps = URLComponents(string: "https://form.jotform.com/240184388762060") else {
+            return URL(string: "https://form.jotform.com/240184388762060")
+        }
+
+        var items: [URLQueryItem] = comps.queryItems ?? []
+        func add(_ name: String, _ value: String?) {
+            guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            items.append(URLQueryItem(name: name, value: value))
+        }
+
+        let instructorName = activeInstructor?.fullName ?? authenticatedInstructor?.fullName
+        let instructorEmail = activeInstructor?.email ?? authenticatedInstructor?.email
+        let courseName = cleanCourseName(attendee.courseType)
+
+        add("courseType", courseName)
+        add("q23_courseType", courseName)
+        add("primaryInstructor", instructorName)
+        add("q24_primaryInstructor", instructorName)
+        add("email", instructorEmail)
+        add("q25_email", instructorEmail)
+
+        comps.queryItems = items
+        return comps.url
     }
 
     private var checkoutLockedMessage: String {
@@ -863,6 +898,11 @@ struct MainMenuView: View {
 
     private func canCheckOut() -> Bool {
         progressStore.progress.didCheckIn && examWorkflowComplete
+    }
+
+    private func classSessionIdForCurrentAttendee() -> String {
+        let raw = (attendee.courseDate ?? attendee.submissionId).trimmingCharacters(in: .whitespacesAndNewlines)
+        return raw.isEmpty ? "undated" : raw.replacingOccurrences(of: "/", with: "-")
     }
 
     private func beginAttendanceCapture(inOut: String) {

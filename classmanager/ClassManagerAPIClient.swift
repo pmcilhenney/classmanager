@@ -75,6 +75,14 @@ final class ClassManagerAPIClient {
         return response
     }
 
+    func fetchActiveInstructor(classSessionId: String) async throws -> ActiveInstructorResponse {
+        try await send(
+            path: "/instructor/active",
+            method: "GET",
+            queryItems: [URLQueryItem(name: "classSessionId", value: classSessionId)]
+        )
+    }
+
     func fetchInstructorDashboard(
         limit: Int = 100,
         classSessionId: String? = nil,
@@ -418,6 +426,10 @@ extension ClassManagerAPIClient {
     struct InstructorDashboardInstructor: Decodable, Identifiable, Hashable {
         let personId: String
         let fullName: String
+        let firstName: String?
+        let lastName: String?
+        let email: String?
+        let oemsId: String?
 
         var id: String { personId }
     }
@@ -447,6 +459,19 @@ extension ClassManagerAPIClient {
         let attendance: InstructorAttendance
         let updatedAt: String
         let warnings: [String]?
+    }
+
+    struct ActiveInstructorResponse: Decodable {
+        let ok: Bool
+        let instructor: InstructorDashboardInstructor?
+        let attendance: ActiveInstructorAttendance?
+    }
+
+    struct ActiveInstructorAttendance: Decodable, Hashable {
+        let checkedInAt: String?
+        let checkedOutAt: String?
+        let courseTitle: String?
+        let courseDate: String?
     }
 
     struct InstructorAttendance: Decodable, Hashable {
