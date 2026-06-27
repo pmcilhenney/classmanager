@@ -74,21 +74,31 @@ final class ClassManagerAPIClient {
     func fetchQuizReview(
         attendee: RosterAttendee,
         quizId: String,
-        email: String
+        email: String,
+        questionRange: ClosedRange<Int>? = nil,
+        includeInProgress: Bool = false
     ) async throws -> QuizReviewResponse {
         let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? attendee.submissionId
             : attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
         let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        var queryItems = [
+            URLQueryItem(name: "email", value: email),
+            URLQueryItem(name: "studentId", value: studentId),
+            URLQueryItem(name: "classSessionId", value: classSessionId),
+            URLQueryItem(name: "deviceId", value: UIDevice.current.identifierForVendor?.uuidString)
+        ]
+        if includeInProgress {
+            queryItems.append(URLQueryItem(name: "includeInProgress", value: "1"))
+        }
+        if let questionRange {
+            queryItems.append(URLQueryItem(name: "questionStart", value: String(questionRange.lowerBound)))
+            queryItems.append(URLQueryItem(name: "questionEnd", value: String(questionRange.upperBound)))
+        }
         return try await send(
             path: "/quiz/review/\(Self.pathEncode(quizId))",
             method: "GET",
-            queryItems: [
-                URLQueryItem(name: "email", value: email),
-                URLQueryItem(name: "studentId", value: studentId),
-                URLQueryItem(name: "classSessionId", value: classSessionId),
-                URLQueryItem(name: "deviceId", value: UIDevice.current.identifierForVendor?.uuidString)
-            ]
+            queryItems: queryItems
         )
     }
 

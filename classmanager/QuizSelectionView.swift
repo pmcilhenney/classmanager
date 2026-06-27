@@ -142,6 +142,11 @@ struct QuizSelectionView: View {
     }
 
     private func attemptSelect(_ quiz: QuizInfo) {
+        if completedQuizzes.contains(quiz.id) {
+            onReview(quiz)
+            return
+        }
+
         // Quizzes must be completed in order. If this is quiz number > 1, ensure previous quiz is completed.
         if isLocked(quiz) {
             let prevNumber = quiz.number - 1

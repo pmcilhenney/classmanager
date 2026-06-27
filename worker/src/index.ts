@@ -1135,6 +1135,9 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   const studentId = url.searchParams.get("studentId")?.trim();
   const classSessionId = url.searchParams.get("classSessionId")?.trim();
   const deviceId = url.searchParams.get("deviceId")?.trim();
+  const includeInProgress = url.searchParams.get("includeInProgress") === "1";
+  const questionStart = intFromUnknown(url.searchParams.get("questionStart") ?? undefined);
+  const questionEnd = intFromUnknown(url.searchParams.get("questionEnd") ?? undefined);
   const debug = url.searchParams.get("debug") === "1";
 
   if (!quizId) {
@@ -1159,7 +1162,9 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   }
 
   const responses = await flexiListResponses(env, flexiquizUserId, quizId);
-  const latest = responses.find((item) => responseLooksCompleted(item)) ?? responses[0];
+  const latest = includeInProgress
+    ? responses[0]
+    : responses.find((item) => responseLooksCompleted(item)) ?? responses[0];
   if (!latest) {
     return json({ error: "review_not_found" }, 404);
   }
@@ -1167,8 +1172,17 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   const responseId = responseIdFrom(latest);
   const warnings: string[] = [];
   let detail: JsonRecord | undefined;
+  let responseQuestions: JsonRecord[] = [];
 
   if (responseId) {
+    responseQuestions = await flexiResponseQuestions(env, quizId, responseId).catch((error) => {
+      console.warn("FlexiQuiz response questions lookup failed", error);
+      warnings.push("response_questions_unavailable");
+      return [];
+    });
+    if (responseQuestions.length > 0) {
+      warnings.push("response_questions_loaded");
+    }
     detail = await flexiResponseDetail(env, flexiquizUserId, quizId, responseId);
     if (!detail) {
       warnings.push("response_detail_unavailable");
@@ -1196,11 +1210,13 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
     quizId,
     latest,
     detail,
+    questionRecords: responseQuestions,
     reportHtml,
     fallbackResponseId: responseId,
     fallbackReportUrl: reportUrl,
     warnings
   });
+  review = filterQuizReviewQuestions(review, questionStart, questionEnd);
   if (debug) {
     review.warnings.push("debug_seen");
   }
@@ -1486,7 +1502,10 @@ async function flexiListResponses(env: Env, userId: string, quizId: string): Pro
 
   if (response.ok) {
     const payload = await response.json<unknown>().catch(() => undefined);
-    return recordsFromPayload(payload);
+    const records = recordsFromPayload(payload);
+    if (records.length > 0) {
+      return records;
+    }
   }
 
   const profile = await flexiGetUserProfile(env, userId);
@@ -1499,6 +1518,22 @@ async function flexiListResponses(env: Env, userId: string, quizId: string): Pro
   }
 
   throw new HttpError(502, "flexiquiz_responses_failed");
+}
+
+async function flexiResponseQuestions(
+  env: Env,
+  quizId: string,
+  responseId: string
+): Promise<JsonRecord[]> {
+  const response = await flexiGet(
+    env,
+    `/v1/quizzes/${encodeURIComponent(quizId)}/responses/${encodeURIComponent(responseId)}/questions`
+  );
+  if (!response.ok) {
+    return [];
+  }
+  const payload = await response.json<unknown>().catch(() => undefined);
+  return recordsFromPayload(payload);
 }
 
 async function flexiResponseDetail(
@@ -1543,6 +1578,7 @@ function normalizeQuizReview(input: {
   quizId: string;
   latest: JsonRecord;
   detail?: JsonRecord;
+  questionRecords?: JsonRecord[];
   reportHtml?: string;
   fallbackResponseId?: string;
   fallbackReportUrl?: string;
@@ -1550,7 +1586,8 @@ function normalizeQuizReview(input: {
 }): QuizReviewPayload {
   const sources = [input.detail, recordField(input.detail, "content"), recordField(input.detail, "response"), input.latest, recordField(input.latest, "content")]
     .filter(isJsonRecord);
-  const questions = normalizeQuestionRecords(questionRecordsFromSources(sources));
+  const directQuestionRecords = input.questionRecords ?? [];
+  const questions = normalizeQuestionRecords(directQuestionRecords.length > 0 ? directQuestionRecords : questionRecordsFromSources(sources));
   const htmlQuestions = questions.length > 0 ? [] : parseQuestionsFromReportHtml(input.reportHtml);
 
   if (questions.length === 0 && htmlQuestions.length === 0) {
@@ -1574,6 +1611,23 @@ function normalizeQuizReview(input: {
     reportUrl: input.fallbackReportUrl,
     questions: questions.length > 0 ? questions : htmlQuestions,
     warnings: input.warnings
+  };
+}
+
+function filterQuizReviewQuestions(
+  review: QuizReviewPayload,
+  questionStart?: number,
+  questionEnd?: number
+): QuizReviewPayload {
+  if (questionStart === undefined && questionEnd === undefined) {
+    return review;
+  }
+  const lower = questionStart ?? Number.MIN_SAFE_INTEGER;
+  const upper = questionEnd ?? Number.MAX_SAFE_INTEGER;
+  return {
+    ...review,
+    questions: review.questions.filter((question) => question.number >= lower && question.number <= upper),
+    warnings: [...review.warnings, `question_range_${lower}_${upper}`]
   };
 }
 
@@ -1698,28 +1752,105 @@ function deepQuestionRecords(value: unknown, depth: number): JsonRecord[] {
 
 function looksLikeQuestionRecord(record: JsonRecord): boolean {
   return Boolean(firstText([record], ["question", "question_text", "questionText", "prompt", "title", "text", "name"])) &&
-    Boolean(firstValue([record], ["answer", "user_answer", "userAnswer", "student_answer", "selected_answer", "correct_answer", "correctAnswer", "is_correct", "isCorrect"]));
+    Boolean(firstValue([record], ["answer", "user_answer", "userAnswer", "student_answer", "selected_answer", "correct_answer", "correctAnswer", "is_correct", "isCorrect", "points_scored", "pointsScored", "options"]));
 }
 
 function normalizeQuestionRecords(records: JsonRecord[]): QuizReviewQuestion[] {
   return records.map((record, index) => {
+    const options = optionRecordsFromUnknown(firstValue([record], ["options", "choices", "answers", "possible_answers", "possibleAnswers"]));
     const prompt = firstText([record], ["question_text", "questionText", "question", "prompt", "title", "text", "name"]) ?? `Question ${index + 1}`;
-    const studentAnswer = answerText(firstValue([record], ["user_answer", "userAnswer", "student_answer", "studentAnswer", "selected_answer", "selectedAnswer", "response", "answer"]));
-    const correctAnswer = answerText(firstValue([record], ["correct_answer", "correctAnswer", "right_answer", "rightAnswer", "expected_answer", "expectedAnswer"]));
-    const isCorrect = boolFromUnknown(firstValue([record], ["is_correct", "isCorrect", "correct", "was_correct", "wasCorrect", "passed", "result"])) ??
+    const studentAnswer = selectedOptionsText(options) ??
+      answerText(firstValue([record], ["user_answer", "userAnswer", "student_answer", "studentAnswer", "selected_answer", "selectedAnswer", "response", "answer"]));
+    const correctAnswer = correctOptionsText(options) ??
+      answerText(firstValue([record], ["correct_answer", "correctAnswer", "right_answer", "rightAnswer", "expected_answer", "expectedAnswer"]));
+    const isCorrect = correctnessFromPoints(record) ??
+      correctnessFromOptions(options) ??
+      boolFromUnknown(firstValue([record], ["is_correct", "isCorrect", "correct", "was_correct", "wasCorrect", "passed", "result"])) ??
       correctnessFromText(firstText([record], ["result", "status"]));
     return {
       id: firstText([record], ["id", "question_id", "questionId"]),
       number: intFromUnknown(firstValue([record], ["number", "question_number", "questionNumber", "order", "position"])) ?? index + 1,
       prompt: cleanText(prompt),
-      choices: stringArrayFromUnknown(firstValue([record], ["choices", "options", "possible_answers", "possibleAnswers", "answers"])),
+      choices: optionChoicesText(options) ?? stringArrayFromUnknown(firstValue([record], ["choices", "options", "possible_answers", "possibleAnswers", "answers"])),
       studentAnswer,
       correctAnswer,
       isCorrect,
-      feedback: firstText([record], ["feedback", "feedback_text", "feedbackText", "comment", "comments", "explanation", "rationale"])?.trim(),
-      points: firstText([record], ["points", "score", "mark", "marks"])
+      feedback: feedbackFromQuestionRecord(record),
+      points: pointsTextFromQuestionRecord(record)
     };
   });
+}
+
+function optionRecordsFromUnknown(value: unknown): JsonRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(isJsonRecord);
+}
+
+function optionChoicesText(options: JsonRecord[]): string[] | undefined {
+  const choices = options.map((option) => firstText([option], ["text", "label", "name", "value"])).filter((value): value is string => Boolean(value));
+  return choices.length > 0 ? choices : undefined;
+}
+
+function selectedOptionsText(options: JsonRecord[]): string | undefined {
+  const selected = options
+    .filter((option) => boolFromUnknown(option.selected) === true)
+    .map((option) => firstText([option], ["answer", "text", "label", "name", "value"]))
+    .filter((value): value is string => Boolean(value));
+  return selected.length > 0 ? selected.join(", ") : undefined;
+}
+
+function correctOptionsText(options: JsonRecord[]): string | undefined {
+  const correct = options
+    .filter((option) => boolFromUnknown(option.correct) === true)
+    .map((option) => firstText([option], ["text", "label", "name", "value"]))
+    .filter((value): value is string => Boolean(value));
+  return correct.length > 0 ? correct.join(", ") : undefined;
+}
+
+function correctnessFromOptions(options: JsonRecord[]): boolean | undefined {
+  if (options.length === 0) {
+    return undefined;
+  }
+  const selected = options.filter((option) => boolFromUnknown(option.selected) === true);
+  if (selected.length === 0) {
+    return undefined;
+  }
+  return selected.every((option) => boolFromUnknown(option.correct) === true);
+}
+
+function correctnessFromPoints(record: JsonRecord): boolean | undefined {
+  const scored = firstNumber([record], ["points_scored", "pointsScored"]);
+  const available = firstNumber([record], ["points_available", "pointsAvailable"]);
+  if (scored === undefined || available === undefined || available <= 0) {
+    return undefined;
+  }
+  return scored >= available;
+}
+
+function pointsTextFromQuestionRecord(record: JsonRecord): string | undefined {
+  const scored = firstNumber([record], ["points_scored", "pointsScored"]);
+  const available = firstNumber([record], ["points_available", "pointsAvailable"]);
+  if (scored !== undefined && available !== undefined) {
+    return `${scored}/${available}`;
+  }
+  return firstText([record], ["points", "score", "mark", "marks"]);
+}
+
+function feedbackFromQuestionRecord(record: JsonRecord): string | undefined {
+  const direct = firstText([record], ["feedback", "feedback_text", "feedbackText", "comment", "comments", "explanation", "rationale"])?.trim();
+  if (direct) {
+    return direct;
+  }
+  const categories = recordsFromMaybeArray(record.categories)
+    .map((category) => firstText([category], ["name", "title", "label"]))
+    .filter((value): value is string => Boolean(value));
+  return categories.length > 0 ? `Category: ${categories.join(", ")}` : undefined;
+}
+
+function recordsFromMaybeArray(value: unknown): JsonRecord[] {
+  return Array.isArray(value) ? value.filter(isJsonRecord) : [];
 }
 
 function parseQuestionsFromReportHtml(html?: string): QuizReviewQuestion[] {

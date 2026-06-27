@@ -61,7 +61,8 @@ struct QuizWorkspaceView: View {
                             }
                         },
                         onReviewQuiz: {
-                            toast = "Section review will be available after answer capture is added to the FlexiQuiz page navigation payload."
+                            pageNavigationEvent = nil
+                            showingReview = true
                         }
                     )
                 } else if showingReview, let quiz {
