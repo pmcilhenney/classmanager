@@ -1600,6 +1600,37 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
       flexiquizUserId,
       review
     }).catch((error) => console.warn("quiz attempt save failed", error));
+    if (!questionStart && !questionEnd && review.responseId && reviewLooksCompleted(review, latest)) {
+      const finalSources = [detail ?? {}, latest];
+      const passingScore = minimumPassingScoreForQuiz(quizId, finalSources);
+      const scoreText = review.scoreText ?? scoreTextFromSources(finalSources);
+      const resultText = review.resultText ?? firstText(finalSources, ["grade", "result", "result_text", "response_status", "status"]);
+      await saveFinalExamResult(env, {
+        quizId,
+        quizName: firstText(finalSources, ["quiz_name", "quizName", "name", "title"]),
+        responseId: review.responseId,
+        scoreText,
+        resultText,
+        passed: review.passed ??
+          passStatusFromText(resultText ?? scoreText) ??
+          passStatusFromScore(scoreText, passingScore),
+        completedAt: review.completedAt ?? stringField(latest, "date_submitted") ?? stringField(latest, "submitted_at") ?? stringField(latest, "completed_at"),
+        reportUrl: review.reportUrl,
+        percentageScore: firstNumber(finalSources, ["percentage_score", "percentageScore"]),
+        points: firstNumber(finalSources, ["points"]),
+        availablePoints: firstNumber(finalSources, ["available_points", "availablePoints"]),
+        studentId,
+        classSessionId,
+        email,
+        flexiquizUserId,
+        raw: {
+          source: "quiz_review",
+          latest,
+          detail: detail ?? null,
+          warnings: review.warnings
+        }
+      }).catch((error) => console.warn("final exam direct save failed", error));
+    }
     await touchDeviceContext(env, {
       deviceId,
       studentId,
@@ -2285,6 +2316,16 @@ function responseLooksCompleted(response: JsonRecord): boolean {
     return true;
   }
   return Boolean(firstText([response], ["completed_at", "completedAt", "date_completed", "submitted_at", "submit_date"]));
+}
+
+function reviewLooksCompleted(review: QuizReviewPayload, latest: JsonRecord): boolean {
+  if (responseLooksCompleted(latest)) {
+    return true;
+  }
+  if (review.completedAt || review.passed !== undefined) {
+    return true;
+  }
+  return Boolean(review.scoreText || review.resultText);
 }
 
 function responseIdFrom(response: JsonRecord): string | undefined {

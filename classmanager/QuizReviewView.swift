@@ -10,6 +10,7 @@ struct QuizReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var review: ClassManagerAPIClient.QuizReviewResponse?
     @State private var isLoading = true
+    @State private var loadingMessage = "Loading exam review..."
     @State private var errorText: String?
     @State private var fullReviewFilter: FullReviewFilter = .incorrect
 
@@ -19,7 +20,7 @@ struct QuizReviewView: View {
                 if isLoading {
                     VStack(spacing: 12) {
                         LoadingSpinnerView()
-                        Text("Loading exam review...")
+                        Text(loadingMessage)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -85,7 +86,7 @@ struct QuizReviewView: View {
                             .foregroundStyle(.secondary)
                     }
                     if !isSectionReview, review.passed == false {
-                        Label("Review and remediation required for scores below 74%.", systemImage: "exclamationmark.triangle.fill")
+                        Label("Review and remediation required for scores below \(passingScoreText).", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.red)
                     }
@@ -162,6 +163,10 @@ struct QuizReviewView: View {
         return review.questions.filter { range.contains($0.number) }
     }
 
+    private var passingScoreText: String {
+        quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId ? "80%" : "74%"
+    }
+
     private func filteredQuestions(
         for filter: FullReviewFilter,
         incorrect: [ClassManagerAPIClient.QuizReviewQuestion],
@@ -185,36 +190,62 @@ struct QuizReviewView: View {
     private func loadReview() async {
         await MainActor.run {
             isLoading = true
+            loadingMessage = quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId
+                ? "Checking FlexiQuiz for Version B results..."
+                : "Loading exam review..."
             errorText = nil
         }
 
-        do {
-            let email = attendee.email.isEmpty
-                ? "\(attendee.firstName.lowercased()).\(attendee.lastName.lowercased())@\(config.flexiEmailDomain)"
-                : attendee.email
-            let loaded = try await ClassManagerAPIClient.shared.fetchQuizReview(
-                attendee: attendee,
-                quizId: quiz.flexiQuizId,
-                email: email,
-                questionRange: quiz.questionRange,
-                includeInProgress: quiz.questionRange != nil
-            )
-            await MainActor.run {
-                review = loaded
-                isLoading = false
-                onLoaded?(loaded)
-            }
-        } catch ClassManagerAPIClient.APIError.httpStatus(let status, _) {
-            await MainActor.run {
-                errorText = status == 404
-                    ? "No completed FlexiQuiz submission was found for \(attendee.fullName)."
-                    : "FlexiQuiz review lookup failed."
-                isLoading = false
-            }
-        } catch {
-            await MainActor.run {
-                errorText = "FlexiQuiz review lookup failed."
-                isLoading = false
+        let email = attendee.email.isEmpty
+            ? "\(attendee.firstName.lowercased()).\(attendee.lastName.lowercased())@\(config.flexiEmailDomain)"
+            : attendee.email
+        let maxAttempts = quiz.questionRange == nil ? 12 : 1
+
+        for attempt in 1...maxAttempts {
+            do {
+                if attempt > 1 {
+                    await MainActor.run {
+                        loadingMessage = "Still checking FlexiQuiz... attempt \(attempt) of \(maxAttempts)"
+                    }
+                }
+
+                let loaded = try await ClassManagerAPIClient.shared.fetchQuizReview(
+                    attendee: attendee,
+                    quizId: quiz.flexiQuizId,
+                    email: email,
+                    questionRange: quiz.questionRange,
+                    includeInProgress: quiz.questionRange != nil
+                )
+                await MainActor.run {
+                    review = loaded
+                    isLoading = false
+                    onLoaded?(loaded)
+                }
+                return
+            } catch ClassManagerAPIClient.APIError.httpStatus(let status, _) {
+                if status == 404 && attempt < maxAttempts {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    continue
+                }
+
+                await MainActor.run {
+                    errorText = status == 404
+                        ? "No completed FlexiQuiz submission was found for \(attendee.fullName)."
+                        : "FlexiQuiz review lookup failed."
+                    isLoading = false
+                }
+                return
+            } catch {
+                if attempt < maxAttempts {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    continue
+                }
+
+                await MainActor.run {
+                    errorText = "FlexiQuiz review lookup failed."
+                    isLoading = false
+                }
+                return
             }
         }
     }

@@ -9,6 +9,7 @@ struct QuizInfo: Identifiable {
     static let refresherACombinedQuizId = "89db2c06-5052-4ff5-867b-95ef67fcfcd2"
     static let refresherAVersionBQuizId = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b"
     static let refresherAVersionAReviewMarkerId = "refresher-a-version-a-review-complete"
+    static let refresherAVersionBStartedMarkerId = "refresher-a-version-b-started"
 
     let id: String
     let flexiQuizId: String

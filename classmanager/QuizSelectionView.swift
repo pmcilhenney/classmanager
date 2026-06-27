@@ -30,8 +30,12 @@ struct QuizSelectionView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     if let finalResult = progressStore.progress.finalExamResult {
-                        fullExamReviewCard(finalResult)
-                        if isFailedVersionA(finalResult), let versionBQuiz {
+                        if isFailedVersionA(finalResult), versionBInProgress, let versionBQuiz {
+                            versionBResultsPendingCard(versionBQuiz)
+                        } else {
+                            fullExamReviewCard(finalResult)
+                        }
+                        if isFailedVersionA(finalResult), let versionBQuiz, !versionBInProgress {
                             versionBRetestCard(versionBQuiz)
                         }
                     } else {
@@ -236,6 +240,35 @@ struct QuizSelectionView: View {
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
     }
 
+    private func versionBResultsPendingCard(_ quiz: QuizInfo) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                LoadingSpinnerView()
+                    .frame(width: 32, height: 32)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Version B Results")
+                        .font(.headline)
+                    Text("Checking FlexiQuiz for the completed retest.")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            Button {
+                onReview(quiz)
+            } label: {
+                Label("Check Now", systemImage: "arrow.clockwise")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+    }
+
     private func fullExamReviewQuiz(from result: ClassManagerAPIClient.FinalExamResult) -> QuizInfo? {
         let quizId = result.quizId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !quizId.isEmpty,
@@ -259,6 +292,11 @@ struct QuizSelectionView: View {
     private var versionAReviewCompleted: Bool {
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
         return completed.contains(QuizInfo.refresherAVersionAReviewMarkerId)
+    }
+
+    private var versionBInProgress: Bool {
+        let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
+        return completed.contains(QuizInfo.refresherAVersionBStartedMarkerId)
     }
 
     private func isLocked(_ quiz: QuizInfo) -> Bool {

@@ -533,6 +533,13 @@ struct MainMenuView: View {
                             quiz: quiz,
                             onSSOLoaded: {
                                 progressStore.markQuiz()
+                                if quiz.flexiQuizId == QuizInfo.refresherAVersionBQuizId {
+                                    completedQuizzes.insert(QuizInfo.refresherAVersionBStartedMarkerId)
+                                    progressStore.markQuizResult(
+                                        QuizInfo.refresherAVersionBStartedMarkerId,
+                                        result: "Version B started"
+                                    )
+                                }
                             },
                             onReviewLoaded: { quiz, review in
                                 recordQuizReview(quiz: quiz, review: review)
