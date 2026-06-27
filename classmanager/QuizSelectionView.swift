@@ -11,7 +11,6 @@ struct QuizSelectionView: View {
     let quizURLs: [QuizInfo]
     @Binding var selectedQuiz: QuizInfo?
     @Binding var completedQuizzes: Set<String>
-    // Called when selection is blocked (e.g., previous quiz not completed)
     var onBlocked: (String) -> Void = { _ in }
     var onReview: (QuizInfo) -> Void = { _ in }
 
@@ -30,98 +29,9 @@ struct QuizSelectionView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     if let finalResult = progressStore.progress.finalExamResult {
-                        finalExamBanner(finalResult)
-                    }
-
-                    ForEach(quizURLs) { quiz in
-                        let locked = isLocked(quiz)
-                        let completed = completedQuizzes.contains(quiz.id)
-                        VStack(alignment: .leading, spacing: 10) {
-                            Button(action: {
-                                attemptSelect(quiz)
-                            }) {
-                                HStack(spacing: 16) {
-                                    ZStack {
-                                        if completed {
-                                            Circle()
-                                                .fill(Color.green)
-                                                .frame(width: 50, height: 50)
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 20, weight: .bold))
-                                                .foregroundColor(.white)
-                                        } else if locked {
-                                            Circle()
-                                                .fill(Color.white)
-                                                .frame(width: 50, height: 50)
-                                            Image(systemName: "lock.fill")
-                                                .font(.system(size: 18, weight: .bold))
-                                                .foregroundColor(Color.accentColor)
-                                        } else {
-                                            Circle()
-                                                .fill(Color.white)
-                                                .frame(width: 50, height: 50)
-                                            Text("\(quiz.number)")
-                                                .font(.system(size: 20, weight: .bold))
-                                                .foregroundColor(Color.accentColor)
-                                        }
-                                    }
-
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(quiz.title)
-                                            .font(.headline)
-                                            .foregroundColor(.white)
-
-                                        // If we have a parsed result from CloudKit, show it as a contrasting "chip" (Pass/Fail or score).
-                                        if let result = progressStore.progress.quizResults[quiz.id] {
-                                            Text(displayResult(result, for: quiz))
-                                                .font(.subheadline).bold()
-                                                .foregroundColor(.primary)
-                                                .padding(.vertical, 6)
-                                                .padding(.horizontal, 10)
-                                                .background(Color.white)
-                                                .clipShape(Capsule())
-                                        } else if locked {
-                                            Text("Locked")
-                                                .font(.subheadline)
-                                                .foregroundColor(Color.white.opacity(0.85))
-                                        } else {
-                                            Text("Tap to start")
-                                                .font(.subheadline)
-                                                .foregroundColor(Color.white.opacity(0.85))
-                                        }
-                                    }
-
-                                    Spacer()
-
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(.white.opacity(0.9))
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-
-                            if completed {
-                                Button {
-                                    onReview(quiz)
-                                } label: {
-                                    Label("Review Quiz", systemImage: "doc.text.magnifyingglass")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.leading, 66)
-                            }
-                        }
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.accentColor)
-                                .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
-                        )
-                        .buttonStyle(AccentButtonStyle())
+                        fullExamReviewCard(finalResult)
+                    } else {
+                        miniQuizCards
                     }
                 }
                 .padding()
@@ -129,39 +39,166 @@ struct QuizSelectionView: View {
         }
     }
 
-    private func finalExamBanner(_ result: ClassManagerAPIClient.FinalExamResult) -> some View {
+    private var miniQuizCards: some View {
+        ForEach(quizURLs) { quiz in
+            let locked = isLocked(quiz)
+            let completed = completedQuizzes.contains(quiz.id)
+            VStack(alignment: .leading, spacing: 10) {
+                Button(action: {
+                    attemptSelect(quiz)
+                }) {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            if completed {
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 50, height: 50)
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.white)
+                            } else if locked {
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 50, height: 50)
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(Color.accentColor)
+                            } else {
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 50, height: 50)
+                                Text("\(quiz.number)")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(Color.accentColor)
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(quiz.title)
+                                .font(.headline)
+                                .foregroundColor(.white)
+
+                            if let result = progressStore.progress.quizResults[quiz.id] {
+                                Text(displayResult(result, for: quiz))
+                                    .font(.subheadline).bold()
+                                    .foregroundColor(.primary)
+                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 10)
+                                    .background(Color.white)
+                                    .clipShape(Capsule())
+                            } else if locked {
+                                Text("Locked")
+                                    .font(.subheadline)
+                                    .foregroundColor(Color.white.opacity(0.85))
+                            } else {
+                                Text("Tap to start")
+                                    .font(.subheadline)
+                                    .foregroundColor(Color.white.opacity(0.85))
+                            }
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if completed {
+                    Button {
+                        onReview(quiz)
+                    } label: {
+                        Label("Review Quiz", systemImage: "doc.text.magnifyingglass")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.leading, 66)
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.accentColor)
+                    .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+            )
+            .buttonStyle(AccentButtonStyle())
+        }
+    }
+
+    private func fullExamReviewCard(_ result: ClassManagerAPIClient.FinalExamResult) -> some View {
         let passed = result.passed
         let color: Color = passed == false ? .red : .green
         let status = passed == false ? "Final Exam Failed" : (passed == true ? "Final Exam Passed" : "Final Exam Result")
         let score = result.scoreText ?? result.percentageScore.map { "\(Int($0.rounded()))%" }
 
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
-                    .foregroundStyle(color)
-                Text(status)
-                    .font(.headline)
-                Spacer()
-                if let score {
-                    Text(score)
-                        .font(.subheadline.weight(.bold))
+        return Button {
+            if let fullExam = fullExamReviewQuiz(from: result) {
+                onReview(fullExam)
+            } else {
+                onBlocked("The final exam review is not ready yet.")
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    Image(systemName: passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
+                        .font(.title2)
                         .foregroundStyle(color)
+                        .frame(width: 32)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Full Exam Review")
+                            .font(.headline)
+                        Text(status)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(color)
+                    }
+                    Spacer()
+                    if let score {
+                        Text(score)
+                            .font(.headline)
+                            .foregroundStyle(color)
+                    }
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
                 }
-            }
-            if passed == false {
-                Text("Review and retest required for scores below 70%.")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.red)
-            }
-            if let completedAt = result.completedAt {
-                Label(formatEasternTime(completedAt), systemImage: "clock")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+
+                if passed == false {
+                    Text("Review and retest required for scores below 70%.")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.red)
+                }
+                if let completedAt = result.completedAt {
+                    Label(formatEasternTime(completedAt), systemImage: "clock")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+        .buttonStyle(.plain)
+    }
+
+    private func fullExamReviewQuiz(from result: ClassManagerAPIClient.FinalExamResult) -> QuizInfo? {
+        let quizId = result.quizId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !quizId.isEmpty,
+              let url = URL(string: "https://www.flexiquiz.com/SC/N/\(quizId)") else {
+            return nil
+        }
+        let title = result.quizName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return QuizInfo(
+            id: "full-exam-review-\(quizId)",
+            flexiQuizId: quizId,
+            number: 0,
+            title: title?.isEmpty == false ? title! : "Full Exam Review",
+            url: url
+        )
     }
 
     private func isLocked(_ quiz: QuizInfo) -> Bool {
@@ -200,7 +237,6 @@ struct QuizSelectionView: View {
             return
         }
 
-        // Quizzes must be completed in order. If this is quiz number > 1, ensure previous quiz is completed.
         if isLocked(quiz) {
             let prevNumber = quiz.number - 1
             if let prev = quizURLs.first(where: { $0.number == prevNumber }) {
@@ -214,7 +250,6 @@ struct QuizSelectionView: View {
     }
 }
 
-// Local Accent button style used by quiz selector
 private struct AccentButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

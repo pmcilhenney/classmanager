@@ -55,6 +55,9 @@ struct QuizReviewView: View {
     private func reviewContent(_ review: ClassManagerAPIClient.QuizReviewResponse) -> some View {
         let questions = questionsForCurrentQuiz(review)
         let isSectionReview = quiz.questionRange != nil
+        let incorrectQuestions = questions.filter { $0.isCorrect == false }
+        let correctQuestions = questions.filter { $0.isCorrect == true }
+        let unscoredQuestions = questions.filter { $0.isCorrect == nil }
 
         return List {
             Section {
@@ -94,9 +97,33 @@ struct QuizReviewView: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                Section("Questions") {
-                    ForEach(questions) { question in
-                        QuestionReviewRow(question: question)
+                if isSectionReview {
+                    Section("Questions") {
+                        ForEach(questions) { question in
+                            QuestionReviewRow(question: question)
+                        }
+                    }
+                } else {
+                    if !incorrectQuestions.isEmpty {
+                        Section("Needs Review (\(incorrectQuestions.count))") {
+                            ForEach(incorrectQuestions) { question in
+                                QuestionReviewRow(question: question)
+                            }
+                        }
+                    }
+                    if !correctQuestions.isEmpty {
+                        Section("Correct (\(correctQuestions.count))") {
+                            ForEach(correctQuestions) { question in
+                                QuestionReviewRow(question: question)
+                            }
+                        }
+                    }
+                    if !unscoredQuestions.isEmpty {
+                        Section("Unscored (\(unscoredQuestions.count))") {
+                            ForEach(unscoredQuestions) { question in
+                                QuestionReviewRow(question: question)
+                            }
+                        }
                     }
                 }
             }
@@ -227,7 +254,7 @@ private struct QuestionReviewRow: View {
 
             if let feedback = question.feedback, !feedback.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    Label("Feedback", systemImage: "text.bubble")
+                    Label("Rationale", systemImage: "text.bubble")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text(feedback)
