@@ -1135,7 +1135,7 @@ struct MainMenuView: View {
     }
 
     private func recordQuizReview(quiz: QuizInfo, review: ClassManagerAPIClient.QuizReviewResponse) {
-        let result = quizResultSummary(review)
+        let result = quizResultSummary(review, quiz: quiz)
         completedQuizzes.insert(quiz.id)
         progressStore.markQuizResult(quiz.id, result: result)
     }
@@ -1145,13 +1145,30 @@ struct MainMenuView: View {
         progressStore.markQuizResult(quiz.id, result: "Section submitted")
     }
 
-    private func quizResultSummary(_ review: ClassManagerAPIClient.QuizReviewResponse) -> String {
+    private func quizResultSummary(_ review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> String {
+        let sectionQuestions: [ClassManagerAPIClient.QuizReviewQuestion]
+        if let range = quiz.questionRange {
+            sectionQuestions = review.questions.filter { range.contains($0.number) }
+        } else {
+            sectionQuestions = review.questions
+        }
+
+        if !sectionQuestions.isEmpty {
+            let correct = sectionQuestions.filter { $0.isCorrect == true }.count
+            return "\(correct)/\(sectionQuestions.count)"
+        }
+
         let status: String? = {
             if let passed = review.passed {
                 return passed ? "Passed" : "Failed"
             }
             return review.resultText
         }()
+
+        if quiz.questionRange != nil, let status, status.lowercased().contains("fail"), review.scoreText?.contains("0") == true {
+            return "Section submitted"
+        }
+
         let summary = [status, review.scoreText]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

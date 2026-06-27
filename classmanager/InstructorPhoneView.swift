@@ -66,28 +66,35 @@ struct InstructorPhoneView: View {
                         } else {
                             ForEach(quizzes) { quiz in
                                 let isCompleted = progressStore.progress.completedQuizIDs.contains(quiz.id)
+                                let isLocked = isQuizLocked(quiz, in: quizzes)
                                 Button {
-                                    if isCompleted {
+                                    if isLocked {
+                                        notice = "Please complete the previous quiz before attempting this quiz."
+                                    } else if isCompleted {
                                         selectedReviewQuiz = quiz
                                     } else {
                                         selectedQuiz = quiz
                                     }
                                 } label: {
                                     HStack(spacing: 12) {
-                                        Image(systemName: isCompleted ? "checkmark.seal.fill" : "doc.text")
-                                            .foregroundStyle(isCompleted ? .green : .blue)
+                                        Image(systemName: isCompleted ? "checkmark.seal.fill" : (isLocked ? "lock.fill" : "doc.text"))
+                                            .foregroundStyle(isCompleted ? .green : (isLocked ? .secondary : .blue))
                                             .frame(width: 24)
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(quiz.title)
                                                 .foregroundStyle(.primary)
                                             if let result = progressStore.progress.quizResults[quiz.id] {
-                                                Text(result)
+                                                Text(displayResult(result, for: quiz))
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            } else if isLocked {
+                                                Text("Locked")
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                             }
                                         }
                                         Spacer()
-                                        Text(isCompleted ? "Review" : "Open")
+                                        Text(isCompleted ? "Review" : (isLocked ? "Locked" : "Open"))
                                             .font(.caption.weight(.semibold))
                                             .foregroundStyle(.secondary)
                                     }
@@ -320,21 +327,53 @@ struct InstructorPhoneView: View {
         return []
     }
 
+    private func isQuizLocked(_ quiz: QuizInfo, in quizzes: [QuizInfo]) -> Bool {
+        guard quiz.number > 1 else { return false }
+        guard let previous = quizzes.first(where: { $0.number == quiz.number - 1 }) else { return false }
+        return !progressStore.progress.completedQuizIDs.contains(previous.id)
+    }
+
+    private func displayResult(_ result: String, for quiz: QuizInfo) -> String {
+        guard quiz.questionRange != nil else { return result }
+        let lower = result.lowercased()
+        if lower.contains("pass") || lower.contains("fail") {
+            return "Section submitted"
+        }
+        return result
+    }
+
     private func recordQuizReview(quiz: QuizInfo, review: ClassManagerAPIClient.QuizReviewResponse) {
-        progressStore.markQuizResult(quiz.id, result: quizResultSummary(review))
+        progressStore.markQuizResult(quiz.id, result: quizResultSummary(review, quiz: quiz))
     }
 
     private func recordQuizCheckpoint(quiz: QuizInfo) {
         progressStore.markQuizResult(quiz.id, result: "Section submitted")
     }
 
-    private func quizResultSummary(_ review: ClassManagerAPIClient.QuizReviewResponse) -> String {
+    private func quizResultSummary(_ review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> String {
+        let sectionQuestions: [ClassManagerAPIClient.QuizReviewQuestion]
+        if let range = quiz.questionRange {
+            sectionQuestions = review.questions.filter { range.contains($0.number) }
+        } else {
+            sectionQuestions = review.questions
+        }
+
+        if !sectionQuestions.isEmpty {
+            let correct = sectionQuestions.filter { $0.isCorrect == true }.count
+            return "\(correct)/\(sectionQuestions.count)"
+        }
+
         let status: String? = {
             if let passed = review.passed {
                 return passed ? "Passed" : "Failed"
             }
             return review.resultText
         }()
+
+        if quiz.questionRange != nil, let status, status.lowercased().contains("fail"), review.scoreText?.contains("0") == true {
+            return "Section submitted"
+        }
+
         let summary = [status, review.scoreText]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

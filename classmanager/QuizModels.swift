@@ -11,13 +11,15 @@ struct QuizInfo: Identifiable {
     let number: Int
     let title: String
     let url: URL
+    let questionRange: ClosedRange<Int>?
 
-    init(id: String, flexiQuizId: String? = nil, number: Int, title: String, url: URL) {
+    init(id: String, flexiQuizId: String? = nil, number: Int, title: String, url: URL, questionRange: ClosedRange<Int>? = nil) {
         self.id = id
         self.flexiQuizId = flexiQuizId ?? id
         self.number = number
         self.title = title
         self.url = url
+        self.questionRange = questionRange
     }
     
     static func refresherAQuizzes() -> [QuizInfo] {
@@ -29,28 +31,32 @@ struct QuizInfo: Identifiable {
                 flexiQuizId: combinedQuizId,
                 number: 1,
                 title: "Refresher A Mini-Quiz #1",
-                url: combinedURL
+                url: combinedURL,
+                questionRange: 1...12
             ),
             QuizInfo(
                 id: "refresher-a-page-2",
                 flexiQuizId: combinedQuizId,
                 number: 2,
                 title: "Refresher A Mini-Quiz #2",
-                url: combinedURL
+                url: combinedURL,
+                questionRange: 13...25
             ),
             QuizInfo(
                 id: "refresher-a-page-3",
                 flexiQuizId: combinedQuizId,
                 number: 3,
                 title: "Refresher A Mini-Quiz #3",
-                url: combinedURL
+                url: combinedURL,
+                questionRange: 26...38
             ),
             QuizInfo(
                 id: "refresher-a-page-4",
                 flexiQuizId: combinedQuizId,
                 number: 4,
                 title: "Refresher A Mini-Quiz #4",
-                url: combinedURL
+                url: combinedURL,
+                questionRange: 39...50
             )
         ]
     }

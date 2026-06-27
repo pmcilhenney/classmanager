@@ -60,11 +60,8 @@ struct QuizWorkspaceView: View {
                                 dismiss()
                             }
                         },
-                        onContinueExam: {
-                            pageNavigationEvent = nil
-                            webViewError = nil
-                            webViewReloadToken = UUID()
-                            isLoading = true
+                        onReviewQuiz: {
+                            toast = "Section review will be available after answer capture is added to the FlexiQuiz page navigation payload."
                         }
                     )
                 } else if showingReview, let quiz {
@@ -95,9 +92,12 @@ struct QuizWorkspaceView: View {
                             url: url,
                             lastURL: $lastURL,
                             loading: $isLoading,
+                            pageNavigationEventsToIgnore: initialPageNavigationEventsToIgnore,
                             onResultDetected: {
                                 isLoading = false
-                                showingReview = true
+                                if quiz?.questionRange == nil || quiz?.number == 4 {
+                                    showingReview = true
+                                }
                             },
                             onPageNavigationDetected: { event in
                                 isLoading = false
@@ -111,7 +111,7 @@ struct QuizWorkspaceView: View {
                             }
                         )
                         .id(webViewReloadToken)
-                        .onChange(of: lastURL) { _ in
+                        .onChange(of: lastURL) {
                             // Called once when real content is visible in the webview
                             isLoading = false
                             onSSOLoaded?()
@@ -133,10 +133,23 @@ struct QuizWorkspaceView: View {
         .task {
             await launchOrResumeQuiz()
         }
+        .onChange(of: quiz?.id) {
+            pageNavigationEvent = nil
+            showingReview = false
+            webViewError = nil
+            currentURL = nil
+            lastURL = nil
+            Task { await launchOrResumeQuiz() }
+        }
         .alert(toast ?? "", isPresented: Binding(
             get: { toast != nil },
             set: { if !$0 { toast = nil } }
         )) { Button("OK", role: .cancel) {} }
+    }
+
+    private var initialPageNavigationEventsToIgnore: Int {
+        guard let quiz, quiz.questionRange != nil, quiz.number > 1 else { return 0 }
+        return 1
     }
 
     // MARK: - Flow
@@ -253,7 +266,7 @@ private struct QuizPageCheckpointView: View {
     let quiz: QuizInfo
     let event: FlexiQuizPageNavigationEvent
     let onBackToExams: () -> Void
-    let onContinueExam: () -> Void
+    let onReviewQuiz: () -> Void
 
     var body: some View {
         VStack(spacing: 18) {
@@ -274,25 +287,25 @@ private struct QuizPageCheckpointView: View {
 
             HStack(spacing: 12) {
                 Button {
+                    onReviewQuiz()
+                } label: {
+                    Label("Review Quiz", systemImage: "doc.text.magnifyingglass")
+                }
+                .buttonStyle(.bordered)
+
+                Button {
                     onBackToExams()
                 } label: {
                     Label("Back to Exams", systemImage: "list.bullet.clipboard")
                 }
                 .buttonStyle(.borderedProminent)
-
-                Button {
-                    onContinueExam()
-                } label: {
-                    Label("Continue in FlexiQuiz", systemImage: "arrow.right.circle")
-                }
-                .buttonStyle(.bordered)
             }
 
             VStack(spacing: 4) {
                 if !event.title.isEmpty {
                     Text(event.title)
                 }
-                Text(event.at)
+                Text(formatEasternTime(event.at))
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -301,5 +314,20 @@ private struct QuizPageCheckpointView: View {
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
+    }
+
+    private func formatEasternTime(_ rawValue: String) -> String {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let fallbackISO = ISO8601DateFormatter()
+        let date = iso.date(from: rawValue) ?? fallbackISO.date(from: rawValue)
+
+        guard let date else { return rawValue }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York")
+        formatter.dateFormat = "MMM d, yyyy h:mm a z"
+        return formatter.string(from: date)
     }
 }

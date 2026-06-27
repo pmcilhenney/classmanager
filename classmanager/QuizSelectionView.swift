@@ -30,20 +30,28 @@ struct QuizSelectionView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     ForEach(quizURLs) { quiz in
+                        let locked = isLocked(quiz)
+                        let completed = completedQuizzes.contains(quiz.id)
                         VStack(alignment: .leading, spacing: 10) {
                             Button(action: {
                                 attemptSelect(quiz)
                             }) {
                                 HStack(spacing: 16) {
-                                    // Left badge: when completed show green check, otherwise white badge with accent-colored number
                                     ZStack {
-                                        if completedQuizzes.contains(quiz.id) {
+                                        if completed {
                                             Circle()
                                                 .fill(Color.green)
                                                 .frame(width: 50, height: 50)
                                             Image(systemName: "checkmark")
                                                 .font(.system(size: 20, weight: .bold))
                                                 .foregroundColor(.white)
+                                        } else if locked {
+                                            Circle()
+                                                .fill(Color.white)
+                                                .frame(width: 50, height: 50)
+                                            Image(systemName: "lock.fill")
+                                                .font(.system(size: 18, weight: .bold))
+                                                .foregroundColor(Color.accentColor)
                                         } else {
                                             Circle()
                                                 .fill(Color.white)
@@ -61,14 +69,17 @@ struct QuizSelectionView: View {
 
                                         // If we have a parsed result from CloudKit, show it as a contrasting "chip" (Pass/Fail or score).
                                         if let result = progressStore.progress.quizResults[quiz.id] {
-                                            let lower = result.lowercased()
-                                            Text(result)
+                                            Text(displayResult(result, for: quiz))
                                                 .font(.subheadline).bold()
-                                                .foregroundColor(lower.contains("pass") ? .green : (lower.contains("fail") ? .red : .primary))
+                                                .foregroundColor(.primary)
                                                 .padding(.vertical, 6)
                                                 .padding(.horizontal, 10)
                                                 .background(Color.white)
                                                 .clipShape(Capsule())
+                                        } else if locked {
+                                            Text("Locked")
+                                                .font(.subheadline)
+                                                .foregroundColor(Color.white.opacity(0.85))
                                         } else {
                                             Text("Tap to start")
                                                 .font(.subheadline)
@@ -86,11 +97,11 @@ struct QuizSelectionView: View {
                             }
                             .buttonStyle(.plain)
 
-                            if completedQuizzes.contains(quiz.id) {
+                            if completed {
                                 Button {
                                     onReview(quiz)
                                 } label: {
-                                    Label("Review Answers", systemImage: "doc.text.magnifyingglass")
+                                    Label("Review Quiz", systemImage: "doc.text.magnifyingglass")
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -114,16 +125,32 @@ struct QuizSelectionView: View {
         }
     }
 
+    private func isLocked(_ quiz: QuizInfo) -> Bool {
+        guard quiz.number > 1 else { return false }
+        let previousNumber = quiz.number - 1
+        guard let previous = quizURLs.first(where: { $0.number == previousNumber }) else { return false }
+        return !completedQuizzes.contains(previous.id)
+    }
+
+    private func displayResult(_ result: String, for quiz: QuizInfo) -> String {
+        guard quiz.questionRange != nil else { return result }
+        let lower = result.lowercased()
+        if lower.contains("pass") || lower.contains("fail") {
+            return "Section submitted"
+        }
+        return result
+    }
+
     private func attemptSelect(_ quiz: QuizInfo) {
         // Quizzes must be completed in order. If this is quiz number > 1, ensure previous quiz is completed.
-        if quiz.number > 1 {
+        if isLocked(quiz) {
             let prevNumber = quiz.number - 1
             if let prev = quizURLs.first(where: { $0.number == prevNumber }) {
-                if !completedQuizzes.contains(prev.id) {
-                    onBlocked("Please complete \(prev.title) before attempting this quiz.")
-                    return
-                }
+                onBlocked("Please complete \(prev.title) before attempting this quiz.")
+            } else {
+                onBlocked("Please complete the previous quiz before attempting this quiz.")
             }
+            return
         }
         selectedQuiz = quiz
     }

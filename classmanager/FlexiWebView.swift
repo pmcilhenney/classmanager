@@ -78,6 +78,7 @@ struct FlexiWebView: View {
     let url: URL
     @Binding var lastURL: URL?
     @Binding var loading: Bool
+    var pageNavigationEventsToIgnore: Int = 0
     var onResultDetected: (() -> Void)?
     var onPageNavigationDetected: ((FlexiQuizPageNavigationEvent) -> Void)?
     var onProcessTerminated: (() -> Void)?
@@ -87,6 +88,7 @@ struct FlexiWebView: View {
             url: url,
             lastURL: $lastURL,
             isLoading: $loading,
+            pageNavigationEventsToIgnore: pageNavigationEventsToIgnore,
             onResultDetected: onResultDetected,
             onPageNavigationDetected: onPageNavigationDetected,
             onProcessTerminated: onProcessTerminated
@@ -106,6 +108,7 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
     let url: URL
     @Binding var lastURL: URL?
     @Binding var isLoading: Bool
+    var pageNavigationEventsToIgnore: Int = 0
     var onResultDetected: (() -> Void)?
     var onPageNavigationDetected: ((FlexiQuizPageNavigationEvent) -> Void)?
     var onProcessTerminated: (() -> Void)?
@@ -124,8 +127,10 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
+        context.coordinator.parent = self
         if context.coordinator.loadedRequestURL != url {
             context.coordinator.loadedRequestURL = url
+            context.coordinator.resetForNewLoad(ignoredPageNavigationEvents: pageNavigationEventsToIgnore)
             webView.load(URLRequest(url: url))
         }
     }
@@ -141,10 +146,18 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
         var loadedRequestURL: URL?
         private var hasReportedResult = false
         private var hasReportedPageNavigation = false
+        private var ignoredPageNavigationEventsRemaining: Int
 
         init(_ parent: FlexiSimpleWebViewRepresentable) {
             self.parent = parent
             self.loadedRequestURL = parent.url
+            self.ignoredPageNavigationEventsRemaining = parent.pageNavigationEventsToIgnore
+        }
+
+        func resetForNewLoad(ignoredPageNavigationEvents: Int) {
+            hasReportedResult = false
+            hasReportedPageNavigation = false
+            ignoredPageNavigationEventsRemaining = ignoredPageNavigationEvents
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -160,6 +173,11 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
                 title: body?["title"] as? String ?? "",
                 at: body?["at"] as? String ?? ISO8601DateFormatter().string(from: Date())
             )
+
+            if ignoredPageNavigationEventsRemaining > 0 {
+                ignoredPageNavigationEventsRemaining -= 1
+                return
+            }
 
             hasReportedPageNavigation = true
             webView?.stopLoading()

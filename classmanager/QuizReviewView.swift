@@ -48,28 +48,33 @@ struct QuizReviewView: View {
     }
 
     private func reviewContent(_ review: ClassManagerAPIClient.QuizReviewResponse) -> some View {
-        List {
+        let questions = questionsForCurrentQuiz(review)
+        let isSectionReview = quiz.questionRange != nil
+
+        return List {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(quiz.title)
                         .font(.headline)
                     HStack(spacing: 8) {
-                        if let passed = review.passed {
+                        if isSectionReview, !questions.isEmpty {
+                            StatusPill(text: sectionRatioText(questions), color: .blue)
+                        } else if let passed = review.passed {
                             StatusPill(text: passed ? "Passed" : "Failed", color: passed ? .green : .red)
                         }
-                        if let score = review.scoreText, !score.isEmpty {
+                        if !isSectionReview, let score = review.scoreText, !score.isEmpty {
                             StatusPill(text: score, color: .blue)
                         }
-                        if let result = review.resultText, !result.isEmpty {
+                        if !isSectionReview, let result = review.resultText, !result.isEmpty {
                             StatusPill(text: result, color: review.passed == false ? .red : .gray)
                         }
                     }
                     if let completed = review.completedAt, !completed.isEmpty {
-                        Label(completed, systemImage: "clock")
+                        Label(formatEasternTime(completed), systemImage: "clock")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    if review.passed == false {
+                    if !isSectionReview, review.passed == false {
                         Label("Review and retest required for scores below 70%.", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.red)
@@ -78,19 +83,29 @@ struct QuizReviewView: View {
                 .padding(.vertical, 4)
             }
 
-            if review.questions.isEmpty {
+            if questions.isEmpty {
                 Section {
                     Text("FlexiQuiz returned the completed attempt, but did not include question-level review data for this submission.")
                         .foregroundStyle(.secondary)
                 }
             } else {
                 Section("Questions") {
-                    ForEach(review.questions) { question in
+                    ForEach(questions) { question in
                         QuestionReviewRow(question: question)
                     }
                 }
             }
         }
+    }
+
+    private func questionsForCurrentQuiz(_ review: ClassManagerAPIClient.QuizReviewResponse) -> [ClassManagerAPIClient.QuizReviewQuestion] {
+        guard let range = quiz.questionRange else { return review.questions }
+        return review.questions.filter { range.contains($0.number) }
+    }
+
+    private func sectionRatioText(_ questions: [ClassManagerAPIClient.QuizReviewQuestion]) -> String {
+        let correct = questions.filter { $0.isCorrect == true }.count
+        return "\(correct)/\(questions.count)"
     }
 
     private func loadReview() async {
@@ -126,6 +141,21 @@ struct QuizReviewView: View {
                 isLoading = false
             }
         }
+    }
+
+    private func formatEasternTime(_ rawValue: String) -> String {
+        let isoWithFractionalSeconds = ISO8601DateFormatter()
+        isoWithFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso = ISO8601DateFormatter()
+        let date = isoWithFractionalSeconds.date(from: rawValue) ?? iso.date(from: rawValue)
+
+        guard let date else { return rawValue }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York")
+        formatter.dateFormat = "MMM d, yyyy h:mm a z"
+        return formatter.string(from: date)
     }
 }
 
