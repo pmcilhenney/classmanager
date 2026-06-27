@@ -629,6 +629,8 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   const courses = await resolveInstructorCourses(env);
   const classSessionId = url.searchParams.get("classSessionId")?.trim() || courses.find((course) => course.isToday)?.classSessionId || courses[0]?.classSessionId;
   const selectedCourse = courses.find((course) => course.classSessionId === classSessionId);
+  const instructorPersonId = url.searchParams.get("instructorPersonId")?.trim();
+  const deviceId = url.searchParams.get("deviceId")?.trim();
   if (!classSessionId) {
     return json({
       ok: true,
@@ -639,6 +641,14 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
       quizResults: [],
       finalResults: [],
       skillsVerifications: []
+    });
+  }
+
+  if (instructorPersonId && deviceId) {
+    await touchInstructorDeviceContext(env, {
+      deviceId,
+      personId: instructorPersonId,
+      classSessionId
     });
   }
 
@@ -2993,6 +3003,88 @@ async function maybeSendInstructorCheckoutReminder(env: Env, classSessionId: str
   }
 }
 
+async function notifyInstructorDashboard(
+  env: Env,
+  input: {
+    classSessionId: string;
+    studentId?: string;
+    event: string;
+    title: string;
+    body: string;
+    quizId?: string;
+    responseId?: string;
+    scoreText?: string;
+    resultText?: string;
+    completedAt?: string;
+  }
+): Promise<void> {
+  const instructors = await env.DB.prepare(
+    `SELECT DISTINCT dt.token, dt.apns_environment
+     FROM instructor_attendance ia
+     JOIN device_tokens dt
+       ON dt.instructor_person_id = ia.person_id
+      AND dt.instructor_class_session_id = ia.class_session_id
+     WHERE ia.class_session_id = ?1
+       AND ia.checked_in_at IS NOT NULL
+     ORDER BY dt.updated_at DESC
+     LIMIT 20`
+  ).bind(input.classSessionId).all<JsonRecord>();
+
+  let sent = 0;
+  let failed = 0;
+  for (const row of instructors.results ?? []) {
+    const token = stringField(row, "token");
+    if (!token) {
+      continue;
+    }
+    try {
+      await sendInstructorDashboardApns(env, {
+        token,
+        apnsEnvironment: normalizeApnsEnvironment(stringField(row, "apns_environment")),
+        ...input
+      });
+      sent += 1;
+      await env.DB.prepare(
+        `UPDATE device_tokens SET last_push_at = ?2, updated_at = ?2 WHERE token = ?1`
+      ).bind(token, new Date().toISOString()).run();
+    } catch (error) {
+      failed += 1;
+      await handleApnsFailure(env, token, error);
+      console.warn("instructor dashboard APNs failed", { tokenSuffix: token.slice(-8), error: String(error) });
+    }
+  }
+
+  await audit(env, "instructor.dashboard.push", {
+    studentId: input.studentId,
+    classSessionId: input.classSessionId,
+    payload: {
+      event: input.event,
+      quizId: input.quizId ?? null,
+      responseId: input.responseId ?? null,
+      scoreText: input.scoreText ?? null,
+      sent,
+      failed
+    }
+  });
+}
+
+async function studentDisplayName(env: Env, studentId?: string): Promise<string> {
+  if (!studentId) {
+    return "Student";
+  }
+  const row = await env.DB.prepare(
+    `SELECT first_name, last_name
+     FROM students
+     WHERE id = ?1
+     LIMIT 1`
+  ).bind(studentId).first<JsonRecord>();
+  const name = [stringField(row ?? {}, "first_name"), stringField(row ?? {}, "last_name")]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return name || "Student";
+}
+
 function finalExamResultFromRms(result: JsonRecord): FinalExamResult {
   const percentageScore = firstNumber([result], ["percentage_score", "percentageScore"]);
   const points = firstNumber([result], ["points"]);
@@ -3090,6 +3182,19 @@ async function saveFinalExamResult(
     JSON.stringify(input.raw),
     now
   ).run();
+
+  await notifyInstructorDashboard(env, {
+    classSessionId: input.classSessionId,
+    studentId: input.studentId,
+    event: "final_exam_result",
+    title: "Final exam result ready",
+    body: `${await studentDisplayName(env, input.studentId)} final exam: ${input.scoreText ?? input.resultText ?? "result received"}.`,
+    quizId: input.quizId,
+    responseId: input.responseId,
+    scoreText: input.scoreText,
+    resultText: input.resultText,
+    completedAt: input.completedAt ?? now
+  });
 }
 
 async function quizMetadata(url: URL, env: Env): Promise<Response> {
@@ -3184,6 +3289,19 @@ async function saveQuizAttempt(
     section ? now : input.review.completedAt ?? now,
     now
   ).run();
+
+  await notifyInstructorDashboard(env, {
+    classSessionId: input.classSessionId,
+    studentId: input.studentId,
+    event: section ? "quiz_section_result" : "quiz_attempt",
+    title: "Quiz result ready",
+    body: `${await studentDisplayName(env, input.studentId)} ${section?.quizId ?? quizId}: ${section?.scoreText ?? input.review.scoreText ?? "submitted"}.`,
+    quizId,
+    responseId: input.review.responseId,
+    scoreText: section?.scoreText ?? input.review.scoreText,
+    resultText: section?.resultText ?? input.review.resultText,
+    completedAt: section ? now : input.review.completedAt ?? now
+  });
 }
 
 function sectionAttemptSummary(
@@ -4811,6 +4929,67 @@ async function sendInstructorReminderApns(
       },
       type: "classmanager.instructor_checkout_reminder",
       classSessionId: input.classSessionId
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`apns_${response.status}_${text}`);
+  }
+}
+
+async function sendInstructorDashboardApns(
+  env: Env,
+  input: {
+    token: string;
+    apnsEnvironment: "prod" | "sandbox";
+    classSessionId: string;
+    studentId?: string;
+    event: string;
+    title: string;
+    body: string;
+    quizId?: string;
+    responseId?: string;
+    scoreText?: string;
+    resultText?: string;
+    completedAt?: string;
+  }
+): Promise<void> {
+  const topic = (env.APNS_BUNDLE_ID ?? "").trim();
+  if (!topic) {
+    throw new Error("missing_apns_topic");
+  }
+
+  const host = input.apnsEnvironment === "sandbox"
+    ? "https://api.sandbox.push.apple.com"
+    : "https://api.push.apple.com";
+  const jwt = await apnsJwt(env);
+
+  const response = await fetch(`${host}/3/device/${input.token}`, {
+    method: "POST",
+    headers: {
+      authorization: `bearer ${jwt}`,
+      "apns-topic": topic,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+      "apns-collapse-id": `instructor-dashboard-${input.classSessionId}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      aps: {
+        alert: { title: input.title, body: input.body },
+        sound: "default",
+        "content-available": 1
+      },
+      type: "classmanager.instructor_dashboard_update",
+      event: input.event,
+      classSessionId: input.classSessionId,
+      studentId: input.studentId ?? null,
+      quizId: input.quizId ?? null,
+      responseId: input.responseId ?? null,
+      scoreText: input.scoreText ?? null,
+      resultText: input.resultText ?? null,
+      completedAt: input.completedAt ?? null
     })
   });
 

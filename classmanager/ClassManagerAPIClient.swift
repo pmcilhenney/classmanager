@@ -86,7 +86,8 @@ final class ClassManagerAPIClient {
     func fetchInstructorDashboard(
         limit: Int = 100,
         classSessionId: String? = nil,
-        courseId: String? = nil
+        courseId: String? = nil,
+        instructorPersonId: String? = nil
     ) async throws -> InstructorDashboardResponse {
         var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
         if let classSessionId, !classSessionId.isEmpty {
@@ -94,6 +95,10 @@ final class ClassManagerAPIClient {
         }
         if let courseId, !courseId.isEmpty {
             queryItems.append(URLQueryItem(name: "courseId", value: courseId))
+        }
+        if let instructorPersonId, !instructorPersonId.isEmpty {
+            queryItems.append(URLQueryItem(name: "instructorPersonId", value: instructorPersonId))
+            queryItems.append(URLQueryItem(name: "deviceId", value: UIDevice.current.identifierForVendor?.uuidString))
         }
         let response: InstructorDashboardResponse = try await send(
             path: "/instructor/dashboard",

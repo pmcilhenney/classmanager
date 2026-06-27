@@ -61,6 +61,9 @@ struct InstructorDashboardView: View {
                 }
                 await refresh()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .ckRemoteNotificationReceived)) { notification in
+                Task { await handleRemoteDashboardUpdate(notification.userInfo) }
+            }
             .sheet(item: $selectedStudent) { student in
                 studentDetail(student)
             }
@@ -383,7 +386,8 @@ struct InstructorDashboardView: View {
             let loaded = try await ClassManagerAPIClient.shared.fetchInstructorDashboard(
                 limit: 120,
                 classSessionId: course?.classSessionId,
-                courseId: course?.courseId
+                courseId: course?.courseId,
+                instructorPersonId: instructor.personId
             )
             await MainActor.run {
                 dashboard = loaded
@@ -394,6 +398,21 @@ struct InstructorDashboardView: View {
         } catch {
             await MainActor.run { notice = "Could not load instructor dashboard." }
         }
+    }
+
+    private func handleRemoteDashboardUpdate(_ userInfo: [AnyHashable: Any]?) async {
+        guard let userInfo,
+              (userInfo["type"] as? String) == "classmanager.instructor_dashboard_update" else {
+            return
+        }
+
+        let pushedSessionId = userInfo["classSessionId"] as? String
+        let currentSessionId = await MainActor.run { activeCourse?.classSessionId }
+        guard pushedSessionId == nil || currentSessionId == nil || pushedSessionId == currentSessionId else {
+            return
+        }
+
+        await refresh()
     }
 
     private func submitAttendance(inOut: String, attestation: ClassManagerAPIClient.AttendanceAttestation) async {
