@@ -489,6 +489,9 @@ async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext
   }));
   const courses = await resolveInstructorCourses(env);
   const defaultCourse = courses.find((course) => course.isToday);
+  const attendance = defaultCourse
+    ? await instructorAttendanceForCourse(env, personId, defaultCourse.classSessionId)
+    : undefined;
 
   await audit(env, "instructor.scan", {
     actorId: personId,
@@ -503,7 +506,8 @@ async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext
     ok: true,
     instructor,
     defaultCourse: defaultCourse ?? null,
-    courses
+    courses,
+    attendance: attendance ?? null
   });
 }
 
@@ -533,6 +537,31 @@ async function instructorAttendanceSubmit(request: Request, env: Env): Promise<R
   const isCheckOut = inOut === "Check-Out";
   if (!isCheckIn && !isCheckOut) {
     return json({ error: "invalid_inout" }, 400);
+  }
+
+  const existingAttendance = await instructorAttendanceForId(env, attendanceId);
+  if (isCheckIn && existingAttendance?.checkedInAt) {
+    await touchInstructorDeviceContext(env, {
+      deviceId,
+      personId,
+      classSessionId
+    });
+    await audit(env, "instructor.attendance_duplicate_checkin", {
+      actorId: personId,
+      classSessionId,
+      deviceId,
+      payload: {
+        attendanceId,
+        checkedInAt: existingAttendance.checkedInAt
+      }
+    });
+    return json({
+      ok: true,
+      attendance: existingAttendance,
+      duplicate: true,
+      warnings: ["instructor_already_checked_in"],
+      updatedAt: now
+    });
   }
 
   const instructor = await resolveInstructorProfile(env, personId);
@@ -613,7 +642,7 @@ async function instructorAttendanceSubmit(request: Request, env: Env): Promise<R
     ok: true,
     attendance: {
       id: attendanceId,
-      checkedInAt: isCheckIn ? now : await existingInstructorCheckIn(env, attendanceId),
+      checkedInAt: isCheckIn ? (existingAttendance?.checkedInAt ?? now) : await existingInstructorCheckIn(env, attendanceId),
       checkedOutAt: isCheckOut ? now : null,
       classSessionId,
       courseId,
@@ -639,6 +668,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
       generatedAt: new Date().toISOString(),
       course: null,
       courses,
+      attendance: null,
       students: [],
       quizResults: [],
       finalResults: [],
@@ -724,12 +754,16 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
      ORDER BY opened_at DESC
      LIMIT 250`
   ).bind(classSessionId).all<JsonRecord>();
+  const attendance = instructorPersonId
+    ? await instructorAttendanceForCourse(env, instructorPersonId, classSessionId)
+    : undefined;
 
   return json({
     ok: true,
     generatedAt: new Date().toISOString(),
     course: selectedCourse ?? null,
     courses,
+    attendance: attendance ?? null,
     students: (rows.results ?? []).map(dashboardStudent),
     quizResults: (attempts.results ?? []).map(dashboardQuizResult),
     finalResults: (finals.results ?? []).map(dashboardFinalResult),
@@ -1065,6 +1099,45 @@ async function existingInstructorCheckIn(env: Env, attendanceId: string): Promis
     `SELECT checked_in_at FROM instructor_attendance WHERE id = ?1`
   ).bind(attendanceId).first<JsonRecord>();
   return row ? stringField(row, "checked_in_at") : undefined;
+}
+
+async function instructorAttendanceForId(env: Env, attendanceId: string): Promise<JsonRecord | undefined> {
+  const row = await env.DB.prepare(
+    `SELECT id, class_session_id, course_id, course_title, course_date,
+            checked_in_at, checked_out_at
+     FROM instructor_attendance
+     WHERE id = ?1
+     LIMIT 1`
+  ).bind(attendanceId).first<JsonRecord>();
+  return row ? instructorAttendanceFromRow(row) : undefined;
+}
+
+async function instructorAttendanceForCourse(
+  env: Env,
+  personId: string,
+  classSessionId: string
+): Promise<JsonRecord | undefined> {
+  const row = await env.DB.prepare(
+    `SELECT id, class_session_id, course_id, course_title, course_date,
+            checked_in_at, checked_out_at
+     FROM instructor_attendance
+     WHERE person_id = ?1 AND class_session_id = ?2
+     ORDER BY checked_in_at DESC
+     LIMIT 1`
+  ).bind(personId, classSessionId).first<JsonRecord>();
+  return row ? instructorAttendanceFromRow(row) : undefined;
+}
+
+function instructorAttendanceFromRow(row: JsonRecord): JsonRecord {
+  return {
+    id: stringField(row, "id") ?? "",
+    checkedInAt: stringField(row, "checked_in_at") ?? "",
+    checkedOutAt: stringField(row, "checked_out_at") ?? null,
+    classSessionId: stringField(row, "class_session_id") ?? null,
+    courseId: stringField(row, "course_id") ?? null,
+    courseTitle: stringField(row, "course_title") ?? null,
+    courseDate: stringField(row, "course_date") ?? null
+  };
 }
 
 async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {

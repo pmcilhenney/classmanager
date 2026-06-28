@@ -101,7 +101,8 @@ struct WelcomeView: View {
                     flexi: flexi,
                     instructor: instructorSession.instructor,
                     initialCourse: instructorSession.defaultCourse,
-                    courses: instructorSession.courses
+                    courses: instructorSession.courses,
+                    initialAttendance: instructorSession.attendance
                 )
             } else if navigateToMain, let att = acceptedAttendee {
                 // Main 2-panel view

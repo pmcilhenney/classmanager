@@ -426,6 +426,7 @@ extension ClassManagerAPIClient {
         let instructor: InstructorDashboardInstructor
         let defaultCourse: InstructorCourse?
         let courses: [InstructorCourse]
+        let attendance: InstructorAttendance?
     }
 
     struct InstructorDashboardInstructor: Decodable, Identifiable, Hashable {
@@ -494,6 +495,7 @@ extension ClassManagerAPIClient {
         let generatedAt: String
         let course: InstructorCourse?
         let courses: [InstructorCourse]?
+        let attendance: InstructorAttendance?
         let students: [DashboardStudent]
         let quizResults: [DashboardQuizResult]
         let finalResults: [DashboardFinalResult]

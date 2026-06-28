@@ -24,7 +24,8 @@ struct InstructorPhoneView: View {
                 flexi: flexi,
                 instructor: instructorSession.instructor,
                 initialCourse: instructorSession.defaultCourse,
-                courses: instructorSession.courses
+                courses: instructorSession.courses,
+                initialAttendance: instructorSession.attendance
             )
         } else {
             instructorLoginView

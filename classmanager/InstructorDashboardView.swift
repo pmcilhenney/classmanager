@@ -8,6 +8,7 @@ struct InstructorDashboardView: View {
     let instructor: ClassManagerAPIClient.InstructorDashboardInstructor
     let initialCourse: ClassManagerAPIClient.InstructorCourse?
     let courses: [ClassManagerAPIClient.InstructorCourse]
+    let initialAttendance: ClassManagerAPIClient.InstructorAttendance?
 
     @State private var dashboard: ClassManagerAPIClient.InstructorDashboardResponse?
     @State private var selectedCourse: ClassManagerAPIClient.InstructorCourse?
@@ -28,6 +29,25 @@ struct InstructorDashboardView: View {
 
     private var activeCourse: ClassManagerAPIClient.InstructorCourse? {
         selectedCourse ?? initialCourse
+    }
+
+    init(
+        config: AppConfig,
+        jotform: JotFormClient,
+        flexi: FlexiQuizClient,
+        instructor: ClassManagerAPIClient.InstructorDashboardInstructor,
+        initialCourse: ClassManagerAPIClient.InstructorCourse?,
+        courses: [ClassManagerAPIClient.InstructorCourse],
+        initialAttendance: ClassManagerAPIClient.InstructorAttendance? = nil
+    ) {
+        self.config = config
+        self.jotform = jotform
+        self.flexi = flexi
+        self.instructor = instructor
+        self.initialCourse = initialCourse
+        self.courses = courses
+        self.initialAttendance = initialAttendance
+        _attendance = State(initialValue: initialAttendance)
     }
 
     var body: some View {
@@ -158,6 +178,7 @@ struct InstructorDashboardView: View {
                     get: { activeCourse?.id ?? "" },
                     set: { id in
                         selectedCourse = availableCourses.first { $0.id == id }
+                        attendance = nil
                         Task { await refresh() }
                     }
                 )) {
@@ -207,6 +228,7 @@ struct InstructorDashboardView: View {
                         get: { activeCourse?.id ?? "" },
                         set: { id in
                             selectedCourse = availableCourses.first { $0.id == id }
+                            attendance = nil
                             Task { await refresh() }
                         }
                     )) {
@@ -394,6 +416,7 @@ struct InstructorDashboardView: View {
                 if selectedCourse == nil {
                     selectedCourse = initialCourse ?? (loaded.course?.isToday == true ? loaded.course : nil)
                 }
+                attendance = loaded.attendance
             }
         } catch {
             await MainActor.run { notice = "Could not load instructor dashboard." }
