@@ -106,6 +106,8 @@ const REFRESHER_A_COMBINED_QUIZ_ID = "89db2c06-5052-4ff5-867b-95ef67fcfcd2";
 const REFRESHER_B_COMBINED_QUIZ_ID = "bcab075c-a56a-459c-b313-f7b3966d7bb4";
 const REFRESHER_C_COMBINED_QUIZ_ID = "7f21b940-8344-4614-a935-49f2ea4218c7";
 const REFRESHER_A_VERSION_B_QUIZ_ID = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b";
+const REFRESHER_B_VERSION_B_QUIZ_ID = "76483815-190a-4c67-89ff-2e69c74b0c2a";
+const REFRESHER_C_VERSION_B_QUIZ_ID = "36088669-4530-48b8-ae82-1f549009d380";
 const REFRESHER_VERSION_A_PASSING_SCORE = 74;
 const REFRESHER_VERSION_B_PASSING_SCORE = 80;
 const REGISTRATION_FORM_ID = "251265925097060";
@@ -3194,7 +3196,12 @@ function minimumPassingScoreForFinalExam(result: JsonRecord): number {
 
 function minimumPassingScoreForQuiz(quizId: string, sources: JsonRecord[]): number {
   const quizName = (firstText(sources, ["quiz_name", "quizName", "name", "title"]) ?? "").toLowerCase();
-  if (quizId === REFRESHER_A_VERSION_B_QUIZ_ID || quizName.includes("version b")) {
+  if (
+    quizId === REFRESHER_A_VERSION_B_QUIZ_ID ||
+    quizId === REFRESHER_B_VERSION_B_QUIZ_ID ||
+    quizId === REFRESHER_C_VERSION_B_QUIZ_ID ||
+    quizName.includes("version b")
+  ) {
     return REFRESHER_VERSION_B_PASSING_SCORE;
   }
   if (

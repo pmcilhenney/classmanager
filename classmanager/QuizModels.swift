@@ -10,6 +10,8 @@ struct QuizInfo: Identifiable {
     static let refresherBCombinedQuizId = "bcab075c-a56a-459c-b313-f7b3966d7bb4"
     static let refresherCCombinedQuizId = "7f21b940-8344-4614-a935-49f2ea4218c7"
     static let refresherAVersionBQuizId = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b"
+    static let refresherBVersionBQuizId = "76483815-190a-4c67-89ff-2e69c74b0c2a"
+    static let refresherCVersionBQuizId = "36088669-4530-48b8-ae82-1f549009d380"
 
     let id: String
     let flexiQuizId: String
@@ -40,13 +42,17 @@ struct QuizInfo: Identifiable {
     }
 
     static func isVersionBQuizId(_ quizId: String) -> Bool {
-        quizId == refresherAVersionBQuizId
+        [refresherAVersionBQuizId, refresherBVersionBQuizId, refresherCVersionBQuizId].contains(quizId)
     }
 
     static func versionBQuiz(forCombinedQuizId combinedQuizId: String) -> QuizInfo? {
         switch combinedQuizId {
         case refresherACombinedQuizId:
-            return refresherAVersionBQuiz()
+            return versionBQuiz(courseLetter: "A", quizId: refresherAVersionBQuizId)
+        case refresherBCombinedQuizId:
+            return versionBQuiz(courseLetter: "B", quizId: refresherBVersionBQuizId)
+        case refresherCCombinedQuizId:
+            return versionBQuiz(courseLetter: "C", quizId: refresherCVersionBQuizId)
         default:
             return nil
         }
@@ -75,12 +81,16 @@ struct QuizInfo: Identifiable {
     }
 
     static func refresherAVersionBQuiz() -> QuizInfo {
+        versionBQuiz(courseLetter: "A", quizId: refresherAVersionBQuizId)
+    }
+
+    private static func versionBQuiz(courseLetter: String, quizId: String) -> QuizInfo {
         QuizInfo(
-            id: "refresher-a-version-b",
-            flexiQuizId: refresherAVersionBQuizId,
+            id: "refresher-\(courseLetter.lowercased())-version-b",
+            flexiQuizId: quizId,
             number: 5,
-            title: "Refresher A Version B Retest",
-            url: URL(string: "https://www.flexiquiz.com/SC/N/\(refresherAVersionBQuizId)")!
+            title: "Refresher \(courseLetter) Version B Retest",
+            url: URL(string: "https://www.flexiquiz.com/SC/N/\(quizId)")!
         )
     }
     

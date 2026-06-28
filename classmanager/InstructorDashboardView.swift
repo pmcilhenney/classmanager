@@ -639,11 +639,13 @@ struct InstructorDashboardView: View {
         case "refresher-b-page-3", "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb": return "Refresher B Quiz 3"
         case "refresher-b-page-4", "757c48dc-6ab2-4aad-a262-30ed854157c9": return "Refresher B Quiz 4"
         case QuizInfo.refresherBCombinedQuizId: return "Refresher B Version A"
+        case QuizInfo.refresherBVersionBQuizId: return "Refresher B Version B"
         case "refresher-c-page-1", "ab8a5c9d-9e06-42c2-a866-e5759d8b2209": return "Refresher C Quiz 1"
         case "refresher-c-page-2", "d76f4483-d8cc-4029-aea6-a2bebbb3d086": return "Refresher C Quiz 2"
         case "refresher-c-page-3", "b7adaf94-a911-4dad-8152-a5853cb02e35": return "Refresher C Quiz 3"
         case "refresher-c-page-4", "b938cd8b-913c-41bf-b247-1406b11115f2": return "Refresher C Quiz 4"
         case QuizInfo.refresherCCombinedQuizId: return "Refresher C Version A"
+        case QuizInfo.refresherCVersionBQuizId: return "Refresher C Version B"
         default: return quizId ?? "Quiz"
         }
     }
