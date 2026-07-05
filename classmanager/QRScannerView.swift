@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 struct QRScannerView: UIViewControllerRepresentable {
     let onCode: (String) -> Void
@@ -19,6 +20,18 @@ final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsDelegate 
     private var isClosed = false
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var orientationObserver: NSObjectProtocol?
+    private let closeButton: UIButton = {
+        let button = UIButton(type: .system)
+        let image = UIImage(systemName: "xmark.circle.fill")
+        button.setImage(image, for: .normal)
+        button.tintColor = .white
+        button.backgroundColor = UIColor.black.withAlphaComponent(0.35)
+        button.layer.cornerRadius = 22
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.accessibilityLabel = "Close QR scanner"
+        button.accessibilityHint = "Dismisses the camera scanner without scanning a code."
+        return button
+    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -55,6 +68,7 @@ final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsDelegate 
         view.layer.addSublayer(preview)
         self.previewLayer = preview
         updateVideoOrientation()
+        installCloseButton()
 
         DispatchQueue.global(qos: .userInitiated).async {
             self.session.startRunning()
@@ -110,6 +124,24 @@ final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsDelegate 
     deinit {
         if session.isRunning { session.stopRunning() }
         if let obs = orientationObserver { NotificationCenter.default.removeObserver(obs) }
+    }
+
+    private func installCloseButton() {
+        view.addSubview(closeButton)
+        closeButton.addTarget(self, action: #selector(closeScanner), for: .touchUpInside)
+        NSLayoutConstraint.activate([
+            closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            closeButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            closeButton.widthAnchor.constraint(equalToConstant: 44),
+            closeButton.heightAnchor.constraint(equalToConstant: 44),
+        ])
+    }
+
+    @objc private func closeScanner() {
+        guard !isClosed else { return }
+        isClosed = true
+        if session.isRunning { session.stopRunning() }
+        dismiss(animated: true)
     }
 }
 
