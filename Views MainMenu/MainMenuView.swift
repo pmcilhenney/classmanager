@@ -12,9 +12,11 @@ struct MainMenuView: View {
     let jotform: JotFormClient
     let flexi: FlexiQuizClient
     let onRequestScanNew: (() -> Void)? = nil
+    let onRequestLaunchReset: (() -> Void)?
 
     @StateObject var materialsManager: CourseMaterialsManager
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var showSkills = false
     @State private var skillsURL: URL?
@@ -108,10 +110,17 @@ struct MainMenuView: View {
         (Bundle.main.object(forInfoDictionaryKey: "COURSE_MATERIALS_ID") as? String) ?? ""
     }
 
-    init(config: AppConfig, attendee: RosterAttendee, jotform: JotFormClient, flexi: FlexiQuizClient) {
+    init(
+        config: AppConfig,
+        attendee: RosterAttendee,
+        jotform: JotFormClient,
+        flexi: FlexiQuizClient,
+        onRequestLaunchReset: (() -> Void)? = nil
+    ) {
         self.config = config
         self.jotform = jotform
         self.flexi = flexi
+        self.onRequestLaunchReset = onRequestLaunchReset
         _attendee = State(initialValue: attendee)
         _materialsManager = StateObject(wrappedValue: CourseMaterialsManager(jotformApiKey: config.jotformApiKey, materialsFormId: (Bundle.main.object(forInfoDictionaryKey: "COURSE_MATERIALS_ID") as? String) ?? ""))
     }
@@ -144,7 +153,15 @@ struct MainMenuView: View {
             .animation(.spring(response: 0.5, dampingFraction: 0.86), value: requiresInitialCheckIn)
         }
         .overlay(busyOverlay)
-        .onAppear(perform: onAppearLoad)
+        .onAppear {
+            expireActiveSessionIfNeeded()
+            onAppearLoad()
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                expireActiveSessionIfNeeded()
+            }
+        }
         .onReceive(progressStore.$progress) { _ in
             Task { @MainActor in
                 // Merge any CK-synced completions into the visible set for the current course
@@ -797,6 +814,7 @@ struct MainMenuView: View {
             let lookup = try await ClassManagerAPIClient.shared.lookupSession(submissionId: submissionId)
             let newAttendee = lookup.attendee
             await MainActor.run {
+                ClassManagerLaunchSession.markScan()
                 self.attendee = newAttendee
                 resetForNewScan()
                 Task { @MainActor in
@@ -818,6 +836,12 @@ struct MainMenuView: View {
         } catch {
             await MainActor.run { toast = "Could not load registration data. Please try again." }
         }
+    }
+
+    private func expireActiveSessionIfNeeded() {
+        guard ClassManagerLaunchSession.shouldResetActiveSession() else { return }
+        ClassManagerLaunchSession.clear()
+        onRequestLaunchReset?()
     }
 
     // MARK: - Check In/Out

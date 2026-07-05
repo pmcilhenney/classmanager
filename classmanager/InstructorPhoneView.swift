@@ -4,6 +4,7 @@ struct InstructorPhoneView: View {
     let config: AppConfig
     let jotform: JotFormClient
     let flexi: FlexiQuizClient
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var showingScanner = false
     @State private var showingSessionPicker = false
@@ -17,18 +18,26 @@ struct InstructorPhoneView: View {
     @StateObject private var progressStore = CKProgressStore()
 
     var body: some View {
-        if let instructorSession {
-            InstructorDashboardView(
-                config: config,
-                jotform: jotform,
-                flexi: flexi,
-                instructor: instructorSession.instructor,
-                initialCourse: instructorSession.defaultCourse,
-                courses: instructorSession.courses,
-                initialAttendance: instructorSession.attendance
-            )
-        } else {
-            instructorLoginView
+        Group {
+            if let instructorSession {
+                InstructorDashboardView(
+                    config: config,
+                    jotform: jotform,
+                    flexi: flexi,
+                    instructor: instructorSession.instructor,
+                    initialCourse: instructorSession.defaultCourse,
+                    courses: instructorSession.courses,
+                    initialAttendance: instructorSession.attendance
+                )
+            } else {
+                instructorLoginView
+            }
+        }
+        .onAppear(perform: expireActiveSessionIfNeeded)
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                expireActiveSessionIfNeeded()
+            }
         }
     }
 
@@ -226,6 +235,7 @@ struct InstructorPhoneView: View {
         do {
             let session = try await ClassManagerAPIClient.shared.scanInstructor(personId: personId)
             await MainActor.run {
+                ClassManagerLaunchSession.markScan()
                 instructorSession = session
             }
         } catch {
@@ -305,6 +315,7 @@ struct InstructorPhoneView: View {
         do {
             let lookup = try await ClassManagerAPIClient.shared.lookupSession(submissionId: submissionId)
             await MainActor.run {
+                ClassManagerLaunchSession.markScan()
                 attendee = lookup.attendee
                 sessionOptions = lookup.options
             }
@@ -323,6 +334,7 @@ struct InstructorPhoneView: View {
 
     private func apply(_ option: RegistrationOption) {
         guard var current = attendee else { return }
+        ClassManagerLaunchSession.markScan()
         current.courseType = option.courseType
         current.courseDate = option.dateRaw
         current.courseId = option.courseId
@@ -334,6 +346,20 @@ struct InstructorPhoneView: View {
         selectedQuiz = nil
         selectedReviewQuiz = nil
         Task { await loadProgress(for: current) }
+    }
+
+    private func expireActiveSessionIfNeeded() {
+        guard ClassManagerLaunchSession.shouldResetActiveSession() else { return }
+        ClassManagerLaunchSession.clear()
+        showingScanner = false
+        showingSessionPicker = false
+        sessionOptions = []
+        attendee = nil
+        selectedQuiz = nil
+        selectedReviewQuiz = nil
+        busy = false
+        notice = nil
+        instructorSession = nil
     }
 
     private func loadProgress(for attendee: RosterAttendee) async {

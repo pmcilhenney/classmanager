@@ -56,6 +56,7 @@ struct WelcomeView: View {
     let config: AppConfig
     let jotform: JotFormClient
     let flexi: FlexiQuizClient
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var scanning = false
     @State private var fetched: RosterAttendee?
@@ -110,7 +111,8 @@ struct WelcomeView: View {
                     config: config,
                     attendee: att,
                     jotform: jotform,
-                    flexi: flexi
+                    flexi: flexi,
+                    onRequestLaunchReset: resetActiveSessionForNewClass
                 )
             } else {
                 // Welcome / scanning UI
@@ -226,6 +228,7 @@ struct WelcomeView: View {
                     original: attendee,
                     onDismiss: { showReview = false },
                     onAccept: { accepted in
+                        ClassManagerLaunchSession.markScan()
                         acceptedAttendee = accepted
                         showReview = false
                         navigateToMain = true
@@ -243,9 +246,39 @@ struct WelcomeView: View {
         )) {
             Button("OK", role: .cancel) {}
         }
+        .onAppear(perform: expireActiveSessionIfNeeded)
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                expireActiveSessionIfNeeded()
+            }
+        }
     }
 
     // MARK: - Scan handler
+
+    private func resetActiveSessionForNewClass() {
+        scanning = false
+        fetched = nil
+        showReview = false
+        navigateToMain = false
+        acceptedAttendee = nil
+        instructorSession = nil
+        errorText = nil
+        busy = false
+        showSessionPicker = false
+        sessionOptions = []
+        isScanningBusy = false
+        lastSubmissionId = ""
+        lastPickedOption = nil
+        registrationProductMap = [:]
+        lastScanWasRegistration = false
+    }
+
+    private func expireActiveSessionIfNeeded() {
+        guard ClassManagerLaunchSession.shouldResetActiveSession() else { return }
+        ClassManagerLaunchSession.clear()
+        resetActiveSessionForNewClass()
+    }
 
     private func handleScan(_ qrString: String) async {
         let submissionId = qrString.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -278,6 +311,7 @@ struct WelcomeView: View {
             let lookup = try await ClassManagerAPIClient.shared.lookupSession(submissionId: submissionId)
             let attendee = lookup.attendee
             lastSubmissionId = submissionId
+            ClassManagerLaunchSession.markScan()
 
             if lookup.options.count > 1 {
                 await MainActor.run {
@@ -318,6 +352,7 @@ struct WelcomeView: View {
         do {
             let session = try await ClassManagerAPIClient.shared.scanInstructor(personId: personId)
             await MainActor.run {
+                ClassManagerLaunchSession.markScan()
                 instructorSession = session
                 acceptedAttendee = nil
                 navigateToMain = false
