@@ -154,9 +154,7 @@ struct InstructorPhoneView: View {
             .navigationTitle("Instructor")
             .overlay {
                 if busy {
-                    ProgressView()
-                        .padding()
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    LoadingSpinnerView()
                 }
             }
             .sheet(isPresented: $showingScanner) {

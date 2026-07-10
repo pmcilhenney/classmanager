@@ -7,8 +7,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             #if DEBUG
-            if let error { print("[Push] authorization failed: \(error.localizedDescription)") }
-            print("[Push] authorization granted: \(granted)")
+            if let error { AppDebugLog.log("[Push] authorization failed: \(error.localizedDescription)") }
+            AppDebugLog.log("[Push] authorization granted: \(granted)")
             #endif
             guard granted else { return }
             DispatchQueue.main.async {
@@ -23,7 +23,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         let token = tokenParts.joined()
         #if DEBUG
         let apnsEnvironment = "sandbox"
-        print("[Push] registered device token: \(token)")
+        AppDebugLog.log("[Push] registered device token: \(token)")
         #else
         let apnsEnvironment = "prod"
         #endif
@@ -31,11 +31,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             do {
                 _ = try await ClassManagerAPIClient.shared.registerDeviceToken(token, apnsEnvironment: apnsEnvironment)
                 #if DEBUG
-                print("[Push] uploaded device token to ClassManager Worker")
+                AppDebugLog.log("[Push] uploaded device token to ClassManager Worker")
                 #endif
             } catch {
                 #if DEBUG
-                print("[Push] token upload failed: \(error.localizedDescription)")
+                AppDebugLog.log("[Push] token upload failed: \(error.localizedDescription)")
                 #endif
             }
         }
@@ -43,7 +43,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         #if DEBUG
-        print("[Push] failed to register: \(error.localizedDescription)")
+        AppDebugLog.log("[Push] failed to register: \(error.localizedDescription)")
         #endif
     }
 

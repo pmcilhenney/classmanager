@@ -8,6 +8,11 @@
 import Foundation
 
 actor CFAICommentGenerator {
+    private static func debugLog(_ message: @autoclosure () -> String) {
+        #if DEBUG
+        AppDebugLog.log(message())
+        #endif
+    }
     
     /// Generate a positive performance comment using Cloudflare AI
     static func generateComment(
@@ -18,10 +23,10 @@ actor CFAICommentGenerator {
         classSessionId: String? = nil
     ) async -> String {
         
-        print("[CFAICommentGenerator] 🚀 Starting AI comment generation")
-        print("[CFAICommentGenerator] Student: \(studentName)")
-        print("[CFAICommentGenerator] Course: \(courseTitle)")
-        print("[CFAICommentGenerator] Context: \(context)")
+        debugLog("[CFAICommentGenerator] Starting AI comment generation")
+        debugLog("[CFAICommentGenerator] Student: \(studentName)")
+        debugLog("[CFAICommentGenerator] Course: \(courseTitle)")
+        debugLog("[CFAICommentGenerator] Context: \(context)")
         
         do {
             let comment = try await callCloudflareAI(
@@ -31,14 +36,14 @@ actor CFAICommentGenerator {
                 studentId: studentId,
                 classSessionId: classSessionId
             )
-            print("[CFAICommentGenerator] ✅ AI generation successful!")
-            print("[CFAICommentGenerator] Generated: \(comment)")
+            debugLog("[CFAICommentGenerator] AI generation successful")
+            debugLog("[CFAICommentGenerator] Generated: \(comment)")
             return comment
         } catch {
-            print("[CFAICommentGenerator] ❌ Error occurred: \(error)")
-            print("[CFAICommentGenerator] ⚠️  Using template fallback")
+            debugLog("[CFAICommentGenerator] Error occurred: \(error)")
+            debugLog("[CFAICommentGenerator] Using template fallback")
             let fallback = generateTemplateComment(studentName: studentName, courseTitle: courseTitle)
-            print("[CFAICommentGenerator] Fallback: \(fallback)")
+            debugLog("[CFAICommentGenerator] Fallback: \(fallback)")
             return fallback
         }
     }
@@ -52,11 +57,11 @@ actor CFAICommentGenerator {
         classSessionId: String?
     ) async throws -> String {
         
-        print("[CFAICommentGenerator] 📡 Calling Cloudflare Worker API...")
+        debugLog("[CFAICommentGenerator] Calling Cloudflare Worker API")
         
         let url = classManagerAPIBaseURL().appendingPathComponent("aicomments")
         
-        print("[CFAICommentGenerator] ✓ URL validated: \(url.absoluteString)")
+        debugLog("[CFAICommentGenerator] URL validated: \(url.absoluteString)")
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -75,26 +80,26 @@ actor CFAICommentGenerator {
             requestBody["classSessionId"] = classSessionId
         }
         
-        print("[CFAICommentGenerator] 📦 Request body: \(requestBody)")
+        debugLog("[CFAICommentGenerator] Request body: \(requestBody)")
         
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
-        print("[CFAICommentGenerator] 🌐 Sending request...")
+        debugLog("[CFAICommentGenerator] Sending request")
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            print("[CFAICommentGenerator] ❌ Not an HTTP response")
+            debugLog("[CFAICommentGenerator] Not an HTTP response")
             throw NSError(domain: "CFAICommentGenerator", code: 2, userInfo: [
                 NSLocalizedDescriptionKey: "Invalid response from server"
             ])
         }
         
-        print("[CFAICommentGenerator] 📨 HTTP Status: \(httpResponse.statusCode)")
+        debugLog("[CFAICommentGenerator] HTTP Status: \(httpResponse.statusCode)")
         
         guard (200...299).contains(httpResponse.statusCode) else {
-            print("[CFAICommentGenerator] ❌ Bad status code: \(httpResponse.statusCode)")
+            debugLog("[CFAICommentGenerator] Bad status code: \(httpResponse.statusCode)")
             if let responseStr = String(data: data, encoding: .utf8) {
-                print("[CFAICommentGenerator] Response: \(responseStr)")
+                debugLog("[CFAICommentGenerator] Response: \(responseStr)")
             }
             throw NSError(domain: "CFAICommentGenerator", code: 2, userInfo: [
                 NSLocalizedDescriptionKey: "Invalid response from server"
@@ -102,18 +107,18 @@ actor CFAICommentGenerator {
         }
         
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        print("[CFAICommentGenerator] 📋 JSON response: \(json ?? [:])")
+        debugLog("[CFAICommentGenerator] JSON response: \(json ?? [:])")
         
         guard let success = json?["success"] as? Bool, success else {
             let errorMsg = json?["error"] as? String ?? "Unknown error"
-            print("[CFAICommentGenerator] ❌ API returned error: \(errorMsg)")
+            debugLog("[CFAICommentGenerator] API returned error: \(errorMsg)")
             throw NSError(domain: "CFAICommentGenerator", code: 3, userInfo: [
                 NSLocalizedDescriptionKey: errorMsg
             ])
         }
         
         guard let comment = json?["comment"] as? String else {
-            print("[CFAICommentGenerator] ❌ No comment in response")
+            debugLog("[CFAICommentGenerator] No comment in response")
             throw NSError(domain: "CFAICommentGenerator", code: 4, userInfo: [
                 NSLocalizedDescriptionKey: "No comment in response"
             ])
@@ -122,13 +127,13 @@ actor CFAICommentGenerator {
         let usedFallback = json?["usedFallback"] as? Bool ?? false
         if usedFallback {
             let reason = json?["reason"] as? String ?? "unknown"
-            print("[CFAICommentGenerator] ⚠️  Server used fallback. Reason: \(reason)")
+            debugLog("[CFAICommentGenerator] Server used fallback. Reason: \(reason)")
         } else {
-            print("[CFAICommentGenerator] ✅ AI-generated comment received")
+            debugLog("[CFAICommentGenerator] AI-generated comment received")
         }
         
         let trimmed = comment.trimmingCharacters(in: .whitespacesAndNewlines)
-        print("[CFAICommentGenerator] 💬 Final comment: \(trimmed)")
+        debugLog("[CFAICommentGenerator] Final comment: \(trimmed)")
         return trimmed
     }
     
@@ -163,10 +168,10 @@ actor CFAICommentGenerator {
         maxRetries: Int = 2
     ) async -> String {
         
-        print("[CFAICommentGenerator] 🔄 Starting with retry logic (max: \(maxRetries) attempts)")
+        debugLog("[CFAICommentGenerator] Starting with retry logic (max: \(maxRetries) attempts)")
         
         for attempt in 0..<maxRetries {
-            print("[CFAICommentGenerator] 🔄 Attempt \(attempt + 1)/\(maxRetries)")
+            debugLog("[CFAICommentGenerator] Attempt \(attempt + 1)/\(maxRetries)")
             
             let comment = await generateComment(
                 studentName: studentName,
@@ -181,21 +186,21 @@ actor CFAICommentGenerator {
             let hasCourse = comment.localizedCaseInsensitiveContains(courseTitle) ||
                            comment.localizedCaseInsensitiveContains(cleanCourseName(courseTitle))
             
-            print("[CFAICommentGenerator] 🔍 Validation - Has name: \(hasName), Has course: \(hasCourse)")
+            debugLog("[CFAICommentGenerator] Validation - Has name: \(hasName), Has course: \(hasCourse)")
             
             if hasName && hasCourse {
-                print("[CFAICommentGenerator] ✅ Comment validated successfully!")
+                debugLog("[CFAICommentGenerator] Comment validated successfully")
                 return comment
             }
             
-            print("[CFAICommentGenerator] ⚠️  Generated comment failed validation, using local fallback")
+            debugLog("[CFAICommentGenerator] Generated comment failed validation, using local fallback")
             return guaranteedFallback(studentName: studentName, courseTitle: courseTitle)
         }
         
         // Final fallback - guaranteed to include name and course
-        print("[CFAICommentGenerator] ⚠️  All attempts exhausted, using guaranteed fallback")
+        debugLog("[CFAICommentGenerator] All attempts exhausted, using guaranteed fallback")
         let fallback = guaranteedFallback(studentName: studentName, courseTitle: courseTitle)
-        print("[CFAICommentGenerator] 💬 Final fallback: \(fallback)")
+        debugLog("[CFAICommentGenerator] Final fallback: \(fallback)")
         return fallback
     }
 

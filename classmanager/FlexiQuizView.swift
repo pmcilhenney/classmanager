@@ -218,7 +218,7 @@ struct FlexiQuizWebViewRepresentable: UIViewRepresentable {
         }
         
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            print("[FlexiQuiz] ✓ Page loaded: \(webView.url?.absoluteString ?? "unknown")")
+            AppDebugLog.log("[FlexiQuiz] ✓ Page loaded: \(webView.url?.absoluteString ?? "unknown")")
             
             // Check if this is the registration page (not already auto-filled)
             // Small delay to ensure DOM is fully rendered; always attempt result detection
@@ -270,11 +270,11 @@ struct FlexiQuizWebViewRepresentable: UIViewRepresentable {
                    let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let isReg = obj["isRegistration"] as? Bool, isReg {
                     
-                    print("[FlexiQuiz] 🔍 Registration page detected - auto-filling...")
+                    AppDebugLog.log("[FlexiQuiz] 🔍 Registration page detected - auto-filling...")
                     self.autoFillRegistration(webView)
                 } else {
                     // Not a registration page, clear loading
-                    print("[FlexiQuiz] ℹ️ Not a registration page")
+                    AppDebugLog.log("[FlexiQuiz] ℹ️ Not a registration page")
                     DispatchQueue.main.async {
                         self.parent.isLoading = false
                     }
@@ -371,7 +371,7 @@ struct FlexiQuizWebViewRepresentable: UIViewRepresentable {
 
                     DispatchQueue.main.async {
                         if !self.parent.hasReportedResult {
-                            print("[FlexiQuiz] Results page detected – parsed result: \(resultText ?? "") reviewId=\(reviewId ?? "")")
+                            AppDebugLog.log("[FlexiQuiz] Results page detected – parsed result: \(resultText ?? "") reviewId=\(reviewId ?? "")")
                             self.parent.hasReportedResult = true
                             self.parent.isLoading = false
                             self.parent.onDetectedComplete?(resultText, reviewId)
@@ -395,12 +395,12 @@ struct FlexiQuizWebViewRepresentable: UIViewRepresentable {
                     }
 
                     // Log evaluation error and capture body text for debugging
-                    print("[FlexiQuiz] detectResultsJS returned no result or failed: \(String(describing: evalError))")
+                    AppDebugLog.log("[FlexiQuiz] detectResultsJS returned no result or failed: \(String(describing: evalError))")
                     if let urlStr = webView.url?.absoluteString {
-                        print("[FlexiQuiz] Current URL: \(urlStr)")
+                        AppDebugLog.log("[FlexiQuiz] Current URL: \(urlStr)")
                     }
                     webView.evaluateJavaScript("document.body ? document.body.innerText : ''") { body, _ in
-                        print("[FlexiQuiz] Page body snapshot (truncated 200 chars): \(String(describing: body).prefix(200))")
+                        AppDebugLog.log("[FlexiQuiz] Page body snapshot (truncated 200 chars): \(String(describing: body).prefix(200))")
                     }
                 }
             }
@@ -408,11 +408,11 @@ struct FlexiQuizWebViewRepresentable: UIViewRepresentable {
             // Safety fallback: if nothing reports a result within 5 seconds, clear the loader to avoid indefinite spinner
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                 if !self.parent.hasReportedResult {
-                    print("[FlexiQuiz] Fallback timeout – clearing loader (no result reported)")
+                    AppDebugLog.log("[FlexiQuiz] Fallback timeout – clearing loader (no result reported)")
                     self.parent.isLoading = false
                     // capture page snapshot for later debugging
                     webView.evaluateJavaScript("document.body ? document.body.innerText : ''") { body, _ in
-                        print("[FlexiQuiz] Fallback page body snapshot (truncated 200 chars): \(String(describing: body).prefix(200))")
+                        AppDebugLog.log("[FlexiQuiz] Fallback page body snapshot (truncated 200 chars): \(String(describing: body).prefix(200))")
                     }
                 }
             }
@@ -533,16 +533,16 @@ struct FlexiQuizWebViewRepresentable: UIViewRepresentable {
             
             webView.evaluateJavaScript(js) { result, error in
                 if let error = error {
-                    print("[FlexiQuiz] ❌ Auto-fill error: \(error.localizedDescription)")
+                    AppDebugLog.log("[FlexiQuiz] ❌ Auto-fill error: \(error.localizedDescription)")
                 } else if let jsonStr = result as? String {
-                    print("[FlexiQuiz] ✅ Auto-fill result: \(jsonStr)")
+                    AppDebugLog.log("[FlexiQuiz] ✅ Auto-fill result: \(jsonStr)")
                     
                     // Parse the result to see how many fields were found
                     if let data = jsonStr.data(using: .utf8),
                        let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                         if let fieldsFound = obj["fieldsFound"] as? Int {
                             if fieldsFound < 4 {
-                                print("[FlexiQuiz] ⚠️ Warning: Only \(fieldsFound)/4 fields were auto-filled")
+                                AppDebugLog.log("[FlexiQuiz] ⚠️ Warning: Only \(fieldsFound)/4 fields were auto-filled")
                             }
                         }
                     }
@@ -556,7 +556,7 @@ struct FlexiQuizWebViewRepresentable: UIViewRepresentable {
         }
         
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            print("[FlexiQuiz] ❌ Navigation failed: \(error.localizedDescription)")
+            AppDebugLog.log("[FlexiQuiz] ❌ Navigation failed: \(error.localizedDescription)")
             DispatchQueue.main.async {
                 self.parent.isLoading = false
             }

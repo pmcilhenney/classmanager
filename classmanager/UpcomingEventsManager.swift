@@ -95,7 +95,7 @@ final class UpcomingEventsManager: ObservableObject {
             }
             
             #if DEBUG
-            print("[UpcomingEvents] Found \(productsDict.count) total products")
+            AppDebugLog.log("[UpcomingEvents] Found \(productsDict.count) total products")
             #endif
             
             // Parse all products and extract dates
@@ -120,7 +120,7 @@ final class UpcomingEventsManager: ObservableObject {
                 // Parse date from description
                 guard let parsedDate = parseDate(from: description) else {
                     #if DEBUG
-                    print("[UpcomingEvents] Could not parse date from: \(name) - desc: \(description)")
+                    AppDebugLog.log("[UpcomingEvents] Could not parse date from: \(name) - desc: \(description)")
                     #endif
                     continue
                 }
@@ -128,7 +128,7 @@ final class UpcomingEventsManager: ObservableObject {
                 // Only include future events
                 guard parsedDate > now else {
                     #if DEBUG
-                    print("[UpcomingEvents] Skipping past event: \(name) - \(parsedDate)")
+                    AppDebugLog.log("[UpcomingEvents] Skipping past event: \(name) - \(parsedDate)")
                     #endif
                     continue
                 }
@@ -160,7 +160,7 @@ final class UpcomingEventsManager: ObservableObject {
                 allEvents.append(event)
                 
                 #if DEBUG
-                print("[UpcomingEvents] Added event: \(name) - \(parsedDate) - image: \(imageURL ?? "none")")
+                AppDebugLog.log("[UpcomingEvents] Added event: \(name) - \(parsedDate) - image: \(imageURL ?? "none")")
                 #endif
             }
             
@@ -169,12 +169,12 @@ final class UpcomingEventsManager: ObservableObject {
             events = Array(sortedEvents.prefix(limit))
             
             #if DEBUG
-            print("[UpcomingEvents] Returning \(events.count) upcoming events")
+            AppDebugLog.log("[UpcomingEvents] Returning \(events.count) upcoming events")
             #endif
             
         } catch {
             #if DEBUG
-            print("[UpcomingEvents] Error: \(error)")
+            AppDebugLog.log("[UpcomingEvents] Error: \(error)")
             #endif
             errorMessage = "Failed to load events: \(error.localizedDescription)"
         }
@@ -229,7 +229,7 @@ final class UpcomingEventsManager: ObservableObject {
         }
         
         #if DEBUG
-        print("[UpcomingEvents] Parsing date string: '\(dateStr)'")
+        AppDebugLog.log("[UpcomingEvents] Parsing date string: '\(dateStr)'")
         #endif
         
         // Try to parse with multiple formats
@@ -250,14 +250,14 @@ final class UpcomingEventsManager: ObservableObject {
             df.dateFormat = format
             if let date = df.date(from: dateStr.trimmingCharacters(in: .whitespacesAndNewlines)) {
                 #if DEBUG
-                print("[UpcomingEvents] Successfully parsed with format: \(format)")
+                AppDebugLog.log("[UpcomingEvents] Successfully parsed with format: \(format)")
                 #endif
                 return date
             }
         }
         
         #if DEBUG
-        print("[UpcomingEvents] Failed to parse date: '\(dateStr)'")
+        AppDebugLog.log("[UpcomingEvents] Failed to parse date: '\(dateStr)'")
         #endif
         
         return nil

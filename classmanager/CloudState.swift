@@ -143,7 +143,7 @@ final class CKProgressStore: ObservableObject {
             let exists: Bool = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
                 db.fetchAllSubscriptions { subs, err in
                     #if DEBUG
-                    if let err { print("[CK] fetch subs err: \(err.localizedDescription)") }
+                    if let err { AppDebugLog.log("[CK] fetch subs err: \(err.localizedDescription)") }
                     #endif
                     if let subs = subs {
                         cont.resume(returning: subs.contains { $0.subscriptionID == subscriptionID })
@@ -163,8 +163,8 @@ final class CKProgressStore: ObservableObject {
             _ = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
                 db.save(sub) { saved, err in
                     #if DEBUG
-                    if let err { print("[CK] save subscription err: \(err.localizedDescription)") }
-                    else { print("[CK] subscription saved: \(subscriptionID)") }
+                    if let err { AppDebugLog.log("[CK] save subscription err: \(err.localizedDescription)") }
+                    else { AppDebugLog.log("[CK] subscription saved: \(subscriptionID)") }
                     #endif
                     cont.resume(returning: (saved != nil))
                 }
@@ -329,7 +329,7 @@ final class CKProgressStore: ObservableObject {
             }
         } catch {
             #if DEBUG
-            print("[ClassManagerAPI] fetch progress failed: \(error)")
+            AppDebugLog.log("[ClassManagerAPI] fetch progress failed: \(error)")
             #endif
         }
     }
@@ -346,7 +346,7 @@ final class CKProgressStore: ObservableObject {
             )
         } catch {
             #if DEBUG
-            print("[ClassManagerAPI] save progress failed: \(error)")
+            AppDebugLog.log("[ClassManagerAPI] save progress failed: \(error)")
             #endif
         }
     }
@@ -371,7 +371,7 @@ final class CKProgressStore: ObservableObject {
         }
         guard accountOK else {
             #if DEBUG
-            print("[CK] account not available")
+            AppDebugLog.log("[CK] account not available")
             #endif
             return false
         }
@@ -380,7 +380,7 @@ final class CKProgressStore: ObservableObject {
             container.fetchUserRecordID { id, error in
                 if let error = error {
                     #if DEBUG
-                    print("[CK] fetchUserRecordID error: \(error.localizedDescription)")
+                    AppDebugLog.log("[CK] fetchUserRecordID error: \(error.localizedDescription)")
                     #endif
                 }
                 cont.resume(returning: (id != nil))
@@ -394,9 +394,9 @@ final class CKProgressStore: ObservableObject {
             db.fetch(withRecordID: id) { rec, err in
                 #if DEBUG
                 if let err = err as? CKError, err.code != .unknownItem {
-                    print("[CK] fetch err: \(err.localizedDescription)")
+                    AppDebugLog.log("[CK] fetch err: \(err.localizedDescription)")
                 } else if let err, (err as? CKError) == nil {
-                    print("[CK] fetch err: \(err.localizedDescription)")
+                    AppDebugLog.log("[CK] fetch err: \(err.localizedDescription)")
                 }
                 #endif
                 cont.resume(returning: rec)
@@ -419,17 +419,17 @@ final class CKProgressStore: ObservableObject {
             self.encode(p, into: rec)
 
             #if DEBUG
-            print("[CK] saveToCloud: starting save sequence for recordName=\(rec.recordID.recordName)")
+            AppDebugLog.log("[CK] saveToCloud: starting save sequence for recordName=\(rec.recordID.recordName)")
             #endif
             // Try public, then private
             if await self.save(rec, to: self.dbPublic) == false {
                 #if DEBUG
-                print("[CK] saveToCloud: public DB save failed; trying private DB")
+                AppDebugLog.log("[CK] saveToCloud: public DB save failed; trying private DB")
                 #endif
                 _ = await self.save(rec, to: self.dbPrivate)
             }
             #if DEBUG
-            print("[CK] saveToCloud: finished save sequence for recordName=\(rec.recordID.recordName)")
+            AppDebugLog.log("[CK] saveToCloud: finished save sequence for recordName=\(rec.recordID.recordName)")
             #endif
             return true
         }
@@ -446,14 +446,14 @@ final class CKProgressStore: ObservableObject {
 
             #if DEBUG
             let dbName = (db === dbPublic) ? "public" : "private"
-            print("[CK] save: attempt \(attempt) to save recordName=\(toSave.recordID.recordName) to DB=\(dbName)")
+            AppDebugLog.log("[CK] save: attempt \(attempt) to save recordName=\(toSave.recordID.recordName) to DB=\(dbName)")
             #endif
 
             // Try a simple db.save and capture server error if any
             let (savedRec, ckError): (CKRecord?, CKError?) = await withCheckedContinuation { (cont: CheckedContinuation<(CKRecord?, CKError?), Never>) in
                 db.save(toSave) { saved, err in
                     #if DEBUG
-                    if let err { print("[CK] save err (attempt \(attempt)): \(err.localizedDescription)") }
+                    if let err { AppDebugLog.log("[CK] save err (attempt \(attempt)): \(err.localizedDescription)") }
                     #endif
                     cont.resume(returning: (saved, err as? CKError))
                 }
@@ -461,7 +461,7 @@ final class CKProgressStore: ObservableObject {
 
             if let saved = savedRec {
                 #if DEBUG
-                print("[CK] save: successful save on attempt \(attempt) to DB")
+                AppDebugLog.log("[CK] save: successful save on attempt \(attempt) to DB")
                 #endif
                 self.currentRecord = saved
                 return true
@@ -472,7 +472,7 @@ final class CKProgressStore: ObservableObject {
                 switch ckErr.code {
                 case .serverRecordChanged:
                     #if DEBUG
-                    print("[CK] serverRecordChanged — fetching latest server record and merging (attempt \(attempt))")
+                    AppDebugLog.log("[CK] serverRecordChanged — fetching latest server record and merging (attempt \(attempt))")
                     #endif
                     // Prefer the serverRecord provided by CKError if present; otherwise fetch explicitly
                     if let serverRec = ckErr.serverRecord {
@@ -481,14 +481,14 @@ final class CKProgressStore: ObservableObject {
                         toSave = merge(local: toSave, server: fetched)
                     } else {
                         #if DEBUG
-                        print("[CK] serverRecordChanged but could not fetch server record — will retry by overwriting")
+                        AppDebugLog.log("[CK] serverRecordChanged but could not fetch server record — will retry by overwriting")
                         #endif
                         // Fall back to keeping toSave as-is and retry
                     }
 
                 case .unknownItem:
                     #if DEBUG
-                    print("[CK] unknownItem — server missing record, recreating and retrying (attempt \(attempt))")
+                    AppDebugLog.log("[CK] unknownItem — server missing record, recreating and retrying (attempt \(attempt))")
                     #endif
                     // Recreate a fresh record with the same ID and copy fields
                     let newRec = CKRecord(recordType: toSave.recordType, recordID: toSave.recordID)
@@ -499,7 +499,7 @@ final class CKProgressStore: ObservableObject {
 
                 default:
                     #if DEBUG
-                    print("[CK] unhandled CKError.code=\(ckErr.code) — \(ckErr.localizedDescription)")
+                    AppDebugLog.log("[CK] unhandled CKError.code=\(ckErr.code) — \(ckErr.localizedDescription)")
                     #endif
                     // Unrecoverable or unexpected error — stop retrying
                     return false

@@ -18,38 +18,40 @@ final class LocationAddressProvider: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var completion: ((String?) -> Void)?
     private var locationCompletion: ((AttendanceLocationSnapshot?) -> Void)?
+    private var pendingRequestAfterAuthorization = false
 
     func getCurrentAddress(completion: @escaping (String?) -> Void) {
         self.completion = completion
         manager.delegate = self
 
-        // Make sure you have NSLocationWhenInUseUsageDescription in Info.plist
-        let status = CLLocationManager.authorizationStatus()
-        if status == .notDetermined {
-            manager.requestWhenInUseAuthorization()
-        }
-
-        manager.requestLocation()
+        requestWhenReady()
     }
 
     func getCurrentLocation(completion: @escaping (AttendanceLocationSnapshot?) -> Void) {
         self.locationCompletion = completion
         manager.delegate = self
 
-        let status = CLLocationManager.authorizationStatus()
-        if status == .notDetermined {
-            manager.requestWhenInUseAuthorization()
-        }
+        requestWhenReady()
+    }
 
-        manager.requestLocation()
+    private func requestWhenReady() {
+        switch manager.authorizationStatus {
+        case .notDetermined:
+            pendingRequestAfterAuthorization = true
+            manager.requestWhenInUseAuthorization()
+        case .authorizedAlways, .authorizedWhenInUse:
+            pendingRequestAfterAuthorization = false
+            manager.requestLocation()
+        case .denied, .restricted:
+            finish(address: nil, snapshot: nil)
+        @unknown default:
+            finish(address: nil, snapshot: nil)
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let loc = locations.last else {
-            completion?(nil)
-            completion = nil
-            locationCompletion?(nil)
-            locationCompletion = nil
+            finish(address: nil, snapshot: nil)
             return
         }
 
@@ -77,9 +79,9 @@ final class LocationAddressProvider: NSObject, CLLocationManagerDelegate {
                 }
 
                 let address = parts.joined(separator: ", ")
-                self.completion?(address.isEmpty ? nil : address)
-                self.locationCompletion?(
-                    AttendanceLocationSnapshot(
+                self.finish(
+                    address: address.isEmpty ? nil : address,
+                    snapshot: AttendanceLocationSnapshot(
                         latitude: loc.coordinate.latitude,
                         longitude: loc.coordinate.longitude,
                         horizontalAccuracy: loc.horizontalAccuracy,
@@ -87,9 +89,9 @@ final class LocationAddressProvider: NSObject, CLLocationManagerDelegate {
                     )
                 )
             } else {
-                self.completion?(nil)
-                self.locationCompletion?(
-                    AttendanceLocationSnapshot(
+                self.finish(
+                    address: nil,
+                    snapshot: AttendanceLocationSnapshot(
                         latitude: loc.coordinate.latitude,
                         longitude: loc.coordinate.longitude,
                         horizontalAccuracy: loc.horizontalAccuracy,
@@ -97,16 +99,23 @@ final class LocationAddressProvider: NSObject, CLLocationManagerDelegate {
                     )
                 )
             }
-
-            self.completion = nil
-            self.locationCompletion = nil
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        completion?(nil)
+        finish(address: nil, snapshot: nil)
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard pendingRequestAfterAuthorization else { return }
+        requestWhenReady()
+    }
+
+    private func finish(address: String?, snapshot: AttendanceLocationSnapshot?) {
+        pendingRequestAfterAuthorization = false
+        completion?(address)
         completion = nil
-        locationCompletion?(nil)
+        locationCompletion?(snapshot)
         locationCompletion = nil
     }
 }

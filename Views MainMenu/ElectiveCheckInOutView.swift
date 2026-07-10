@@ -68,10 +68,7 @@ struct ElectiveCheckInOutView: View {
                 )
                 .overlay(alignment: .top) {
                     if isLoading {
-                        ProgressView("Loading form...")
-                            .padding()
-                            .background(.ultraThinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        LoadingSpinnerView()
                             .padding(.top, 40)
                     }
                 }

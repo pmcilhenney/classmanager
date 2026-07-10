@@ -15,6 +15,7 @@ struct InstructorDashboardView: View {
     @State private var attendance: ClassManagerAPIClient.InstructorAttendance?
     @State private var selectedStudent: ClassManagerAPIClient.DashboardStudent?
     @State private var skillsURL: URL?
+    @State private var isPreparingSkillsForm = false
     @State private var resetCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var resetConfirmationText = ""
     @State private var showingResetText = false
@@ -71,7 +72,7 @@ struct InstructorDashboardView: View {
                 }
             }
             .overlay {
-                if busy && attendance != nil && dashboard == nil {
+                if busy {
                     LoadingSpinnerView()
                 }
             }
@@ -87,16 +88,36 @@ struct InstructorDashboardView: View {
             .sheet(item: $selectedStudent) { student in
                 studentDetail(student)
             }
-            .sheet(item: Binding(
-                get: { skillsURL.map { SkillsURLBox(url: $0) } },
-                set: {
-                    if $0 == nil {
+            .sheet(isPresented: Binding(
+                get: { isPreparingSkillsForm || skillsURL != nil },
+                set: { isPresented in
+                    if !isPresented {
                         skillsURL = nil
+                        isPreparingSkillsForm = false
                         Task { await refresh() }
                     }
                 }
-            )) { box in
-                SkillsWebView(url: box.url)
+            )) {
+                NavigationStack {
+                    ZStack {
+                        if let skillsURL {
+                            SkillsWebView(url: skillsURL)
+                        } else {
+                            LoadingSpinnerView()
+                        }
+                    }
+                    .navigationTitle("Skills Verification")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") {
+                                skillsURL = nil
+                                isPreparingSkillsForm = false
+                                Task { await refresh() }
+                            }
+                        }
+                    }
+                }
             }
             .sheet(item: $attendanceAction) { action in
                 if let course = activeCourse {
@@ -177,11 +198,12 @@ struct InstructorDashboardView: View {
                 Picker("Course", selection: Binding(
                     get: { activeCourse?.id ?? "" },
                     set: { id in
-                        selectedCourse = availableCourses.first { $0.id == id }
+                        selectedCourse = id.isEmpty ? nil : availableCourses.first { $0.id == id }
                         attendance = nil
                         Task { await refresh() }
                     }
                 )) {
+                    Text("Choose a course").tag("")
                     ForEach(availableCourses) { course in
                         Text(coursePickerLabel(course)).tag(course.id)
                     }
@@ -203,7 +225,7 @@ struct InstructorDashboardView: View {
             .disabled(activeCourse == nil || busy)
 
             if busy {
-                ProgressView()
+                LoadingSpinnerView()
             }
 
             Spacer()
@@ -227,11 +249,12 @@ struct InstructorDashboardView: View {
                     Picker("Course", selection: Binding(
                         get: { activeCourse?.id ?? "" },
                         set: { id in
-                            selectedCourse = availableCourses.first { $0.id == id }
+                            selectedCourse = id.isEmpty ? nil : availableCourses.first { $0.id == id }
                             attendance = nil
                             Task { await refresh() }
                         }
                     )) {
+                        Text("Choose a course").tag("")
                         ForEach(availableCourses) { course in
                             Text(coursePickerLabel(course)).tag(course.id)
                         }
@@ -470,8 +493,12 @@ struct InstructorDashboardView: View {
             return
         }
 
-        await MainActor.run { busy = true }
-        defer { Task { @MainActor in busy = false } }
+        await MainActor.run {
+            selectedStudent = nil
+            skillsURL = nil
+            isPreparingSkillsForm = true
+        }
+        defer { Task { @MainActor in isPreparingSkillsForm = false } }
 
         do {
             _ = try await ClassManagerAPIClient.shared.markSkillsOpened(
@@ -493,7 +520,6 @@ struct InstructorDashboardView: View {
 
         await MainActor.run {
             skillsURL = buildSkillsURL(for: student, formURL: formURL, aiComment: aiComment)
-            selectedStudent = nil
         }
         await refresh()
     }
@@ -706,11 +732,6 @@ struct InstructorDashboardView: View {
 private struct InstructorAttendanceAction: Identifiable {
     let id = UUID()
     let inOut: String
-}
-
-private struct SkillsURLBox: Identifiable {
-    let id = UUID()
-    let url: URL
 }
 
 private struct InstructorAttendanceCaptureSheet: View {

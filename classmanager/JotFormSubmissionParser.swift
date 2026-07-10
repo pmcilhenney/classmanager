@@ -74,26 +74,26 @@ struct JotFormSubmissionParser {
         
         // Course Location (QID 46)
         let courseLocation = answer("46")?["answer"] as? String
-        print("[JotFormSubmissionParser] Course Location (QID 46): \(courseLocation ?? "nil")")
+        AppDebugLog.log("[JotFormSubmissionParser] Course Location (QID 46): \(courseLocation ?? "nil")")
 
         if let courseField = answer("39") {
-            print("[JotFormSubmissionParser] Processing QID 39 course field")
+            AppDebugLog.log("[JotFormSubmissionParser] Processing QID 39 course field")
             
             // The answer dictionary contains the selected product info
             if let answerDict = courseField["answer"] as? [String: Any] {
-                print("[JotFormSubmissionParser] Found answer dict with keys: \(answerDict.keys.joined(separator: ", "))")
+                AppDebugLog.log("[JotFormSubmissionParser] Found answer dict with keys: \(answerDict.keys.joined(separator: ", "))")
                 
                 // Check if there's a direct product selection in answer["1"] as JSON string
                 if let productJson = answerDict["1"] as? String,
                    let jsonData = productJson.data(using: .utf8),
                    let parsed = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] {
                     
-                    print("[JotFormSubmissionParser] Parsed product JSON from answer['1']")
+                    AppDebugLog.log("[JotFormSubmissionParser] Parsed product JSON from answer['1']")
                     
                     // Extract course name
                     if let name = parsed["name"] as? String {
                         courseName = name
-                        print("[JotFormSubmissionParser] Course Name: \(name)")
+                        AppDebugLog.log("[JotFormSubmissionParser] Course Name: \(name)")
                     }
                     
                     // Extract course image URL (NEW)
@@ -103,17 +103,17 @@ struct JotFormSubmissionParser {
                            let arr = try? JSONSerialization.jsonObject(with: data) as? [String],
                            let firstImage = arr.first {
                             courseImageURL = firstImage
-                            print("[JotFormSubmissionParser] Course Image URL: \(firstImage)")
+                            AppDebugLog.log("[JotFormSubmissionParser] Course Image URL: \(firstImage)")
                         }
                     } else if let images = parsed["images"] as? [String], let firstImage = images.first {
                         courseImageURL = firstImage
-                        print("[JotFormSubmissionParser] Course Image URL: \(firstImage)")
+                        AppDebugLog.log("[JotFormSubmissionParser] Course Image URL: \(firstImage)")
                     }
                     
                     // Extract description for parsing
                     if let desc = parsed["description"] as? String {
                         courseDescription = desc
-                        print("[JotFormSubmissionParser] Course Description: \(desc)")
+                        AppDebugLog.log("[JotFormSubmissionParser] Course Description: \(desc)")
                         
                         // Parse structured fields from description
                         let parsedFields = parseStructuredCourseDescription(desc)
@@ -122,19 +122,19 @@ struct JotFormSubmissionParser {
                         courseId = parsedFields.id
                         courseCEU = parsedFields.ceu
                         
-                        print("[JotFormSubmissionParser] Parsed - Date: \(courseDate ?? "nil"), Time: \(courseTime ?? "nil"), ID: \(courseId ?? "nil"), CEU: \(courseCEU ?? "nil")")
+                        AppDebugLog.log("[JotFormSubmissionParser] Parsed - Date: \(courseDate ?? "nil"), Time: \(courseTime ?? "nil"), ID: \(courseId ?? "nil"), CEU: \(courseCEU ?? "nil")")
                     }
                     
                     // Extract connected categories (determines Elective vs Refresher)
                     if let cid = parsed["cid"] as? String {
                         courseCategories = [cid]
-                        print("[JotFormSubmissionParser] Course Category (cid): \(cid)")
+                        AppDebugLog.log("[JotFormSubmissionParser] Course Category (cid): \(cid)")
                     } else if let connectedCats = parsed["connectedCategories"] as? String {
                         // connectedCategories arrives as JSON string like '["2002"]'
                         if let data = connectedCats.data(using: .utf8),
                            let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] {
                             courseCategories = arr.compactMap { String(describing: $0) }
-                            print("[JotFormSubmissionParser] Connected Categories: \(courseCategories?.joined(separator: ", ") ?? "none")")
+                            AppDebugLog.log("[JotFormSubmissionParser] Connected Categories: \(courseCategories?.joined(separator: ", ") ?? "none")")
                         } else {
                             // Fallback: parse naive comma-separated values inside brackets
                             let trimmed = connectedCats.replacingOccurrences(of: "[", with: "")
@@ -143,17 +143,17 @@ struct JotFormSubmissionParser {
                                 .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \"'")) }
                             if !parts.isEmpty {
                                 courseCategories = parts.map { String($0) }
-                                print("[JotFormSubmissionParser] Parsed Categories (fallback): \(courseCategories?.joined(separator: ", ") ?? "none")")
+                                AppDebugLog.log("[JotFormSubmissionParser] Parsed Categories (fallback): \(courseCategories?.joined(separator: ", ") ?? "none")")
                             }
                         }
                     }
                 } else {
-                    print("[JotFormSubmissionParser] No product JSON found in answer['1']")
+                    AppDebugLog.log("[JotFormSubmissionParser] No product JSON found in answer['1']")
                 }
                 
                 // FALLBACK: Check paymentArray for course info
                 if courseName == nil, let paymentArray = answerDict["paymentArray"] as? String {
-                    print("[JotFormSubmissionParser] Attempting fallback parse from paymentArray")
+                    AppDebugLog.log("[JotFormSubmissionParser] Attempting fallback parse from paymentArray")
                     if let data = paymentArray.data(using: .utf8),
                        let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                        let products = parsed["product"] as? [String] {
@@ -161,7 +161,7 @@ struct JotFormSubmissionParser {
                             // Extract course name from string like "EMT Refresher A (Amount: 0.00 USD)"
                             if let parenRange = firstProduct.range(of: " (Amount:") {
                                 courseName = String(firstProduct[..<parenRange.lowerBound])
-                                print("[JotFormSubmissionParser] Extracted course name from paymentArray: \(courseName ?? "nil")")
+                                AppDebugLog.log("[JotFormSubmissionParser] Extracted course name from paymentArray: \(courseName ?? "nil")")
                             } else {
                                 courseName = firstProduct
                             }
@@ -173,7 +173,7 @@ struct JotFormSubmissionParser {
             // ADDITIONAL FALLBACK: Check products array in the field
             if courseName == nil || courseCategories == nil {
                 if let products = courseField["products"] as? [[String: Any]], !products.isEmpty {
-                    print("[JotFormSubmissionParser] Checking products array (\(products.count) products)")
+                    AppDebugLog.log("[JotFormSubmissionParser] Checking products array (\(products.count) products)")
                     
                     // Try to find selected product by looking for selected=1 or matching answer
                     var selectedProduct: [String: Any]?
@@ -181,7 +181,7 @@ struct JotFormSubmissionParser {
                     for prod in products {
                         if let selected = prod["selected"] as? String, selected == "1" {
                             selectedProduct = prod
-                            print("[JotFormSubmissionParser] Found selected product via selected='1'")
+                            AppDebugLog.log("[JotFormSubmissionParser] Found selected product via selected='1'")
                             break
                         }
                     }
@@ -189,13 +189,13 @@ struct JotFormSubmissionParser {
                     // If no selected product, use first product as fallback
                     if selectedProduct == nil, let first = products.first {
                         selectedProduct = first
-                        print("[JotFormSubmissionParser] Using first product as fallback")
+                        AppDebugLog.log("[JotFormSubmissionParser] Using first product as fallback")
                     }
                     
                     if let product = selectedProduct {
                         if courseName == nil, let name = product["name"] as? String {
                             courseName = name
-                            print("[JotFormSubmissionParser] Course Name from products: \(name)")
+                            AppDebugLog.log("[JotFormSubmissionParser] Course Name from products: \(name)")
                         }
                         
                         if courseImageURL == nil {
@@ -204,11 +204,11 @@ struct JotFormSubmissionParser {
                                    let arr = try? JSONSerialization.jsonObject(with: data) as? [String],
                                    let firstImage = arr.first {
                                     courseImageURL = firstImage
-                                    print("[JotFormSubmissionParser] Image URL from products: \(firstImage)")
+                                    AppDebugLog.log("[JotFormSubmissionParser] Image URL from products: \(firstImage)")
                                 }
                             } else if let images = product["images"] as? [String], let firstImage = images.first {
                                 courseImageURL = firstImage
-                                print("[JotFormSubmissionParser] Image URL from products: \(firstImage)")
+                                AppDebugLog.log("[JotFormSubmissionParser] Image URL from products: \(firstImage)")
                             }
                         }
                         
@@ -219,18 +219,18 @@ struct JotFormSubmissionParser {
                             courseTime = parsedFields.time
                             courseId = parsedFields.id
                             courseCEU = parsedFields.ceu
-                            print("[JotFormSubmissionParser] Parsed from products - Date: \(courseDate ?? "nil"), ID: \(courseId ?? "nil")")
+                            AppDebugLog.log("[JotFormSubmissionParser] Parsed from products - Date: \(courseDate ?? "nil"), ID: \(courseId ?? "nil")")
                         }
                         
                         if courseCategories == nil {
                             if let cid = product["cid"] as? String {
                                 courseCategories = [cid]
-                                print("[JotFormSubmissionParser] Category from products: \(cid)")
+                                AppDebugLog.log("[JotFormSubmissionParser] Category from products: \(cid)")
                             } else if let connectedCats = product["connectedCategories"] as? String {
                                 if let data = connectedCats.data(using: .utf8),
                                    let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] {
                                     courseCategories = arr.compactMap { String(describing: $0) }
-                                    print("[JotFormSubmissionParser] Categories from products: \(courseCategories?.joined(separator: ", ") ?? "none")")
+                                    AppDebugLog.log("[JotFormSubmissionParser] Categories from products: \(courseCategories?.joined(separator: ", ") ?? "none")")
                                 }
                             }
                         }
@@ -238,9 +238,9 @@ struct JotFormSubmissionParser {
                 }
             }
             
-            print("[JotFormSubmissionParser] FINAL - Name: \(courseName ?? "nil"), Categories: \(courseCategories?.joined(separator: ",") ?? "nil"), Date: \(courseDate ?? "nil"), ID: \(courseId ?? "nil")")
+            AppDebugLog.log("[JotFormSubmissionParser] FINAL - Name: \(courseName ?? "nil"), Categories: \(courseCategories?.joined(separator: ",") ?? "nil"), Date: \(courseDate ?? "nil"), ID: \(courseId ?? "nil")")
         } else {
-            print("[JotFormSubmissionParser] WARNING: No QID 39 found in answers")
+            AppDebugLog.log("[JotFormSubmissionParser] WARNING: No QID 39 found in answers")
         }
 
         // MARK: - Build Student

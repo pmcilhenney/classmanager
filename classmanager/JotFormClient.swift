@@ -244,9 +244,9 @@ extension JotFormClient {
         }
 
         #if DEBUG
-        print("[JotFormClient] upload PDF status \(http.statusCode)")
+        AppDebugLog.log("[JotFormClient] upload PDF status \(http.statusCode)")
         if let s = String(data: data, encoding: .utf8) {
-            print("[JotFormClient] response: \(s)")
+            AppDebugLog.log("[JotFormClient] response: \(s)")
         }
         #endif
 
@@ -342,10 +342,10 @@ extension JotFormClient {
         }()
 
         #if DEBUG
-        print("[JotFormClient] Student courseImageURL: \(student.courseImageURL ?? "nil")")
-        print("[JotFormClient] Student courseId: \(student.courseId ?? "nil")")
-        print("[JotFormClient] Student ceuValue: \(student.ceuValue ?? "nil")")
-        print("[JotFormClient] Student courseLocation: \(student.courseLocation ?? "nil")")
+        AppDebugLog.log("[JotFormClient] Student courseImageURL: \(student.courseImageURL ?? "nil")")
+        AppDebugLog.log("[JotFormClient] Student courseId: \(student.courseId ?? "nil")")
+        AppDebugLog.log("[JotFormClient] Student ceuValue: \(student.ceuValue ?? "nil")")
+        AppDebugLog.log("[JotFormClient] Student courseLocation: \(student.courseLocation ?? "nil")")
         #endif
 
         return RosterAttendee(

@@ -27,7 +27,7 @@ struct ElectiveSignatureWorkspace: View {
                 )
                 .edgesIgnoringSafeArea(.all)
             } else {
-                ProgressView("Preparing elective form…")
+                LoadingSpinnerView()
             }
 
             if let t = toast {
@@ -66,4 +66,3 @@ struct ElectiveSignatureWorkspace: View {
         }
     }
 }
-

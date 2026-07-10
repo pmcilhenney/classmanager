@@ -50,7 +50,7 @@ final class CourseMaterialsManager: ObservableObject {
         let wantName = canonicalName(courseType)
         
         #if DEBUG
-        print("[Materials] Looking for course: '\(courseType)' -> canonical: '\(wantName)'")
+        AppDebugLog.log("[Materials] Looking for course: '\(courseType)' -> canonical: '\(wantName)'")
         #endif
         
         let base = "https://api.jotform.com"
@@ -74,7 +74,7 @@ final class CourseMaterialsManager: ObservableObject {
             }
             
             #if DEBUG
-            print("[Materials] Found \(content.count) total submissions")
+            AppDebugLog.log("[Materials] Found \(content.count) total submissions")
             #endif
             
             let result = findMatchingSubmission(wantName: wantName, submissions: content)
@@ -84,9 +84,9 @@ final class CourseMaterialsManager: ObservableObject {
                 let items = materialsFromAnswers(answers)
                 
                 #if DEBUG
-                print("[Materials] Extracted \(items.count) PDF(s)")
+                AppDebugLog.log("[Materials] Extracted \(items.count) PDF(s)")
                 for (idx, item) in items.enumerated() {
-                    print("[Materials]   [\(idx)]: '\(item.0)' -> \(item.1)")
+                    AppDebugLog.log("[Materials]   [\(idx)]: '\(item.0)' -> \(item.1)")
                 }
                 #endif
                 
@@ -102,9 +102,9 @@ final class CourseMaterialsManager: ObservableObject {
                 
             case .multipleCandidates(let candidates):
                 #if DEBUG
-                print("[Materials] No exact match found. Candidates: \(candidates.count)")
+                AppDebugLog.log("[Materials] No exact match found. Candidates: \(candidates.count)")
                 for (idx, cand) in candidates.enumerated() {
-                    print("[Materials]   Candidate #\(idx): \(cand.1)")
+                    AppDebugLog.log("[Materials]   Candidate #\(idx): \(cand.1)")
                 }
                 #endif
                 
@@ -117,7 +117,7 @@ final class CourseMaterialsManager: ObservableObject {
             
         } catch {
             #if DEBUG
-            print("[Materials] Error: \(error)")
+            AppDebugLog.log("[Materials] Error: \(error)")
             #endif
             errorMessage = "Failed to load materials: \(error.localizedDescription)"
         }
@@ -128,7 +128,7 @@ final class CourseMaterialsManager: ObservableObject {
         let items = materialsFromAnswers(answers)
         
         #if DEBUG
-        print("[Materials] User selected course, found \(items.count) PDF(s)")
+        AppDebugLog.log("[Materials] User selected course, found \(items.count) PDF(s)")
         #endif
         
         materialCandidates = []
@@ -213,7 +213,7 @@ final class CourseMaterialsManager: ObservableObject {
             
             guard let ans = answers else {
                 #if DEBUG
-                print("[Materials] Submission #\(idx) has no parseable answers, keys: \(Array(submission.keys))")
+                AppDebugLog.log("[Materials] Submission #\(idx) has no parseable answers, keys: \(Array(submission.keys))")
                 #endif
                 continue
             }
@@ -223,7 +223,7 @@ final class CourseMaterialsManager: ObservableObject {
             
             guard !title.isEmpty else {
                 #if DEBUG
-                print("[Materials] Submission #\(idx) has empty title")
+                AppDebugLog.log("[Materials] Submission #\(idx) has empty title")
                 #endif
                 continue
             }
@@ -231,7 +231,7 @@ final class CourseMaterialsManager: ObservableObject {
             let have = canonicalName(title)
             
             #if DEBUG
-            print("[Materials] Submission #\(idx): '\(title)' -> canonical: '\(have)'")
+            AppDebugLog.log("[Materials] Submission #\(idx): '\(title)' -> canonical: '\(have)'")
             #endif
             
             if fuzzyMatch(want: wantName, have: have) {
@@ -255,9 +255,9 @@ final class CourseMaterialsManager: ObservableObject {
         let overlap = ta.intersection(tb)
         
         #if DEBUG
-        print("[Materials]   want tokens: \(ta)")
-        print("[Materials]   have tokens: \(tb)")
-        print("[Materials]   overlap: \(overlap) (count: \(overlap.count))")
+        AppDebugLog.log("[Materials]   want tokens: \(ta)")
+        AppDebugLog.log("[Materials]   have tokens: \(tb)")
+        AppDebugLog.log("[Materials]   overlap: \(overlap) (count: \(overlap.count))")
         #endif
         
         let shorter = ta.count <= tb.count ? ta : tb
@@ -266,14 +266,14 @@ final class CourseMaterialsManager: ObservableObject {
         
         if isSubset {
             #if DEBUG
-            print("[Materials]   ✓ MATCH via subset")
+            AppDebugLog.log("[Materials]   ✓ MATCH via subset")
             #endif
             return true
         }
         
         if overlap.count >= 2 {
             #if DEBUG
-            print("[Materials]   ✓ MATCH via overlap (2+ tokens)")
+            AppDebugLog.log("[Materials]   ✓ MATCH via overlap (2+ tokens)")
             #endif
             return true
         }
@@ -284,7 +284,7 @@ final class CourseMaterialsManager: ObservableObject {
             
             if startsWith || endsWith {
                 #if DEBUG
-                print("[Materials]   ✓ MATCH via prefix/suffix")
+                AppDebugLog.log("[Materials]   ✓ MATCH via prefix/suffix")
                 #endif
                 return true
             }
@@ -296,13 +296,13 @@ final class CourseMaterialsManager: ObservableObject {
     /// Extract course title from QID 3 answers
     private func titleFromAnswers(_ answers: [String: Any]) -> String {
         #if DEBUG
-        print("[Materials] titleFromAnswers: keys=\(Array(answers.keys))")
+        AppDebugLog.log("[Materials] titleFromAnswers: keys=\(Array(answers.keys))")
         #endif
         
         // QID 3 is courseName
         if let field = answers["3"] as? [String: Any] {
             #if DEBUG
-            print("[Materials] Found QID 3: \(field)")
+            AppDebugLog.log("[Materials] Found QID 3: \(field)")
             #endif
             
             if let s = field["answer"] as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -319,7 +319,7 @@ final class CourseMaterialsManager: ObservableObject {
                let name = dict["name"] as? String,
                name == "courseName" {
                 #if DEBUG
-                print("[Materials] Found courseName field at QID \(qid): \(dict)")
+                AppDebugLog.log("[Materials] Found courseName field at QID \(qid): \(dict)")
                 #endif
                 
                 if let s = dict["answer"] as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -339,7 +339,7 @@ final class CourseMaterialsManager: ObservableObject {
         var result: [(String, URL)] = []
         
         #if DEBUG
-        print("[Materials] materialsFromAnswers: keys=\(Array(answers.keys))")
+        AppDebugLog.log("[Materials] materialsFromAnswers: keys=\(Array(answers.keys))")
         #endif
         
         // QID 4 is courseMaterials
@@ -352,7 +352,7 @@ final class CourseMaterialsManager: ObservableObject {
                    let name = dict["name"] as? String,
                    name == "courseMaterials" {
                     #if DEBUG
-                    print("[Materials] Found courseMaterials field at QID \(qid)")
+                    AppDebugLog.log("[Materials] Found courseMaterials field at QID \(qid)")
                     #endif
                     field = dict
                     break
@@ -362,19 +362,19 @@ final class CourseMaterialsManager: ObservableObject {
         
         guard let f = field else {
             #if DEBUG
-            print("[Materials] No field found for QID 4 or courseMaterials")
+            AppDebugLog.log("[Materials] No field found for QID 4 or courseMaterials")
             #endif
             return result
         }
         
         #if DEBUG
-        print("[Materials] Field QID 4 content: \(f)")
+        AppDebugLog.log("[Materials] Field QID 4 content: \(f)")
         #endif
         
         // Handle array of URLs
         if let arr = f["answer"] as? [String] {
             #if DEBUG
-            print("[Materials] Found answer array with \(arr.count) items")
+            AppDebugLog.log("[Materials] Found answer array with \(arr.count) items")
             #endif
             
             for s in arr {
@@ -383,13 +383,13 @@ final class CourseMaterialsManager: ObservableObject {
                     result.append((filename, u))
                     
                     #if DEBUG
-                    print("[Materials] Added PDF: '\(filename)' -> \(u)")
+                    AppDebugLog.log("[Materials] Added PDF: '\(filename)' -> \(u)")
                     #endif
                 }
             }
         } else if let s = f["answer"] as? String {
             #if DEBUG
-            print("[Materials] Found single answer string: \(s)")
+            AppDebugLog.log("[Materials] Found single answer string: \(s)")
             #endif
             
             if let u = URL(string: s) {
@@ -398,7 +398,7 @@ final class CourseMaterialsManager: ObservableObject {
             }
         } else {
             #if DEBUG
-            print("[Materials] Answer field is neither array nor string, type: \(type(of: f["answer"]))")
+            AppDebugLog.log("[Materials] Answer field is neither array nor string, type: \(type(of: f["answer"]))")
             #endif
         }
         

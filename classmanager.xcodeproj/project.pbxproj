@@ -51,6 +51,7 @@
 		20E6BCCE2EE54F8A00DE32CE /* Exceptions for "classmanager" folder in "classmanager" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Archive,
 				Info.plist,
 			);
 			target = 201B0B902EBE52AF00F95095 /* classmanager */;
@@ -127,20 +128,20 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		2027D9AF2F0484A600290223 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				2027D9B02F0484A600290223 /* BackgroundTasks.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		201B0BAD2EBE52B000F95095 /* Config */ = {
 			isa = PBXGroup;
 			children = (
 				201B0BAC2EBE52B000F95095 /* App.xcconfig */,
 			);
 			path = Config;
+			sourceTree = "<group>";
+		};
+		2027D9AF2F0484A600290223 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2027D9B02F0484A600290223 /* BackgroundTasks.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		20E6BCBF2EE5457C00DE32CE /* Views MainMenu */ = {
@@ -472,20 +473,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 201B0BAC2EBE52B000F95095 /* App.xcconfig */;
 			buildSettings = {
+				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = classmanager/classmanager.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = XN2T2J875A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = classmanager/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "GCEMS Classes";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is needed to access the QR scanner  ";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to determine the location of the course.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used to scan student and instructor QR codes.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to document the course location for attendance records.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -496,7 +498,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gcems.classmanager;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -514,20 +516,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 201B0BAC2EBE52B000F95095 /* App.xcconfig */;
 			buildSettings = {
+				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = classmanager/classmanager.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = XN2T2J875A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = classmanager/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "GCEMS Classes";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				INFOPLIST_KEY_NSCameraUsageDescription = "The camera is needed to access the QR scanner  ";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to determine the location of the course.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used to scan student and instructor QR codes.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location is used to document the course location for attendance records.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -538,7 +541,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gcems.classmanager;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

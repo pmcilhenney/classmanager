@@ -549,8 +549,12 @@ struct MainMenuView: View {
             ZStack {
                 if showingElectiveForm, let url = electiveFormURL {
                     ElectiveFormContainer(url: url, title: electiveFormTitle, onClose: { showingElectiveForm = false })
-                } else if showSkills, let url = skillsURL {
-                    SkillsWebView(url: url)
+                } else if showSkills {
+                    if let url = skillsURL {
+                        SkillsWebView(url: url)
+                    } else {
+                        LoadingSpinnerView()
+                    }
                 } else if showingElectiveQuiz, let url = electiveQuizURL {
                     WebViewContainer(url: url)
                 } else if showingQuizzes {
@@ -1263,8 +1267,13 @@ struct MainMenuView: View {
         if authenticatedInstructor == nil { showingInstructorGate = true; return }
         guard !skillsFormId.isEmpty else { toast = "Skills validation form not configured for this course."; return }
         Task { @MainActor in
-            busy = true; generatingComment = true
-            defer { busy = false; generatingComment = false }
+            skillsURL = nil
+            showSkills = true
+            showQuizWorkspace = false
+            showingMaterials = false
+            showingElectiveForm = false
+            generatingComment = true
+            defer { generatingComment = false }
             let studentName = "\(attendee.firstName) \(attendee.lastName)"
             let courseTitle = cleanCourseName(attendee.courseType)
             let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1282,13 +1291,10 @@ struct MainMenuView: View {
             )
             if let url = buildSkillsURL(aiComment: aiComment) {
                 skillsURL = url
-                showSkills = true
-                showQuizWorkspace = false
-                showingMaterials = false
-                showingElectiveForm = false
                 didOpenSkills = true
                 progressStore.markSkills()
             } else {
+                showSkills = false
                 toast = "Unable to build skills validation form URL."
             }
         }
@@ -1873,7 +1879,7 @@ private struct CourseImageView: View {
             AsyncImage(url: url) { phase in
                 switch phase {
                 case .empty:
-                    ProgressView()
+                    LoadingSpinnerView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 case .success(let image):
                     image
@@ -1937,18 +1943,66 @@ private struct ElectiveFormContainer: View {
     }
 }
 
-private struct WebViewContainer: UIViewRepresentable {
+private struct WebViewContainer: View {
     let url: URL
+    @State private var isLoading = true
+
+    var body: some View {
+        ZStack {
+            LoadedWebView(url: url, isLoading: $isLoading)
+            if isLoading {
+                LoadingSpinnerView()
+            }
+        }
+    }
+}
+
+private struct LoadedWebView: UIViewRepresentable {
+    let url: URL
+    @Binding var isLoading: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isLoading: $isLoading)
+    }
+
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView(frame: .zero)
+        webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.backgroundColor = .systemBackground
+        isLoading = true
         webView.load(URLRequest(url: url))
         return webView
     }
+
     func updateUIView(_ uiView: WKWebView, context: Context) {
         if uiView.url != url {
+            isLoading = true
             uiView.load(URLRequest(url: url))
+        }
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate {
+        @Binding var isLoading: Bool
+
+        init(isLoading: Binding<Bool>) {
+            _isLoading = isLoading
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            isLoading = true
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            isLoading = false
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            isLoading = false
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            isLoading = false
         }
     }
 }
@@ -1956,27 +2010,39 @@ private struct WebViewContainer: UIViewRepresentable {
 // WebView that detects a JotForm thank-you page by inspecting the page text or URL and calls onComplete once detected.
 private struct SurveyWebView: UIViewRepresentable {
     let url: URL
+    @Binding var isLoading: Bool
     var onComplete: () -> Void
-    func makeCoordinator() -> Coordinator { Coordinator(onComplete: onComplete) }
+    func makeCoordinator() -> Coordinator { Coordinator(isLoading: $isLoading, onComplete: onComplete) }
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView(frame: .zero)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.backgroundColor = .systemBackground
+        isLoading = true
         webView.load(URLRequest(url: url))
         return webView
     }
     func updateUIView(_ uiView: WKWebView, context: Context) {
         if uiView.url != url {
+            isLoading = true
             uiView.load(URLRequest(url: url))
         }
     }
 
     class Coordinator: NSObject, WKNavigationDelegate {
+        @Binding var isLoading: Bool
         var onComplete: () -> Void
-        init(onComplete: @escaping () -> Void) { self.onComplete = onComplete }
+        init(isLoading: Binding<Bool>, onComplete: @escaping () -> Void) {
+            _isLoading = isLoading
+            self.onComplete = onComplete
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            isLoading = true
+        }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            isLoading = false
             // Detect the exact thank-you marker added to the JotForm thank-you page.
             let completionMarker = "6e0a9b0f6f6d5a0d2d3d2c88c97e7b1a"
             // Check URL first
@@ -1993,6 +2059,14 @@ private struct SurveyWebView: UIViewRepresentable {
                 }
             }
         }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            isLoading = false
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            isLoading = false
+        }
     }
 }
 
@@ -2000,14 +2074,20 @@ private struct CheckoutSurveyContainer: View {
     let url: URL
     let onComplete: () -> Void
     let onCancel: () -> Void
+    @State private var isLoading = true
+
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                SurveyWebView(url: url, onComplete: {
+            ZStack {
+                SurveyWebView(url: url, isLoading: $isLoading, onComplete: {
                     // Close and notify
                     onComplete()
                 })
                 .edgesIgnoringSafeArea(.bottom)
+
+                if isLoading {
+                    LoadingSpinnerView()
+                }
             }
             .navigationBarItems(leading: Button(action: onCancel) { Image(systemName: "xmark.circle.fill") })
         }

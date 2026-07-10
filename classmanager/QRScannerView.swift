@@ -20,6 +20,15 @@ final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsDelegate 
     private var isClosed = false
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var orientationObserver: NSObjectProtocol?
+    private let messageLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.font = .preferredFont(forTextStyle: .headline)
+        return label
+    }()
     private let closeButton: UIButton = {
         let button = UIButton(type: .system)
         let image = UIImage(systemName: "xmark.circle.fill")
@@ -35,9 +44,39 @@ final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsDelegate 
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        view.backgroundColor = .black
+        installCloseButton()
+
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            configureCamera()
+        case .notDetermined:
+            showScannerMessage("Waiting for camera permission...")
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if granted {
+                        self.messageLabel.removeFromSuperview()
+                        self.configureCamera()
+                    } else {
+                        self.showScannerMessage("Camera access is required to scan QR codes. You can enable it in Settings.")
+                    }
+                }
+            }
+        case .denied, .restricted:
+            showScannerMessage("Camera access is required to scan QR codes. You can enable it in Settings.")
+        @unknown default:
+            showScannerMessage("The camera is unavailable on this device.")
+        }
+    }
+
+    private func configureCamera() {
         guard let device = AVCaptureDevice.default(for: .video),
               let input = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(input) else { return }
+              session.canAddInput(input) else {
+            showScannerMessage("The camera is unavailable on this device.")
+            return
+        }
         session.addInput(input)
         
         do {
@@ -53,11 +92,14 @@ final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsDelegate 
             }
             device.unlockForConfiguration()
         } catch {
-            print("[QRScanner] Failed to configure camera: \(error)")
+            AppDebugLog.log("[QRScanner] Failed to configure camera: \(error)")
         }
 
         let output = AVCaptureMetadataOutput()
-        guard session.canAddOutput(output) else { return }
+        guard session.canAddOutput(output) else {
+            showScannerMessage("The camera scanner could not be started.")
+            return
+        }
         session.addOutput(output)
         output.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
         output.metadataObjectTypes = [.qr]
@@ -67,8 +109,8 @@ final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsDelegate 
         preview.frame = view.layer.bounds
         view.layer.addSublayer(preview)
         self.previewLayer = preview
+        view.bringSubviewToFront(closeButton)
         updateVideoOrientation()
-        installCloseButton()
 
         DispatchQueue.global(qos: .userInitiated).async {
             self.session.startRunning()
@@ -80,6 +122,20 @@ final class ScannerVC: UIViewController, AVCaptureMetadataOutputObjectsDelegate 
         orientationObserver = NotificationCenter.default.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.updateVideoOrientation()
         }
+    }
+
+    private func showScannerMessage(_ message: String) {
+        messageLabel.text = message
+        if messageLabel.superview == nil {
+            view.addSubview(messageLabel)
+            NSLayoutConstraint.activate([
+                messageLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
+                messageLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
+                messageLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            ])
+        }
+        view.bringSubviewToFront(messageLabel)
+        view.bringSubviewToFront(closeButton)
     }
 
     override func viewDidLayoutSubviews() {

@@ -346,6 +346,10 @@ export default {
         return await rmsFlexiQuizResult(request, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/rms/instructor-attendance") {
+        return await rmsInstructorAttendance(request, env);
+      }
+
       if (request.method === "GET" && url.pathname.startsWith("/quiz/metadata/")) {
         return await quizMetadata(url, env);
       }
@@ -490,7 +494,7 @@ async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext
     console.warn("background registration course refresh failed", error);
   }));
   const courses = await resolveInstructorCourses(env);
-  const defaultCourse = courses.find((course) => course.isToday);
+  const defaultCourse = courses.find(isInstructorAutoDefaultCourse);
   const attendance = defaultCourse
     ? await instructorAttendanceForCourse(env, personId, defaultCourse.classSessionId)
     : undefined;
@@ -657,10 +661,85 @@ async function instructorAttendanceSubmit(request: Request, env: Env): Promise<R
   });
 }
 
+async function rmsInstructorAttendance(request: Request, env: Env): Promise<Response> {
+  if (!rmsCallbackAuthorized(request, env)) {
+    return json({ error: "unauthorized" }, 401);
+  }
+
+  const body = await readJson(request);
+  const personId = stringField(body, "personId") ?? stringField(body, "person_id");
+  const action = stringField(body, "action") ?? stringField(body, "inOut");
+  const classSessionId = stringField(body, "classSessionId") ?? stringField(body, "class_session_id");
+  const courseId = stringField(body, "courseId") ?? stringField(body, "course_id");
+  const courseTitle = stringField(body, "courseTitle") ?? stringField(body, "course_title") ?? "Class Session";
+  const courseDate = stringField(body, "courseDate") ?? stringField(body, "course_date") ?? classSessionId;
+  const signedAt = stringField(body, "signedAt") ?? stringField(body, "signed_at") ?? new Date().toISOString();
+  const now = new Date().toISOString();
+
+  if (!personId || !action || !classSessionId || !courseDate) {
+    return json({ error: "missing_instructor_attendance_fields" }, 400);
+  }
+
+  const normalizedAction = action.toLowerCase();
+  const isCheckIn = normalizedAction.includes("in") && !normalizedAction.includes("out");
+  const isCheckOut = normalizedAction.includes("out");
+  if (!isCheckIn && !isCheckOut) {
+    return json({ error: "invalid_action" }, 400);
+  }
+
+  const attendanceId = `${personId}:${classSessionId}`;
+  const instructor = await resolveInstructorProfile(env, personId);
+  await upsertInstructorProfile(env, instructor, now);
+
+  await env.DB.prepare(
+    `INSERT INTO instructor_attendance (
+       id, person_id, device_id, class_session_id, course_id, course_title,
+       course_date, source, checked_in_at, checked_out_at, updated_at
+     ) VALUES (?1, ?2, NULL, ?3, ?4, ?5, ?6, 'person_access', ?7, ?8, ?9)
+     ON CONFLICT(id) DO UPDATE SET
+       course_id = COALESCE(excluded.course_id, instructor_attendance.course_id),
+       course_title = COALESCE(excluded.course_title, instructor_attendance.course_title),
+       course_date = COALESCE(excluded.course_date, instructor_attendance.course_date),
+       source = CASE
+         WHEN instructor_attendance.source IS NULL OR instructor_attendance.source = '' THEN excluded.source
+         ELSE instructor_attendance.source
+       END,
+       checked_in_at = COALESCE(instructor_attendance.checked_in_at, excluded.checked_in_at),
+       checked_out_at = COALESCE(excluded.checked_out_at, instructor_attendance.checked_out_at),
+       updated_at = excluded.updated_at`
+  ).bind(
+    attendanceId,
+    personId,
+    classSessionId,
+    courseId ?? null,
+    courseTitle,
+    courseDate,
+    isCheckIn ? signedAt : null,
+    isCheckOut ? signedAt : null,
+    now
+  ).run();
+
+  const attendance = await instructorAttendanceForId(env, attendanceId);
+  await audit(env, "rms.instructor_attendance", {
+    actorId: personId,
+    classSessionId,
+    payload: {
+      attendanceId,
+      action,
+      signedAt,
+      courseId: courseId ?? null,
+      courseTitle
+    }
+  });
+
+  return json({ ok: true, attendance, updatedAt: now });
+}
+
 async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   const limit = Math.min(Math.max(numberFromUnknown(url.searchParams.get("limit")) ?? 100, 1), 250);
   const courses = await resolveInstructorCourses(env);
-  const classSessionId = url.searchParams.get("classSessionId")?.trim() || courses.find((course) => course.isToday)?.classSessionId || courses[0]?.classSessionId;
+  const requestedClassSessionId = url.searchParams.get("classSessionId")?.trim();
+  const classSessionId = requestedClassSessionId || courses.find(isInstructorAutoDefaultCourse)?.classSessionId;
   const selectedCourse = courses.find((course) => course.classSessionId === classSessionId);
   const instructorPersonId = url.searchParams.get("instructorPersonId")?.trim();
   const deviceId = url.searchParams.get("deviceId")?.trim();
@@ -1476,7 +1555,7 @@ function compareInstructorCourses(a: InstructorCourse, b: InstructorCourse): num
   const aLegacy = Boolean(a.alwaysInclude && aValue === Number.MAX_SAFE_INTEGER);
   const bLegacy = Boolean(b.alwaysInclude && bValue === Number.MAX_SAFE_INTEGER);
   if (aLegacy !== bLegacy) {
-    return aLegacy ? -1 : 1;
+    return aLegacy ? 1 : -1;
   }
   const aPast = aValue < today;
   const bPast = bValue < today;
@@ -1487,6 +1566,10 @@ function compareInstructorCourses(a: InstructorCourse, b: InstructorCourse): num
     return aPast ? bValue - aValue : aValue - bValue;
   }
   return a.title.localeCompare(b.title);
+}
+
+function isInstructorAutoDefaultCourse(course: InstructorCourse): boolean {
+  return course.isToday && !course.alwaysInclude;
 }
 
 function datesMatchToday(rawDate: string): boolean {

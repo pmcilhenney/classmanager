@@ -61,8 +61,7 @@ struct LegacyFlexiQuizWebView: View {
                 
                 if isLoading {
                     VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
+                        LoadingSpinnerView()
                         Text("Loading quiz...")
                             .font(.subheadline)
                             .foregroundColor(.secondary)

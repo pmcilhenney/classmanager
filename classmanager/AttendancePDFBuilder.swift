@@ -34,7 +34,7 @@ struct AttendancePDFBuilder {
             let basePage = baseDoc.page(at: 0),
             let cgPage = basePage.pageRef
         else {
-            print("[AttendancePDFBuilder] Failed to load PDF_Template.pdf")
+            AppDebugLog.log("[AttendancePDFBuilder] Failed to load PDF_Template.pdf")
             return nil
         }
 

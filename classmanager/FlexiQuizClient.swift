@@ -104,8 +104,8 @@ final class FlexiQuizClient {
         guard let http = resp as? HTTPURLResponse else { throw fxError("No HTTP response") }
 
         #if DEBUG
-        print("[FlexiQuiz:findUserId] \(http.statusCode)")
-        if http.statusCode >= 300, let s = String(data: data, encoding: .utf8) { print(s) }
+        AppDebugLog.log("[FlexiQuiz:findUserId] \(http.statusCode)")
+        if http.statusCode >= 300, let s = String(data: data, encoding: .utf8) { AppDebugLog.log(s) }
         #endif
 
         guard http.statusCode == 200 else { return nil }
@@ -151,8 +151,8 @@ final class FlexiQuizClient {
         guard let http = resp as? HTTPURLResponse else { throw fxError("No HTTP response") }
 
         #if DEBUG
-        print("[FlexiQuiz:createUser] \(http.statusCode)")
-        if http.statusCode >= 300, let s = String(data: data, encoding: .utf8) { print(s) }
+        AppDebugLog.log("[FlexiQuiz:createUser] \(http.statusCode)")
+        if http.statusCode >= 300, let s = String(data: data, encoding: .utf8) { AppDebugLog.log(s) }
         #endif
 
         guard http.statusCode == 200 else {
@@ -184,8 +184,8 @@ final class FlexiQuizClient {
         guard let http = resp as? HTTPURLResponse else { throw fxError("No HTTP response") }
 
         #if DEBUG
-        print("[FlexiQuiz:assignQuiz] \(http.statusCode)")
-        if http.statusCode >= 300, let s = String(data: data, encoding: .utf8) { print(s) }
+        AppDebugLog.log("[FlexiQuiz:assignQuiz] \(http.statusCode)")
+        if http.statusCode >= 300, let s = String(data: data, encoding: .utf8) { AppDebugLog.log(s) }
         #endif
 
         guard (200...299).contains(http.statusCode) else {
@@ -206,7 +206,7 @@ final class FlexiQuizClient {
             url = try makeURL(path: "/v1/users/\(userId)/responses")
         } catch {
             #if DEBUG
-            print("[FlexiQuiz:latestResponseReportURL] Bad URL: \(error)")
+            AppDebugLog.log("[FlexiQuiz:latestResponseReportURL] Bad URL: \(error)")
             #endif
             return nil
         }
@@ -222,7 +222,7 @@ final class FlexiQuizClient {
             req = try makePOST(url: url, body: body)
         } catch {
             #if DEBUG
-            print("[FlexiQuiz:latestResponseReportURL] Failed to make POST request: \(error)")
+            AppDebugLog.log("[FlexiQuiz:latestResponseReportURL] Failed to make POST request: \(error)")
             #endif
             return nil
         }
@@ -232,20 +232,20 @@ final class FlexiQuizClient {
             (data, resp) = try await session.data(for: req)
         } catch {
             #if DEBUG
-            print("[FlexiQuiz:latestResponseReportURL] Network error: \(error)")
+            AppDebugLog.log("[FlexiQuiz:latestResponseReportURL] Network error: \(error)")
             #endif
             return nil
         }
 
         guard let http = resp as? HTTPURLResponse else {
             #if DEBUG
-            print("[FlexiQuiz:latestResponseReportURL] No HTTP response")
+            AppDebugLog.log("[FlexiQuiz:latestResponseReportURL] No HTTP response")
             #endif
             return nil
         }
 
         #if DEBUG
-        print("[FlexiQuiz:latestResponseReportURL] \(http.statusCode)")
+        AppDebugLog.log("[FlexiQuiz:latestResponseReportURL] \(http.statusCode)")
         #endif
 
         guard (200...299).contains(http.statusCode) else { return nil }

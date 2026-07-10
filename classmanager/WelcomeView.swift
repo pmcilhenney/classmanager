@@ -186,7 +186,7 @@ struct WelcomeView: View {
                             }
                             .padding(.top, 16)
                         } else if eventsManager.isLoading {
-                            ProgressView("Loading upcoming events...")
+                            LoadingSpinnerView()
                                 .padding()
                         }
                     }
@@ -605,7 +605,7 @@ struct EventCard: View {
                 AsyncImage(url: imageURL) { phase in
                     switch phase {
                     case .empty:
-                        ProgressView()
+                        LoadingSpinnerView()
                             .frame(height: 120)
                             .frame(maxWidth: .infinity)
                     case .success(let image):

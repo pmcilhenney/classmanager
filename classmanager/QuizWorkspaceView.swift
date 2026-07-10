@@ -261,7 +261,7 @@ struct QuizWorkspaceView: View {
         let courseName = cleanCourseName(attendee.courseType)
 
         #if DEBUG
-        print("[Quiz] courseName(cleaned)=\(courseName)")
+        AppDebugLog.log("[Quiz] courseName(cleaned)=\(courseName)")
         #endif
 
         // Fuzzy match: treat any course containing "pepp" or the full phrase as PEPP
@@ -269,7 +269,7 @@ struct QuizWorkspaceView: View {
         let isPEPP = lower.contains("pepp") || lower.contains("pediatric education for prehospital professionals")
 
         #if DEBUG
-        print("[Quiz] isPEPP=\(isPEPP)")
+        AppDebugLog.log("[Quiz] isPEPP=\(isPEPP)")
         #endif
 
         let resolvedQuizId: String? = {
@@ -289,10 +289,10 @@ struct QuizWorkspaceView: View {
 
         #if DEBUG
         let dbgId = resolvedQuizId ?? "(nil)"
-        print("[Quiz] resolvedQuizId=\(dbgId)")
+        AppDebugLog.log("[Quiz] resolvedQuizId=\(dbgId)")
         if isPEPP, dbgId == "(nil)" {
             let raw = Bundle.main.object(forInfoDictionaryKey: "PEPP_QUIZ_ID") as? String ?? "(missing)"
-            print("[Quiz] PEPP_QUIZ_ID from Info.plist=\(raw)")
+            AppDebugLog.log("[Quiz] PEPP_QUIZ_ID from Info.plist=\(raw)")
         }
         #endif
 
@@ -318,7 +318,7 @@ struct QuizWorkspaceView: View {
             )
         } catch {
             #if DEBUG
-            print("[Quiz] Worker assign/SSO failed: \(error)")
+            AppDebugLog.log("[Quiz] Worker assign/SSO failed: \(error)")
             #endif
             await MainActor.run {
                 isLoading = false
@@ -328,7 +328,7 @@ struct QuizWorkspaceView: View {
         }
 
         #if DEBUG
-        print("[Quiz] Worker SSO URL generated successfully warnings=\(launch.warnings)")
+        AppDebugLog.log("[Quiz] Worker SSO URL generated successfully warnings=\(launch.warnings)")
         #endif
 
         await MainActor.run {
