@@ -276,10 +276,21 @@ struct MainMenuView: View {
     }
 
     private var completedTrackedQuizCount: Int {
-        Set(progressStore.progress.completedQuizIDs)
+        if hasCompletedVersionAFullExam {
+            return trackedQuizCount
+        }
+        return Set(progressStore.progress.completedQuizIDs)
             .union(completedQuizzes)
             .intersection(trackedQuizIds)
             .count
+    }
+
+    private var hasCompletedVersionAFullExam: Bool {
+        guard let finalQuizId = progressStore.progress.finalExamResult?.quizId,
+              let combinedQuizId = getQuizzesForCourse().first?.flexiQuizId else {
+            return false
+        }
+        return finalQuizId == combinedQuizId || QuizInfo.isVersionBQuizId(finalQuizId)
     }
 
     private var checkInGate: some View {
@@ -1378,6 +1389,10 @@ struct MainMenuView: View {
         }
 
         guard trackedQuizIds.contains(quiz.id) else {
+            if QuizInfo.isCombinedVersionAQuizId(quiz.flexiQuizId) {
+                markAllTrackedQuizzesComplete()
+            }
+
             if QuizInfo.isCombinedVersionAQuizId(quiz.flexiQuizId) && review.passed == false {
                 let markerId = QuizInfo.versionAReviewMarkerId(for: quiz.flexiQuizId)
                 completedQuizzes.insert(markerId)
@@ -1415,6 +1430,15 @@ struct MainMenuView: View {
     private func recordQuizCheckpoint(quiz: QuizInfo) {
         completedQuizzes.insert(quiz.id)
         progressStore.markQuizResult(quiz.id, result: "Section submitted")
+    }
+
+    private func markAllTrackedQuizzesComplete() {
+        for quizId in trackedQuizIds {
+            completedQuizzes.insert(quizId)
+            if progressStore.progress.quizResults[quizId] == nil {
+                progressStore.markQuizResult(quizId, result: "Section submitted")
+            }
+        }
     }
 
     private func quizResultSummary(_ review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> String {

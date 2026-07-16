@@ -3048,6 +3048,7 @@ async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response>
         apnsEnvironment: normalizeApnsEnvironment(stringField(context, "apns_environment")),
         studentId,
         classSessionId,
+        instructorName: await instructorDisplayNameForClassSession(env, classSessionId),
         result: {
           ...finalResult,
           quizId,
@@ -3243,6 +3244,32 @@ async function studentDisplayName(env: Env, studentId?: string): Promise<string>
     .join(" ")
     .trim();
   return name || "Student";
+}
+
+async function instructorDisplayNameForClassSession(env: Env, classSessionId?: string): Promise<string | undefined> {
+  if (!classSessionId) {
+    return undefined;
+  }
+  const rows = await env.DB.prepare(
+    `SELECT DISTINCT i.full_name
+     FROM instructor_attendance ia
+     JOIN instructors i ON i.person_id = ia.person_id
+     WHERE ia.class_session_id = ?1
+       AND i.full_name IS NOT NULL
+       AND TRIM(i.full_name) <> ''
+     ORDER BY ia.checked_in_at ASC
+     LIMIT 2`
+  ).bind(classSessionId).all<JsonRecord>();
+  const names = (rows.results ?? [])
+    .map((row) => stringField(row, "full_name"))
+    .filter((name): name is string => Boolean(name));
+  if (names.length === 0) {
+    return undefined;
+  }
+  if (names.length === 1) {
+    return names[0];
+  }
+  return names.join(" or ");
 }
 
 function finalExamResultFromRms(result: JsonRecord): FinalExamResult {
@@ -5020,6 +5047,7 @@ async function sendFinalExamApns(
     apnsEnvironment: "prod" | "sandbox";
     studentId: string;
     classSessionId: string;
+    instructorName?: string;
     result: FinalExamResult;
   }
 ): Promise<void> {
@@ -5032,10 +5060,16 @@ async function sendFinalExamApns(
   const score = input.result.scoreText ?? (
     input.result.percentageScore !== undefined ? `${input.result.percentageScore}%` : undefined
   );
-  const title = passed === false ? "Exam review required" : "Exam result ready";
-  const body = passed === false
-    ? `Final exam score ${score ?? "received"}. Review and retest required.`
-    : `Final exam score ${score ?? "received"}.`;
+  const isVersionB = isVersionBQuiz(input.result.quizId, input.result.quizName);
+  const title = passed === false
+    ? (isVersionB ? "Version B unsuccessful" : "Exam review required")
+    : "Exam result ready";
+  const body = finalExamPushBody({
+    passed,
+    isVersionB,
+    score,
+    instructorName: input.instructorName
+  });
   const host = input.apnsEnvironment === "sandbox"
     ? "https://api.sandbox.push.apple.com"
     : "https://api.push.apple.com";
@@ -5073,6 +5107,30 @@ async function sendFinalExamApns(
     const text = await response.text().catch(() => "");
     throw new Error(`apns_${response.status}_${text}`);
   }
+}
+
+function isVersionBQuiz(quizId?: string, quizName?: string): boolean {
+  const normalizedName = (quizName ?? "").toLowerCase();
+  return quizId === REFRESHER_A_VERSION_B_QUIZ_ID ||
+    quizId === REFRESHER_B_VERSION_B_QUIZ_ID ||
+    quizId === REFRESHER_C_VERSION_B_QUIZ_ID ||
+    normalizedName.includes("version b");
+}
+
+function finalExamPushBody(input: {
+  passed?: boolean;
+  isVersionB: boolean;
+  score?: string;
+  instructorName?: string;
+}): string {
+  const score = input.score ?? "received";
+  if (input.passed === false && input.isVersionB) {
+    return `Version B score ${score}. See ${input.instructorName ?? "your instructor"}.`;
+  }
+  if (input.passed === false) {
+    return `Final exam score ${score}. Review and retest required.`;
+  }
+  return `Final exam score ${score}.`;
 }
 
 async function sendInstructorReminderApns(
