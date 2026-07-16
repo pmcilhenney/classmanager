@@ -399,11 +399,28 @@ struct InstructorDashboardView: View {
                 }
 
                 Section("Instructor Actions") {
+                    let skillsLockedForFailedExams = failedVersionAAndB(student)
                     Button {
-                        Task { await openSkills(for: student) }
+                        if skillsLockedForFailedExams {
+                            notice = "Skills verification is locked because exams A and B were unsuccessful."
+                        } else {
+                            Task { await openSkills(for: student) }
+                        }
                     } label: {
-                        Label("Verify Skills", systemImage: "checklist.checked")
+                        HStack {
+                            Label("Verify Skills", systemImage: skillsLockedForFailedExams ? "lock.fill" : "checklist.checked")
+                            Spacer()
+                            if skillsLockedForFailedExams {
+                                Text("failed exams A & B")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.red)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.red.opacity(0.12), in: Capsule())
+                            }
+                        }
                     }
+                    .disabled(skillsLockedForFailedExams)
 
                     Button(role: .destructive) {
                         resetCandidate = student
@@ -643,6 +660,19 @@ struct InstructorDashboardView: View {
         (dashboard?.finalResults ?? []).filter {
             $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
         }
+    }
+
+    private func failedVersionAAndB(_ student: ClassManagerAPIClient.DashboardStudent) -> Bool {
+        let results = finalResults(for: student)
+        let failedVersionA = results.contains { result in
+            guard result.passed == false, let quizId = result.quizId else { return false }
+            return QuizInfo.isCombinedVersionAQuizId(quizId)
+        }
+        let failedVersionB = results.contains { result in
+            guard result.passed == false, let quizId = result.quizId else { return false }
+            return QuizInfo.isVersionBQuizId(quizId)
+        }
+        return failedVersionA && failedVersionB
     }
 
     private func scoreText(_ score: String?, _ result: String?) -> String {

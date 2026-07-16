@@ -246,6 +246,24 @@ struct MainMenuView: View {
         return trackedQuizIds.isSubset(of: completed)
     }
 
+    private var skillsValidationUnlocked: Bool {
+        examWorkflowComplete && !versionBFailedFinalResult
+    }
+
+    private var skillsLockedMessage: String {
+        if versionBFailedFinalResult {
+            return "Skills validation is locked because Version B was unsuccessful. See your instructor."
+        }
+        return "Skills validation unlocks after all exam sections are complete."
+    }
+
+    private var versionBFailedFinalResult: Bool {
+        guard let final = progressStore.progress.finalExamResult else {
+            return false
+        }
+        return QuizInfo.isVersionBQuizId(final.quizId) && final.passed == false
+    }
+
     private var versionBRequiredOrActive: Bool {
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
         if let versionBQuiz = getVersionBQuizForCourse(),
@@ -400,11 +418,11 @@ struct MainMenuView: View {
                         title: "Validate Skills",
                         systemImage: "person.crop.circle.badge.checkmark",
                         done: progressStore.progress.didOpenSkills,
-                        locked: !examWorkflowComplete,
-                        lockedMessage: "Skills validation unlocks after all exam sections are complete."
+                        locked: !skillsValidationUnlocked,
+                        lockedMessage: skillsLockedMessage
                     ) {
-                        guard examWorkflowComplete else {
-                            toast = "Skills validation unlocks after all exam sections are complete."
+                        guard skillsValidationUnlocked else {
+                            toast = skillsLockedMessage
                             return
                         }
                         // If an elective skills URL was detected for this student, open it
@@ -1271,8 +1289,8 @@ struct MainMenuView: View {
 
     // MARK: - Skills
     private func openSkills() {
-        guard examWorkflowComplete else {
-            toast = "Skills validation unlocks after all exam sections are complete."
+        guard skillsValidationUnlocked else {
+            toast = skillsLockedMessage
             return
         }
         if authenticatedInstructor == nil { showingInstructorGate = true; return }
