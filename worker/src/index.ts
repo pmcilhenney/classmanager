@@ -5253,7 +5253,9 @@ function finalExamPushBody(input: {
 }): string {
   const score = input.score ?? "received";
   if (input.passed === false && input.isVersionB) {
-    return `Version B score ${score}. See ${input.instructorName ?? "your instructor"}.`;
+    return input.instructorName
+      ? `Version B score ${score}. See Instructor ${input.instructorName}.`
+      : `Version B score ${score}. See your instructor.`;
   }
   if (input.passed === false) {
     return `Final exam score ${score}. Review and retest required.`;
