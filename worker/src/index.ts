@@ -2959,7 +2959,7 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
       const passingScore = minimumPassingScoreForQuiz(quizId, finalSources);
       const scoreText = review.scoreText ?? scoreTextFromSources(finalSources);
       const resultText = review.resultText ?? firstText(finalSources, ["grade", "result", "result_text", "response_status", "status"]);
-      await saveFinalExamResult(env, {
+      const finalResult = {
         quizId,
         quizName: firstText(finalSources, ["quiz_name", "quizName", "name", "title"]),
         responseId: review.responseId,
@@ -2972,7 +2972,10 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
         reportUrl: review.reportUrl,
         percentageScore: firstNumber(finalSources, ["percentage_score", "percentageScore"]),
         points: firstNumber(finalSources, ["points"]),
-        availablePoints: firstNumber(finalSources, ["available_points", "availablePoints"]),
+        availablePoints: firstNumber(finalSources, ["available_points", "availablePoints"])
+      };
+      await saveFinalExamResult(env, {
+        ...finalResult,
         studentId,
         classSessionId,
         email,
@@ -2984,6 +2987,19 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
           warnings: review.warnings
         }
       }).catch((error) => console.warn("final exam direct save failed", error));
+      await touchDeviceContext(env, {
+        deviceId,
+        studentId,
+        classSessionId,
+        email,
+        flexiquizUserId
+      });
+      await sendDirectStudentFinalExamApns(env, {
+        deviceId,
+        studentId,
+        classSessionId,
+        result: finalResult
+      }).catch((error) => console.warn("final exam direct APNs failed", error));
     }
     await touchDeviceContext(env, {
       deviceId,
@@ -3081,6 +3097,94 @@ async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response>
   });
 
   return json({ ok: true, matched: contexts.length, saved, sent, failed });
+}
+
+async function sendDirectStudentFinalExamApns(
+  env: Env,
+  input: {
+    deviceId?: string;
+    studentId: string;
+    classSessionId: string;
+    result: FinalExamResult;
+  }
+): Promise<void> {
+  if (!input.deviceId) {
+    await audit(env, "student.final_exam.push.skipped", {
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      payload: {
+        reason: "missing_device_id",
+        quizId: input.result.quizId,
+        responseId: input.result.responseId ?? null
+      }
+    });
+    return;
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT token, apns_environment
+     FROM device_tokens
+     WHERE device_id = ?1
+       AND student_id = ?2
+       AND class_session_id = ?3
+       AND token IS NOT NULL
+     ORDER BY updated_at DESC
+     LIMIT 1`
+  ).bind(input.deviceId, input.studentId, input.classSessionId).first<JsonRecord>();
+  const token = stringField(row ?? {}, "token");
+  if (!token) {
+    await audit(env, "student.final_exam.push.skipped", {
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      deviceId: input.deviceId,
+      payload: {
+        reason: "student_token_not_found",
+        quizId: input.result.quizId,
+        responseId: input.result.responseId ?? null
+      }
+    });
+    return;
+  }
+
+  try {
+    await sendFinalExamApns(env, {
+      token,
+      apnsEnvironment: normalizeApnsEnvironment(stringField(row ?? {}, "apns_environment")),
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      instructorName: await instructorDisplayNameForClassSession(env, input.classSessionId),
+      result: input.result
+    });
+    await env.DB.prepare(
+      `UPDATE device_tokens SET last_push_at = ?2, updated_at = ?2 WHERE token = ?1`
+    ).bind(token, new Date().toISOString()).run();
+    await audit(env, "student.final_exam.push", {
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      deviceId: input.deviceId,
+      payload: {
+        source: "direct_quiz_review",
+        quizId: input.result.quizId,
+        responseId: input.result.responseId ?? null,
+        scoreText: input.result.scoreText ?? null,
+        passed: input.result.passed ?? null
+      }
+    });
+  } catch (error) {
+    await handleApnsFailure(env, token, error);
+    await audit(env, "student.final_exam.push.failed", {
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      deviceId: input.deviceId,
+      payload: {
+        source: "direct_quiz_review",
+        quizId: input.result.quizId,
+        responseId: input.result.responseId ?? null,
+        error: String(error)
+      }
+    });
+    throw error;
+  }
 }
 
 async function matchingDeviceContexts(
@@ -3494,13 +3598,37 @@ async function saveQuizAttempt(
     studentId: input.studentId,
     event: section ? "quiz_section_result" : "quiz_attempt",
     title: "Quiz result ready",
-    body: `${await studentDisplayName(env, input.studentId)} ${section?.quizId ?? quizId}: ${section?.scoreText ?? input.review.scoreText ?? "submitted"}.`,
+    body: `${await studentDisplayName(env, input.studentId)} ${quizDisplayNameForNotification(section?.quizId ?? quizId)}: ${section?.scoreText ?? input.review.scoreText ?? "submitted"}.`,
     quizId,
     responseId: input.review.responseId,
     scoreText: section?.scoreText ?? input.review.scoreText,
     resultText: section?.resultText ?? input.review.resultText,
     completedAt: section ? now : input.review.completedAt ?? now
   });
+}
+
+function quizDisplayNameForNotification(quizId: string): string {
+  switch (quizId) {
+    case REFRESHER_A_COMBINED_QUIZ_ID: return "Refresher A final exam";
+    case REFRESHER_B_COMBINED_QUIZ_ID: return "Refresher B final exam";
+    case REFRESHER_C_COMBINED_QUIZ_ID: return "Refresher C final exam";
+    case REFRESHER_A_VERSION_B_QUIZ_ID: return "Refresher A Version B";
+    case REFRESHER_B_VERSION_B_QUIZ_ID: return "Refresher B Version B";
+    case REFRESHER_C_VERSION_B_QUIZ_ID: return "Refresher C Version B";
+    case "refresher-a-page-1": return "Refresher A Quiz 1";
+    case "refresher-a-page-2": return "Refresher A Quiz 2";
+    case "refresher-a-page-3": return "Refresher A Quiz 3";
+    case "refresher-a-page-4": return "Refresher A Quiz 4";
+    case "refresher-b-page-1": return "Refresher B Quiz 1";
+    case "refresher-b-page-2": return "Refresher B Quiz 2";
+    case "refresher-b-page-3": return "Refresher B Quiz 3";
+    case "refresher-b-page-4": return "Refresher B Quiz 4";
+    case "refresher-c-page-1": return "Refresher C Quiz 1";
+    case "refresher-c-page-2": return "Refresher C Quiz 2";
+    case "refresher-c-page-3": return "Refresher C Quiz 3";
+    case "refresher-c-page-4": return "Refresher C Quiz 4";
+    default: return "Quiz";
+  }
 }
 
 function sectionAttemptSummary(
