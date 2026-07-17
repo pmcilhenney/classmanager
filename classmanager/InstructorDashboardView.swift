@@ -16,6 +16,7 @@ struct InstructorDashboardView: View {
     @State private var selectedStudent: ClassManagerAPIClient.DashboardStudent?
     @State private var skillsURL: URL?
     @State private var isPreparingSkillsForm = false
+    @State private var repeatSkillsCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var resetCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var resetConfirmationText = ""
     @State private var showingResetText = false
@@ -150,6 +151,26 @@ struct InstructorDashboardView: View {
                 }
             } message: {
                 Text("This removes ClassManager check-in, quiz, final exam, and skills progress for this student in this session.")
+            }
+            .confirmationDialog(
+                "Skills verification is already complete.",
+                isPresented: Binding(
+                    get: { repeatSkillsCandidate != nil },
+                    set: { if !$0 { repeatSkillsCandidate = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Open Form Again", role: .destructive) {
+                    if let student = repeatSkillsCandidate {
+                        repeatSkillsCandidate = nil
+                        Task { await openSkills(for: student) }
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    repeatSkillsCandidate = nil
+                }
+            } message: {
+                Text("This student already has a completed skills verification. Continue only if you intentionally need to submit another form.")
             }
             .alert("Type RESET STUDENT", isPresented: $showingResetText) {
                 TextField("RESET STUDENT", text: $resetConfirmationText)
@@ -335,29 +356,31 @@ struct InstructorDashboardView: View {
         let final = currentFinalResult(for: student)
         let versionB = versionBStatus(for: student)
         let passedExam = hasPassedFinalExam(student)
-        HStack(spacing: 6) {
-            if quizSummary.total > 0 {
-                statusChip(
-                    "\(quizSummary.completed)/\(quizSummary.total) quizzes",
-                    color: quizSummary.completed == quizSummary.total ? .green : .blue
-                )
-            }
-            if passedExam {
-                statusChip("Passed", color: .green, systemImage: "checkmark.circle.fill")
-                if skillsComplete(for: student) {
-                    statusChip("Skills complete", color: .green, systemImage: "checkmark.seal.fill")
-                } else {
-                    statusChip("Skills pending", color: .orange, systemImage: "clock.badge.exclamationmark")
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                if quizSummary.total > 0 {
+                    statusChip(
+                        "\(quizSummary.completed)/\(quizSummary.total) quizzes",
+                        color: quizSummary.completed == quizSummary.total ? .green : .blue
+                    )
                 }
-            }
-            if let score = finalScoreText(final) {
-                statusChip(
-                    score,
-                    color: final?.passed == false ? .red : (final?.passed == true ? .green : .secondary)
-                )
-            }
-            if let versionB {
-                statusChip(versionB.text, color: versionB.color)
+                if passedExam {
+                    statusChip("Passed", color: .green, systemImage: "checkmark.circle.fill")
+                    if skillsComplete(for: student) {
+                        statusChip("Skills complete", color: .green, systemImage: "checkmark.seal.fill")
+                    } else {
+                        statusChip("Skills pending", color: .orange, systemImage: "clock.badge.exclamationmark")
+                    }
+                }
+                if let score = finalScoreText(final) {
+                    statusChip(
+                        score,
+                        color: final?.passed == false ? .red : (final?.passed == true ? .green : .secondary)
+                    )
+                }
+                if let versionB {
+                    statusChip(versionB.text, color: versionB.color)
+                }
             }
         }
     }
@@ -371,9 +394,12 @@ struct InstructorDashboardView: View {
             }
         }
             .font(.caption2.weight(.semibold))
+            .labelStyle(.titleAndIcon)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(color)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
+            .padding(.horizontal, 8)
+            .frame(height: 24)
             .background(color.opacity(0.12), in: Capsule())
     }
 
@@ -452,6 +478,8 @@ struct InstructorDashboardView: View {
                     Button {
                         if skillsLockedForFailedExams {
                             notice = "Skills verification is locked because exams A and B were unsuccessful."
+                        } else if skillsComplete(for: student) {
+                            repeatSkillsCandidate = student
                         } else {
                             Task { await openSkills(for: student) }
                         }
