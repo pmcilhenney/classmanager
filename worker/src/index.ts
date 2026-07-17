@@ -4452,6 +4452,10 @@ async function aiCommentsEndpoint(request: Request, env: Env): Promise<Response>
   const analytics = studentId && classSessionId
     ? await buildStudentCommentAnalytics(env, studentId, classSessionId)
     : emptyCommentAnalytics();
+  const primaryGrowthTopic = analytics.growthTopics[0];
+  const primaryGrowthGuidance = primaryGrowthTopic
+    ? topicGuidanceSentence(primaryGrowthTopic, firstNameForComment(studentName))
+    : undefined;
 
   const fallback = studentCommentFallback(studentName, courseTitle, analytics);
   if (!env.AI) {
@@ -4476,10 +4480,11 @@ async function aiCommentsEndpoint(request: Request, env: Env): Promise<Response>
             "Use the student's first name naturally and avoid gendered pronouns unless provided.",
             "Be specific, positive, and professional.",
             "Open with a personalized positive observation about participation, professionalism, or engagement.",
-            "If analytics include a growth topic, add exactly one brief reinforcement sentence about that topic.",
-            "If analytics do not include a growth topic, use a general continued-review sentence instead of claiming individualized performance.",
+            "If analytics include a primary growth topic, include one concrete reinforcement sentence using the provided guidance sentence as the model.",
+            "If analytics do not include a primary growth topic, use a warm general continued-review sentence and do not call it targeted or individualized.",
             "Never describe the same topic as both a strength and an improvement area. If the analytics appear mixed or conflicting, omit topic-specific strengths.",
             "Frame reinforcement as continued review or practice, not failure.",
+            "Avoid vague phrases such as targeted course topics, course objectives, key objectives, areas for improvement, or material covered today.",
             "Do not invent exam scores, certifications, attendance, or clinical facts not provided.",
             "Do not mention AI, analytics, payloads, quizzes, or raw data."
           ].join(" ")
@@ -4491,9 +4496,13 @@ async function aiCommentsEndpoint(request: Request, env: Env): Promise<Response>
             courseTitle,
             context,
             analytics,
+            primaryGrowthTopic,
+            primaryGrowthGuidance,
             fallbackToneExamples: [
               `${studentName} demonstrated steady engagement throughout ${courseTitle}, contributed appropriately during class activities, and showed a professional approach to continued EMS development.`,
-              `${studentName} completed ${courseTitle} with a positive attitude and consistent participation. Continued review of targeted course topics will help reinforce the material covered today.`
+              primaryGrowthGuidance
+                ? `${studentName} completed ${courseTitle} with a positive attitude and consistent participation. ${primaryGrowthGuidance}`
+                : `${studentName} completed ${courseTitle} with a positive attitude and consistent participation. Continued practice with the day's major concepts will support confidence beyond the classroom.`
             ]
           })
         }
@@ -4503,7 +4512,7 @@ async function aiCommentsEndpoint(request: Request, env: Env): Promise<Response>
     });
 
     const comment = cleanGeneratedComment(textFromUnknown(response.response));
-    if (comment && comment.includes(studentName.split(/\s+/)[0] ?? studentName) && comment.length >= 50) {
+    if (comment && commentPassesSkillsFeedbackValidation(comment, studentName, analytics)) {
       return json({
         success: true,
         comment,
@@ -4607,29 +4616,79 @@ function emptyCommentAnalytics(): StudentCommentAnalytics {
 }
 
 function studentCommentFallback(studentName: string, courseTitle: string, analytics: StudentCommentAnalytics): string {
-  const firstName = studentName.split(/\s+/)[0] || studentName;
+  const firstName = firstNameForComment(studentName);
   const growth = analytics.growthTopics.find((topic) => !analytics.strongestTopics.includes(topic));
   if (growth) {
+    const guidance = topicGuidanceSentence(growth, firstName);
     const templates = [
-      `${firstName} completed ${courseTitle} with engaged participation and a professional approach to the training day. Continued review of ${growth} will help reinforce the material and support confident application in the field. ${firstName} remained attentive, receptive to feedback, and focused on improving throughout the course.`,
-      `${firstName} brought a positive attitude and steady engagement to ${courseTitle}. A little extra reinforcement of ${growth} will help strengthen retention from today's material. ${firstName} was professional, attentive, and responsive to instructor direction throughout the session.`,
-      `${firstName} participated well in ${courseTitle} and maintained a constructive approach during the training day. Continued practice with ${growth} will support stronger recall and field readiness. ${firstName} showed professionalism and a willingness to keep building skill and confidence.`
+      `${firstName} completed ${courseTitle} with engaged participation and a professional approach to the training day. ${guidance} ${firstName} remained attentive, receptive to feedback, and focused on improving throughout the course.`,
+      `${firstName} brought a positive attitude and steady engagement to ${courseTitle}. ${guidance} ${firstName} was professional, attentive, and responsive to instructor direction throughout the session.`,
+      `${firstName} participated well in ${courseTitle} and maintained a constructive approach during the training day. ${guidance} ${firstName} showed professionalism and a willingness to keep building skill and confidence.`
     ];
     return stableTemplate(studentName, courseTitle, templates);
   }
   if (analytics.averageScore !== undefined && analytics.completedQuizCount > 0) {
     const templates = [
-      `${firstName} completed ${courseTitle} with consistent participation and a professional approach to the day's activities. Continued review of the key course objectives will help reinforce the material covered in class. ${firstName} remained attentive, engaged, and receptive to feedback throughout the session.`,
+      `${firstName} completed ${courseTitle} with consistent participation and a professional approach to the day's activities. Continued practice with the day's major concepts will help support confidence beyond the classroom. ${firstName} remained attentive, engaged, and receptive to feedback throughout the session.`,
       `${firstName} was an active and positive participant in ${courseTitle}. Ongoing review of the day's core concepts will help support confident application after class. ${firstName} maintained a professional attitude and stayed engaged with the learning process.`,
-      `${firstName} completed ${courseTitle} with steady engagement and a constructive approach to the training. Continued practice with the course objectives will help strengthen long-term retention. ${firstName} was attentive, respectful, and open to feedback throughout the session.`
+      `${firstName} completed ${courseTitle} with steady engagement and a constructive approach to the training. Continued practice with the major concepts from class will help strengthen long-term retention. ${firstName} was attentive, respectful, and open to feedback throughout the session.`
     ];
     return stableTemplate(studentName, courseTitle, templates);
   }
   return stableTemplate(studentName, courseTitle, [
-    `${firstName} completed ${courseTitle} with consistent participation, a positive attitude, and a professional approach to the learning environment. Continued review of the day's key objectives will help reinforce understanding and support future EMS practice. ${firstName} remained engaged and receptive to instructor feedback throughout the session.`,
-    `${firstName} brought steady attention and a positive attitude to ${courseTitle}. Continued review of the course objectives will help keep today's material fresh and useful. ${firstName} participated professionally and showed a strong willingness to keep learning.`,
+    `${firstName} completed ${courseTitle} with consistent participation, a positive attitude, and a professional approach to the learning environment. Continued practice with the day's major concepts will help reinforce understanding and support future EMS practice. ${firstName} remained engaged and receptive to instructor feedback throughout the session.`,
+    `${firstName} brought steady attention and a positive attitude to ${courseTitle}. Continued review after class will help keep today's material fresh and useful. ${firstName} participated professionally and showed a strong willingness to keep learning.`,
     `${firstName} completed ${courseTitle} with professionalism and consistent engagement. Ongoing review of the day's major concepts will help support confidence beyond the classroom. ${firstName} stayed attentive, respectful, and focused throughout the training.`
   ]);
+}
+
+function commentPassesSkillsFeedbackValidation(
+  comment: string,
+  studentName: string,
+  analytics: StudentCommentAnalytics
+): boolean {
+  const firstName = firstNameForComment(studentName);
+  if (!comment.includes(firstName) || comment.length < 50) {
+    return false;
+  }
+  if (hasGenericFeedbackPhrase(comment)) {
+    return false;
+  }
+  const growth = analytics.growthTopics[0];
+  if (growth && !comment.toLowerCase().includes(growth.toLowerCase())) {
+    return false;
+  }
+  return true;
+}
+
+function hasGenericFeedbackPhrase(comment: string): boolean {
+  const normalized = comment.toLowerCase();
+  return [
+    "targeted course topics",
+    "course objectives",
+    "key objectives",
+    "area for improvement",
+    "areas for improvement",
+    "material covered today"
+  ].some((phrase) => normalized.includes(phrase));
+}
+
+function firstNameForComment(studentName: string): string {
+  return studentName.split(/\s+/)[0] || studentName;
+}
+
+function topicGuidanceSentence(topic: string, firstName: string): string {
+  const guidance: Record<string, string> = {
+    "airway management": `Focused practice with airway decision-making and ventilation scenarios will help ${firstName} strengthen speed and confidence during respiratory calls.`,
+    "cardiology": `Focused review of cardiac presentations and treatment priorities will help ${firstName} sharpen recognition and decision-making during time-sensitive calls.`,
+    "trauma assessment": `Focused practice with trauma assessment sequencing and transport priorities will help ${firstName} build confidence with high-acuity injury patterns.`,
+    "medical assessment": `Focused review of medical assessment scenarios will help ${firstName} strengthen differential thinking and connect patient presentations to the most appropriate next steps.`,
+    "communication skills": `Focused practice with patient communication and handoff structure will help ${firstName} make assessments, reports, and documentation even clearer.`,
+    "operations and safety": `Focused review of scene safety, operations, and crew-resource decisions will help ${firstName} keep priorities organized during dynamic incidents.`,
+    "pediatric care": `Focused review of pediatric assessment patterns will help ${firstName} build confidence with age-specific findings and treatment priorities.`,
+    "obstetrics": `Focused review of obstetric and newborn care scenarios will help ${firstName} strengthen recall of delivery priorities and post-delivery assessment steps.`
+  };
+  return guidance[topic] ?? `Focused review of ${topic} will help ${firstName} strengthen recall and apply the material more confidently in the field.`;
 }
 
 function resolvedTopicInsights(
