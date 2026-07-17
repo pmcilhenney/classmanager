@@ -947,10 +947,17 @@ struct MainMenuView: View {
         let instructorEmail = activeInstructor?.email ?? authenticatedInstructor?.email
         let courseName = cleanCourseName(attendee.courseType)
         let njCourseId = attendee.courseId
+        let classSessionId = classSessionIdForCurrentAttendee()
 
         add("courseType", courseName)
         add("q23_courseType", courseName)
         add("njCourse", njCourseId)
+        add("q28_njCourse", njCourseId)
+        add("q28", njCourseId)
+        add("classSessionId", classSessionId)
+        add("classsessionid", classSessionId)
+        add("class_session_id", classSessionId)
+        add("q29_classSessionId", classSessionId)
         add("primaryInstructor", instructorName)
         add("q24_primaryInstructor", instructorName)
         add("email", instructorEmail)
