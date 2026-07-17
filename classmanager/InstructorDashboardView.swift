@@ -334,12 +334,16 @@ struct InstructorDashboardView: View {
         let quizSummary = quizCompletionSummary(for: student)
         let final = currentFinalResult(for: student)
         let versionB = versionBStatus(for: student)
+        let passedExam = hasPassedFinalExam(student)
         HStack(spacing: 6) {
             if quizSummary.total > 0 {
                 statusChip(
                     "\(quizSummary.completed)/\(quizSummary.total) quizzes",
                     color: quizSummary.completed == quizSummary.total ? .green : .blue
                 )
+            }
+            if passedExam {
+                statusChip("√ Passed", color: .green)
             }
             if let score = finalScoreText(final) {
                 statusChip(
@@ -702,6 +706,13 @@ struct InstructorDashboardView: View {
 
     private func currentFinalResult(for student: ClassManagerAPIClient.DashboardStudent) -> ClassManagerAPIClient.DashboardFinalResult? {
         finalResults(for: student).first
+    }
+
+    private func hasPassedFinalExam(_ student: ClassManagerAPIClient.DashboardStudent) -> Bool {
+        finalResults(for: student).contains { result in
+            guard result.passed == true, let quizId = result.quizId else { return false }
+            return QuizInfo.isCombinedVersionAQuizId(quizId) || QuizInfo.isVersionBQuizId(quizId)
+        }
     }
 
     private func quizCompletionSummary(for student: ClassManagerAPIClient.DashboardStudent) -> (completed: Int, total: Int) {
