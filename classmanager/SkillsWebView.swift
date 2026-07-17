@@ -23,7 +23,7 @@ private struct WebView: UIViewRepresentable {
     @Binding var isLoading: Bool
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(isLoading: $isLoading)
+        Coordinator(initialURL: url, isLoading: $isLoading)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -34,22 +34,26 @@ private struct WebView: UIViewRepresentable {
         webView.scrollView.backgroundColor = .systemBackground
         isLoading = true
         let request = URLRequest(url: url)
+        context.coordinator.loadedURL = url
         webView.load(request)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        if webView.url != url {
+        if context.coordinator.loadedURL != url {
             isLoading = true
             let request = URLRequest(url: url)
+            context.coordinator.loadedURL = url
             webView.load(request)
         }
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         @Binding var isLoading: Bool
+        var loadedURL: URL
 
-        init(isLoading: Binding<Bool>) {
+        init(initialURL: URL, isLoading: Binding<Bool>) {
+            loadedURL = initialURL
             _isLoading = isLoading
         }
 

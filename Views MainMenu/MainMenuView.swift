@@ -1363,7 +1363,18 @@ struct MainMenuView: View {
         add("studentFirst", attendee.firstName)
         add("studentLast", attendee.lastName)
         add("njOems", attendee.oemsId)
-        if let courseId = attendee.courseId { add("courseId", courseId) }
+        if let courseId = attendee.courseId {
+            add("courseId", courseId)
+            add("njCourse", courseId)
+        }
+        let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? attendee.submissionId
+            : attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let classSessionId = (attendee.courseDate ?? attendee.submissionId)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "-")
+        add("classSessionId", classSessionId)
+        add("classManagerStudentId", studentId)
         add("theseComments", aiComment)
         if let courseDate = attendee.courseDate {
             let df = DateFormatter()

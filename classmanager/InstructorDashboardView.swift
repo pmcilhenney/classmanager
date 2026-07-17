@@ -611,6 +611,10 @@ struct InstructorDashboardView: View {
         add("studentLast", student.lastName)
         add("njOems", student.oemsId ?? student.studentId)
         add("courseId", student.courseId)
+        add("njCourse", student.courseId)
+        add("classSessionId", student.classSessionId)
+        add("classManagerStudentId", student.studentId)
+        add("classManagerInstructorPersonId", instructor.personId)
         add("studentEmail", student.email)
         add("instructorFirst", instructor.fullName)
         add("instructor6digit", instructor.oemsId ?? instructor.personId)
@@ -709,11 +713,19 @@ struct InstructorDashboardView: View {
             expectedTotal = 0
         }
 
-        let completed = Set(quizResults(for: student).compactMap { result -> String? in
+        var completed = Set(quizResults(for: student).compactMap { result -> String? in
             guard let quizId = result.quizId,
                   quizId.contains("-page-") else { return nil }
             return quizId
         }).count
+
+        if expectedTotal == 4,
+           finalResults(for: student).contains(where: { result in
+               guard let quizId = result.quizId else { return false }
+               return QuizInfo.isCombinedVersionAQuizId(quizId)
+           }) {
+            completed = expectedTotal
+        }
 
         return (min(completed, expectedTotal), expectedTotal)
     }
