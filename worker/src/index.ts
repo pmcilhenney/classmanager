@@ -358,6 +358,10 @@ export default {
         return await rmsInstructorAttendance(request, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/rms/skills-completed") {
+        return await rmsSkillsCompleted(request, env);
+      }
+
       if (request.method === "GET" && url.pathname.startsWith("/quiz/metadata/")) {
         return await quizMetadata(url, env);
       }
@@ -741,6 +745,69 @@ async function rmsInstructorAttendance(request: Request, env: Env): Promise<Resp
   });
 
   return json({ ok: true, attendance, updatedAt: now });
+}
+
+async function rmsSkillsCompleted(request: Request, env: Env): Promise<Response> {
+  if (!rmsCallbackAuthorized(request, env)) {
+    return json({ error: "unauthorized" }, 401);
+  }
+
+  const body = await readJson(request);
+  const studentId = stringField(body, "studentId") ?? stringField(body, "student_id") ?? stringField(body, "njoemsId") ?? stringField(body, "njoems_id");
+  const classSessionId = stringField(body, "classSessionId") ?? stringField(body, "class_session_id");
+  const instructorPersonId = stringField(body, "instructorPersonId") ?? stringField(body, "instructor_person_id");
+  const submissionId = stringField(body, "submissionId") ?? stringField(body, "submission_id");
+  const completedAt = stringField(body, "completedAt") ?? stringField(body, "completed_at") ?? new Date().toISOString();
+  const now = new Date().toISOString();
+
+  if (!studentId || !classSessionId) {
+    return json({ error: "missing_skills_completed_fields" }, 400);
+  }
+
+  await writeProgress(env, {
+    studentId,
+    classSessionId,
+    didOpenSkills: true
+  });
+
+  await env.DB.prepare(
+    `INSERT INTO skills_verifications (
+      id, student_id, class_session_id, instructor_person_id, opened_at, completed_at, source, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?5, 'rms_jotform', ?6)
+    ON CONFLICT(id) DO UPDATE SET
+      instructor_person_id = COALESCE(excluded.instructor_person_id, skills_verifications.instructor_person_id),
+      completed_at = COALESCE(excluded.completed_at, skills_verifications.completed_at),
+      source = excluded.source,
+      updated_at = excluded.updated_at`
+  ).bind(
+    `${classSessionId}:${studentId}:skills`,
+    studentId,
+    classSessionId,
+    instructorPersonId ?? null,
+    completedAt,
+    now
+  ).run();
+
+  await audit(env, "rms.skills.completed", {
+    studentId,
+    classSessionId,
+    actorId: instructorPersonId,
+    payload: {
+      submissionId: submissionId ?? null,
+      completedAt
+    }
+  });
+
+  await notifyInstructorDashboard(env, {
+    classSessionId,
+    studentId,
+    event: "skills_completed",
+    title: "Skills verification complete",
+    body: `${await studentDisplayName(env, studentId)} skills verification complete.`,
+    completedAt
+  });
+
+  return json({ ok: true, updatedAt: now });
 }
 
 async function instructorDashboard(url: URL, env: Env): Promise<Response> {

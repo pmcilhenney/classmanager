@@ -344,6 +344,11 @@ struct InstructorDashboardView: View {
             }
             if passedExam {
                 statusChip("Passed", color: .green, systemImage: "checkmark.circle.fill")
+                if skillsComplete(for: student) {
+                    statusChip("Skills complete", color: .green, systemImage: "checkmark.seal.fill")
+                } else {
+                    statusChip("Skills pending", color: .orange, systemImage: "clock.badge.exclamationmark")
+                }
             }
             if let score = finalScoreText(final) {
                 statusChip(
@@ -713,6 +718,17 @@ struct InstructorDashboardView: View {
         (dashboard?.finalResults ?? []).filter {
             $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
         }
+    }
+
+    private func skillsVerification(for student: ClassManagerAPIClient.DashboardStudent) -> ClassManagerAPIClient.DashboardSkillsVerification? {
+        (dashboard?.skillsVerifications ?? []).first {
+            $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
+        }
+    }
+
+    private func skillsComplete(for student: ClassManagerAPIClient.DashboardStudent) -> Bool {
+        guard let completedAt = skillsVerification(for: student)?.completedAt else { return false }
+        return !completedAt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func currentFinalResult(for student: ClassManagerAPIClient.DashboardStudent) -> ClassManagerAPIClient.DashboardFinalResult? {
