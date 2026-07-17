@@ -4475,7 +4475,11 @@ async function aiCommentsEndpoint(request: Request, env: Env): Promise<Response>
             "Return only the paragraph text. Do not introduce it or explain it.",
             "Use the student's first name naturally and avoid gendered pronouns unless provided.",
             "Be specific, positive, and professional.",
-            "If analytics include growth topics, frame them as continued review or reinforcement, not failure.",
+            "Open with a personalized positive observation about participation, professionalism, or engagement.",
+            "If analytics include a growth topic, add exactly one brief reinforcement sentence about that topic.",
+            "If analytics do not include a growth topic, use a general continued-review sentence instead of claiming individualized performance.",
+            "Never describe the same topic as both a strength and an improvement area. If the analytics appear mixed or conflicting, omit topic-specific strengths.",
+            "Frame reinforcement as continued review or practice, not failure.",
             "Do not invent exam scores, certifications, attendance, or clinical facts not provided.",
             "Do not mention AI, analytics, payloads, quizzes, or raw data."
           ].join(" ")
@@ -4561,8 +4565,8 @@ async function buildStudentCommentAnalytics(
      LIMIT 25`
   ).bind(studentId, classSessionId).all<JsonRecord>();
 
-  const strengths = new Map<string, number>();
-  const growth = new Map<string, number>();
+  const correctTopicCounts = new Map<string, number>();
+  const incorrectTopicCounts = new Map<string, number>();
   for (const row of reviewEvents.results ?? []) {
     const payload = parseJsonRecord(stringField(row, "payload_json") ?? "");
     const questions = Array.isArray(payload?.questions) ? payload.questions.filter(isJsonRecord) : [];
@@ -4573,19 +4577,21 @@ async function buildStudentCommentAnalytics(
       }
       const correct = boolFromUnknown(question.isCorrect);
       if (correct === true) {
-        strengths.set(topic, (strengths.get(topic) ?? 0) + 1);
+        correctTopicCounts.set(topic, (correctTopicCounts.get(topic) ?? 0) + 1);
       } else if (correct === false) {
-        growth.set(topic, (growth.get(topic) ?? 0) + 1);
+        incorrectTopicCounts.set(topic, (incorrectTopicCounts.get(topic) ?? 0) + 1);
       }
     }
   }
+
+  const topicInsights = resolvedTopicInsights(correctTopicCounts, incorrectTopicCounts);
 
   return {
     averageScore,
     completedQuizCount: attempts.length,
     passedQuizCount,
-    strongestTopics: topMapKeys(strengths, 3),
-    growthTopics: topMapKeys(growth, 3),
+    strongestTopics: topicInsights.strongestTopics,
+    growthTopics: topicInsights.growthTopics,
     quizSummaries
   };
 }
@@ -4602,16 +4608,66 @@ function emptyCommentAnalytics(): StudentCommentAnalytics {
 
 function studentCommentFallback(studentName: string, courseTitle: string, analytics: StudentCommentAnalytics): string {
   const firstName = studentName.split(/\s+/)[0] || studentName;
-  if (analytics.strongestTopics.length > 0 || analytics.growthTopics.length > 0) {
-    const strength = analytics.strongestTopics[0] ?? "core EMS concepts";
-    const growth = analytics.growthTopics[0] ?? "continued review of course material";
-    return `${firstName} completed ${courseTitle} with engaged participation and a professional approach to the training day. Their exam review showed solid performance in ${strength}, and continued reinforcement of ${growth} will help strengthen retention moving forward. ${firstName} remained attentive, receptive to feedback, and focused on improving throughout the course.`;
+  const growth = analytics.growthTopics.find((topic) => !analytics.strongestTopics.includes(topic));
+  if (growth) {
+    const templates = [
+      `${firstName} completed ${courseTitle} with engaged participation and a professional approach to the training day. Continued review of ${growth} will help reinforce the material and support confident application in the field. ${firstName} remained attentive, receptive to feedback, and focused on improving throughout the course.`,
+      `${firstName} brought a positive attitude and steady engagement to ${courseTitle}. A little extra reinforcement of ${growth} will help strengthen retention from today's material. ${firstName} was professional, attentive, and responsive to instructor direction throughout the session.`,
+      `${firstName} participated well in ${courseTitle} and maintained a constructive approach during the training day. Continued practice with ${growth} will support stronger recall and field readiness. ${firstName} showed professionalism and a willingness to keep building skill and confidence.`
+    ];
+    return stableTemplate(studentName, courseTitle, templates);
   }
   if (analytics.averageScore !== undefined && analytics.completedQuizCount > 0) {
-    const performance = analytics.averageScore >= 85 ? "strong" : analytics.averageScore >= 70 ? "satisfactory" : "developing";
-    return `${firstName} completed ${courseTitle} with ${performance} progress across the day's assessments and consistent participation in class activities. They remained professional, attentive, and receptive to feedback throughout the session. Continued review of the course objectives will help reinforce the material and support confident application in the field.`;
+    const templates = [
+      `${firstName} completed ${courseTitle} with consistent participation and a professional approach to the day's activities. Continued review of the key course objectives will help reinforce the material covered in class. ${firstName} remained attentive, engaged, and receptive to feedback throughout the session.`,
+      `${firstName} was an active and positive participant in ${courseTitle}. Ongoing review of the day's core concepts will help support confident application after class. ${firstName} maintained a professional attitude and stayed engaged with the learning process.`,
+      `${firstName} completed ${courseTitle} with steady engagement and a constructive approach to the training. Continued practice with the course objectives will help strengthen long-term retention. ${firstName} was attentive, respectful, and open to feedback throughout the session.`
+    ];
+    return stableTemplate(studentName, courseTitle, templates);
   }
-  return `${firstName} completed ${courseTitle} with consistent participation, a positive attitude, and a professional approach to the learning environment. They remained engaged with the course material and receptive to instructor feedback throughout the session. Continued review of the day's key objectives will help reinforce understanding and support future EMS practice.`;
+  return stableTemplate(studentName, courseTitle, [
+    `${firstName} completed ${courseTitle} with consistent participation, a positive attitude, and a professional approach to the learning environment. Continued review of the day's key objectives will help reinforce understanding and support future EMS practice. ${firstName} remained engaged and receptive to instructor feedback throughout the session.`,
+    `${firstName} brought steady attention and a positive attitude to ${courseTitle}. Continued review of the course objectives will help keep today's material fresh and useful. ${firstName} participated professionally and showed a strong willingness to keep learning.`,
+    `${firstName} completed ${courseTitle} with professionalism and consistent engagement. Ongoing review of the day's major concepts will help support confidence beyond the classroom. ${firstName} stayed attentive, respectful, and focused throughout the training.`
+  ]);
+}
+
+function resolvedTopicInsights(
+  correctCounts: Map<string, number>,
+  incorrectCounts: Map<string, number>
+): Pick<StudentCommentAnalytics, "strongestTopics" | "growthTopics"> {
+  const strengthScores = new Map<string, number>();
+  const growthScores = new Map<string, number>();
+  const topics = new Set([...correctCounts.keys(), ...incorrectCounts.keys()]);
+
+  for (const topic of topics) {
+    const correct = correctCounts.get(topic) ?? 0;
+    const incorrect = incorrectCounts.get(topic) ?? 0;
+    if (incorrect > correct) {
+      growthScores.set(topic, incorrect - correct);
+    } else if (correct > incorrect && incorrect === 0) {
+      strengthScores.set(topic, correct);
+    }
+  }
+
+  const growthTopics = topMapKeys(growthScores, 3);
+  const strongestTopics = topMapKeys(strengthScores, 3).filter((topic) => !growthTopics.includes(topic));
+  return { strongestTopics, growthTopics };
+}
+
+function stableTemplate(studentName: string, courseTitle: string, templates: string[]): string {
+  return templates[stableIndex(`${studentName}|${courseTitle}`, templates.length)] ?? templates[0] ?? "";
+}
+
+function stableIndex(value: string, modulo: number): number {
+  if (modulo <= 0) {
+    return 0;
+  }
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (Math.imul(hash, 31) + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash) % modulo;
 }
 
 function cleanGeneratedComment(value?: string): string | undefined {
