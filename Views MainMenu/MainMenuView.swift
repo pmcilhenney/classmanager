@@ -946,9 +946,11 @@ struct MainMenuView: View {
         let instructorName = activeInstructor?.fullName ?? authenticatedInstructor?.fullName
         let instructorEmail = activeInstructor?.email ?? authenticatedInstructor?.email
         let courseName = cleanCourseName(attendee.courseType)
+        let njCourseId = attendee.courseId
 
         add("courseType", courseName)
         add("q23_courseType", courseName)
+        add("njCourse", njCourseId)
         add("primaryInstructor", instructorName)
         add("q24_primaryInstructor", instructorName)
         add("email", instructorEmail)
