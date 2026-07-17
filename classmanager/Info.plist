@@ -60,6 +60,10 @@
 	<string>251715517762056</string>
 	<key>JOTFORM_REGISTRATION_FORM</key>
 	<string>251265925097060</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Class Manager uses the camera to capture CPR card photos for course records.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Class Manager uses selected photos to upload CPR cards for course records.</string>
 	<key>PEPP_QUIZ_ID</key>
 	<string>4d05909b-928f-4085-be74-8682e8fed516</string>
 	<key>Refresher_CheckInOut_Form</key>

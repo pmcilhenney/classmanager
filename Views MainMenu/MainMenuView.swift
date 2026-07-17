@@ -5,6 +5,7 @@ import Combine
 import WebKit
 import CloudKit
 import PencilKit
+import PhotosUI
 
 struct MainMenuView: View {
     let config: AppConfig
@@ -37,6 +38,7 @@ struct MainMenuView: View {
     @State private var electiveSkillsLink: URL? = nil
     @State private var showingElectiveQuiz = false
     @State private var electiveQuizURL: URL? = nil
+    @State private var showingCPRUpload = false
 
     // Course Materials state
     @State private var showingMaterials = false
@@ -220,6 +222,16 @@ struct MainMenuView: View {
                 onSubmit: { attestation in
                     attendanceCaptureAction = nil
                     submitNativeAttendance(inOut: action.id, attestation: attestation)
+                }
+            )
+        }
+        .sheet(isPresented: $showingCPRUpload) {
+            CPRCardUploadSheet(
+                attendee: attendee,
+                onCancel: { showingCPRUpload = false },
+                onUploaded: {
+                    showingCPRUpload = false
+                    toast = "CPR card uploaded."
                 }
             )
         }
@@ -1011,6 +1023,7 @@ struct MainMenuView: View {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) {
                         progressStore.markCheckIn()
                     }
+                    await promptForCprCardIfNeeded()
                 } else {
                     didCheckOut = true
                     progressStore.markCheckOut()
@@ -1020,6 +1033,18 @@ struct MainMenuView: View {
             } catch {
                 toast = "Failed to post \(inOut). Please try again."
             }
+        }
+    }
+
+    @MainActor
+    private func promptForCprCardIfNeeded() async {
+        do {
+            let status = try await ClassManagerAPIClient.shared.fetchCprCardStatus(attendee: attendee)
+            if !status.hasCprCard {
+                showingCPRUpload = true
+            }
+        } catch {
+            showingCPRUpload = true
         }
     }
 
@@ -1420,9 +1445,9 @@ struct MainMenuView: View {
                 )
                 Task { await progressStore.fetchLatestAndMerge() }
                 if getVersionBQuizForCourse() != nil {
-                    toast = "Version A is below the 74% passing standard. Review is complete; complete remediation with your instructor, then start Version B."
+                    toast = "Version A is below the \(QuizInfo.versionAPassingPercent)% passing standard. Review is complete; complete remediation with your instructor, then start Version B."
                 } else {
-                    toast = "Version A is below the 74% passing standard. Review is complete; complete remediation with your instructor."
+                    toast = "Version A is below the \(QuizInfo.versionAPassingPercent)% passing standard. Review is complete; complete remediation with your instructor."
                 }
             } else if QuizInfo.isCombinedVersionAQuizId(quiz.flexiQuizId) {
                 Task { await progressStore.fetchLatestAndMerge() }
@@ -1748,6 +1773,165 @@ struct MainMenuView: View {
 // MARK: - Extensions and Helper Views at File Scope
 private struct AttendanceCaptureAction: Identifiable {
     let id: String
+}
+
+private struct CPRCardUploadSheet: View {
+    let attendee: RosterAttendee
+    let onCancel: () -> Void
+    let onUploaded: () -> Void
+
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var showingCamera = false
+    @State private var isUploading = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Upload CPR Card")
+                            .font(.title2.weight(.semibold))
+                        Text(attendee.fullName)
+                            .font(.headline)
+                        Text("Add the CPR card for this class. This is only requested once per student per class.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        Label("Choose Photo", systemImage: "photo.on.rectangle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        showingCamera = true
+                    } label: {
+                        Label("Take Photo", systemImage: "camera")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
+
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.red)
+                    }
+
+                    Spacer()
+                }
+                .padding()
+                .disabled(isUploading)
+
+                if isUploading {
+                    LoadingSpinnerView()
+                }
+            }
+            .navigationTitle("CPR Card")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Later", action: onCancel)
+                        .disabled(isUploading)
+                }
+            }
+            .onChange(of: selectedPhoto) { _, item in
+                guard let item else { return }
+                Task { await upload(item: item) }
+            }
+            .sheet(isPresented: $showingCamera) {
+                CameraCaptureView { image in
+                    showingCamera = false
+                    guard let data = image.jpegData(compressionQuality: 0.88) else {
+                        errorMessage = "Could not prepare the photo."
+                        return
+                    }
+                    Task { await upload(data: data, fileName: "cpr-card.jpg", mimeType: "image/jpeg") }
+                } onCancel: {
+                    showingCamera = false
+                }
+            }
+        }
+    }
+
+    private func upload(item: PhotosPickerItem) async {
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                await MainActor.run { errorMessage = "Could not read the selected photo." }
+                return
+            }
+            let mimeType = imageMimeType(for: data)
+            await upload(data: data, fileName: mimeType == "image/png" ? "cpr-card.png" : "cpr-card.jpg", mimeType: mimeType)
+        } catch {
+            await MainActor.run { errorMessage = "Could not read the selected photo." }
+        }
+    }
+
+    private func upload(data: Data, fileName: String, mimeType: String) async {
+        await MainActor.run {
+            isUploading = true
+            errorMessage = nil
+        }
+        defer { Task { @MainActor in isUploading = false } }
+
+        do {
+            _ = try await ClassManagerAPIClient.shared.uploadCprCard(
+                attendee: attendee,
+                imageData: data,
+                fileName: fileName,
+                mimeType: mimeType
+            )
+            await MainActor.run { onUploaded() }
+        } catch {
+            await MainActor.run { errorMessage = "CPR card upload failed. Please try again." }
+        }
+    }
+
+    private func imageMimeType(for data: Data) -> String {
+        data.starts(with: [0x89, 0x50, 0x4E, 0x47]) ? "image/png" : "image/jpeg"
+    }
+}
+
+private struct CameraCaptureView: UIViewControllerRepresentable {
+    let onImage: (UIImage) -> Void
+    let onCancel: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onImage: onImage, onCancel: onCancel)
+    }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let onImage: (UIImage) -> Void
+        let onCancel: () -> Void
+
+        init(onImage: @escaping (UIImage) -> Void, onCancel: @escaping () -> Void) {
+            self.onImage = onImage
+            self.onCancel = onCancel
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                onImage(image)
+            } else {
+                onCancel()
+            }
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            onCancel()
+        }
+    }
 }
 
 private struct AttendanceCaptureSheet: View {

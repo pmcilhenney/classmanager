@@ -108,8 +108,8 @@ const REFRESHER_C_COMBINED_QUIZ_ID = "7f21b940-8344-4614-a935-49f2ea4218c7";
 const REFRESHER_A_VERSION_B_QUIZ_ID = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b";
 const REFRESHER_B_VERSION_B_QUIZ_ID = "76483815-190a-4c67-89ff-2e69c74b0c2a";
 const REFRESHER_C_VERSION_B_QUIZ_ID = "36088669-4530-48b8-ae82-1f549009d380";
-const REFRESHER_VERSION_A_PASSING_SCORE = 74;
-const REFRESHER_VERSION_B_PASSING_SCORE = 80;
+const REFRESHER_VERSION_A_PASSING_SCORE = 70;
+const REFRESHER_VERSION_B_PASSING_SCORE = 75;
 const REGISTRATION_FORM_ID = "251265925097060";
 const INSTRUCTOR_PAST_COURSE_DAYS = 45;
 const INSTRUCTOR_UPCOMING_COURSE_DAYS = 120;
@@ -332,6 +332,14 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/attendance/submit") {
         return await submitAttendance(request, env);
+      }
+
+      if (request.method === "GET" && url.pathname === "/cpr-card/status") {
+        return await cprCardStatus(url, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/cpr-card/upload") {
+        return await uploadCprCard(request, env);
       }
 
       if (request.method === "POST" && url.pathname === "/quiz/assign") {
@@ -2266,6 +2274,113 @@ async function submitAttendance(request: Request, env: Env): Promise<Response> {
     warnings,
     updatedAt: now
   });
+}
+
+async function cprCardStatus(url: URL, env: Env): Promise<Response> {
+  const studentId = url.searchParams.get("studentId")?.trim();
+  const classSessionId = url.searchParams.get("classSessionId")?.trim();
+  if (!studentId || !classSessionId) {
+    return json({ error: "missing_cpr_status_fields" }, 400);
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT id, r2_key, uploaded_at
+     FROM cpr_card_uploads
+     WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(studentId, classSessionId).first<JsonRecord>();
+
+  return json({
+    ok: true,
+    hasCprCard: Boolean(row),
+    upload: row ? {
+      id: stringField(row, "id"),
+      r2Key: stringField(row, "r2_key"),
+      uploadedAt: stringField(row, "uploaded_at")
+    } : null
+  });
+}
+
+async function uploadCprCard(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const attendee = recordField(body, "attendee");
+  const fileName = sanitizeFileName(stringField(body, "fileName") ?? "cpr-card.jpg");
+  const mimeType = stringField(body, "mimeType") ?? "image/jpeg";
+  const dataUrl = stringField(body, "dataUrl");
+  const deviceId = stringField(body, "deviceId");
+
+  if (!studentId || !classSessionId || !attendee || !dataUrl) {
+    return json({ error: "missing_cpr_upload_fields" }, 400);
+  }
+
+  const decoded = decodeDataUrl(dataUrl);
+  if (!decoded) {
+    return json({ error: "invalid_cpr_upload" }, 400);
+  }
+
+  await ensureProgressParents(env, {
+    studentId,
+    classSessionId,
+    oemsId: stringField(attendee, "oemsId") ?? studentId,
+    firstName: stringField(attendee, "firstName") ?? "Unknown",
+    lastName: stringField(attendee, "lastName") ?? "Student",
+    email: stringField(attendee, "email"),
+    courseId: stringField(attendee, "courseId"),
+    courseTitle: stringField(attendee, "courseType") ?? "Class Session",
+    courseDate: stringField(attendee, "courseDate") ?? classSessionId,
+    sourceSubmissionId: stringField(attendee, "submissionId"),
+    sourceFormId: "classmanager-cpr-card"
+  });
+
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  const safeMimeType = decoded.mimeType || mimeType;
+  const extension = fileExtensionForMime(safeMimeType, fileName);
+  const key = `cpr-cards/${classSessionId}/${studentId}/${Date.now()}-${id}.${extension}`;
+
+  await env.ARTIFACTS.put(key, decoded.bytes, {
+    httpMetadata: { contentType: safeMimeType },
+    customMetadata: {
+      studentId,
+      classSessionId,
+      originalFileName: fileName
+    }
+  });
+
+  await env.DB.prepare(
+    `INSERT INTO cpr_card_uploads (
+       id, student_id, class_session_id, file_name, mime_type, r2_key,
+       uploaded_at, device_id, raw_json, created_at, updated_at
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?7, ?7)
+     ON CONFLICT(student_id, class_session_id) DO UPDATE SET
+       file_name = excluded.file_name,
+       mime_type = excluded.mime_type,
+       r2_key = excluded.r2_key,
+       uploaded_at = excluded.uploaded_at,
+       device_id = COALESCE(excluded.device_id, cpr_card_uploads.device_id),
+       raw_json = excluded.raw_json,
+       updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    studentId,
+    classSessionId,
+    fileName,
+    safeMimeType,
+    key,
+    now,
+    deviceId ?? null,
+    JSON.stringify({ originalFileName: fileName, source: "classmanager-app" })
+  ).run();
+
+  await audit(env, "cpr_card.upload", {
+    studentId,
+    classSessionId,
+    deviceId,
+    payload: { r2Key: key, fileName, mimeType: safeMimeType }
+  });
+
+  return json({ ok: true, id, r2Key: key, uploadedAt: now });
 }
 
 async function postAcademyRmsAttendance(
@@ -4790,6 +4905,42 @@ function answerString(answers: JsonRecord, qid: string): string {
 
 function firstNonEmpty(...values: Array<string | undefined>): string {
   return values.find((value) => value !== undefined && value.trim().length > 0)?.trim() ?? "";
+}
+
+function sanitizeFileName(value: string): string {
+  const clean = value.trim().replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+  return clean.length > 0 ? clean.slice(0, 120) : "upload.jpg";
+}
+
+function decodeDataUrl(value: string): { bytes: Uint8Array; mimeType?: string } | undefined {
+  const match = value.match(/^data:([^;,]+)?;base64,(.+)$/);
+  if (!match) {
+    return undefined;
+  }
+  try {
+    const binary = atob(match[2]);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return { bytes, mimeType: match[1] };
+  } catch {
+    return undefined;
+  }
+}
+
+function fileExtensionForMime(mimeType: string, fileName: string): string {
+  const extension = fileName.split(".").pop()?.toLowerCase();
+  if (extension && /^[a-z0-9]{2,5}$/.test(extension)) {
+    return extension;
+  }
+  if (mimeType.includes("png")) {
+    return "png";
+  }
+  if (mimeType.includes("pdf")) {
+    return "pdf";
+  }
+  return "jpg";
 }
 
 function firstValue(sources: JsonRecord[], keys: string[]): unknown {

@@ -310,6 +310,7 @@ struct InstructorDashboardView: View {
                                 Text(student.didCheckIn ? "Checked in \(student.checkInAt.map(formatEasternTime) ?? "")" : "Expected")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                                studentQuickStatus(student)
                             }
                             Spacer()
                             if student.didCheckOut {
@@ -326,6 +327,39 @@ struct InstructorDashboardView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func studentQuickStatus(_ student: ClassManagerAPIClient.DashboardStudent) -> some View {
+        let quizSummary = quizCompletionSummary(for: student)
+        let final = currentFinalResult(for: student)
+        let versionB = versionBStatus(for: student)
+        HStack(spacing: 6) {
+            if quizSummary.total > 0 {
+                statusChip(
+                    "\(quizSummary.completed)/\(quizSummary.total) quizzes",
+                    color: quizSummary.completed == quizSummary.total ? .green : .blue
+                )
+            }
+            if let score = finalScoreText(final) {
+                statusChip(
+                    score,
+                    color: final?.passed == false ? .red : (final?.passed == true ? .green : .secondary)
+                )
+            }
+            if let versionB {
+                statusChip(versionB.text, color: versionB.color)
+            }
+        }
+    }
+
+    private func statusChip(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.12), in: Capsule())
     }
 
     private func studentDetail(_ student: ClassManagerAPIClient.DashboardStudent) -> some View {
@@ -660,6 +694,69 @@ struct InstructorDashboardView: View {
         (dashboard?.finalResults ?? []).filter {
             $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
         }
+    }
+
+    private func currentFinalResult(for student: ClassManagerAPIClient.DashboardStudent) -> ClassManagerAPIClient.DashboardFinalResult? {
+        finalResults(for: student).first
+    }
+
+    private func quizCompletionSummary(for student: ClassManagerAPIClient.DashboardStudent) -> (completed: Int, total: Int) {
+        let courseTitle = student.courseTitle.lowercased()
+        let expectedTotal: Int
+        if courseTitle.contains("refresher a") || courseTitle.contains("refresher b") || courseTitle.contains("refresher c") {
+            expectedTotal = 4
+        } else {
+            expectedTotal = 0
+        }
+
+        let completed = Set(quizResults(for: student).compactMap { result -> String? in
+            guard let quizId = result.quizId,
+                  quizId.contains("-page-") else { return nil }
+            return quizId
+        }).count
+
+        return (min(completed, expectedTotal), expectedTotal)
+    }
+
+    private func finalScoreText(_ result: ClassManagerAPIClient.DashboardFinalResult?) -> String? {
+        guard let result else { return nil }
+        if let points = result.points,
+           let available = result.availablePoints,
+           available > 0 {
+            return "\(Int(points.rounded()))/\(Int(available.rounded()))"
+        }
+        if let percentage = result.percentageScore {
+            return "\(Int(percentage.rounded()))%"
+        }
+        return scoreText(result.scoreText, result.resultText).isEmpty ? nil : scoreText(result.scoreText, result.resultText)
+    }
+
+    private func versionBStatus(for student: ClassManagerAPIClient.DashboardStudent) -> (text: String, color: Color)? {
+        let results = finalResults(for: student)
+        if let versionBResult = results.first(where: { result in
+            guard let quizId = result.quizId else { return false }
+            return QuizInfo.isVersionBQuizId(quizId)
+        }) {
+            if versionBResult.passed == true {
+                return ("B passed", .green)
+            }
+            if versionBResult.passed == false {
+                return ("B failed", .red)
+            }
+            return ("B submitted", .blue)
+        }
+
+        let failedVersionA = results.contains { result in
+            guard result.passed == false, let quizId = result.quizId else { return false }
+            return QuizInfo.isCombinedVersionAQuizId(quizId)
+        }
+        guard failedVersionA else { return nil }
+
+        let versionBStarted = quizResults(for: student).contains { result in
+            guard let quizId = result.quizId else { return false }
+            return QuizInfo.isVersionBQuizId(quizId) || quizId.contains("version-b-started")
+        }
+        return versionBStarted ? ("B in progress", .orange) : ("B required", .orange)
     }
 
     private func failedVersionAAndB(_ student: ClassManagerAPIClient.DashboardStudent) -> Bool {

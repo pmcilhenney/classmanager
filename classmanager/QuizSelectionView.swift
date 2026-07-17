@@ -181,7 +181,7 @@ struct QuizSelectionView: View {
                 }
 
                 if passed == false {
-                    Text(isVersionB ? "Version B requires an 80% or higher. This attempt is recorded separately from Version A." : "Review every missed item. Version B unlocks after the Version A review is opened.")
+                    Text(isVersionB ? "Version B requires a \(QuizInfo.versionBPassingPercent)% or higher. This attempt is recorded separately from Version A." : "Review every missed item. Version B unlocks after the Version A review is opened.")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.red)
                 }
@@ -210,7 +210,7 @@ struct QuizSelectionView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Version B Retest")
                         .font(.headline)
-                    Text(unlocked ? "50 new questions, 80% required" : "Locked until Version A review is complete")
+                    Text(unlocked ? "50 new questions, \(QuizInfo.versionBPassingPercent)% required" : "Locked until Version A review is complete")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(unlocked ? Color.accentColor : .secondary)
                 }

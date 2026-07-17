@@ -164,7 +164,7 @@ struct QuizReviewView: View {
     }
 
     private var passingScoreText: String {
-        QuizInfo.isVersionBQuizId(quiz.flexiQuizId) ? "80%" : "74%"
+        QuizInfo.passingPercentText(for: quiz.flexiQuizId)
     }
 
     private func filteredQuestions(

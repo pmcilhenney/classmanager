@@ -255,6 +255,37 @@ final class ClassManagerAPIClient {
         return response.progress
     }
 
+    func fetchCprCardStatus(attendee: RosterAttendee) async throws -> CPRCardStatusResponse {
+        let studentId = Self.studentId(for: attendee)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/cpr-card/status",
+            method: "GET",
+            queryItems: [
+                URLQueryItem(name: "studentId", value: studentId),
+                URLQueryItem(name: "classSessionId", value: classSessionId)
+            ]
+        )
+    }
+
+    func uploadCprCard(attendee: RosterAttendee, imageData: Data, fileName: String, mimeType: String) async throws -> CPRCardUploadResponse {
+        let studentId = Self.studentId(for: attendee)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/cpr-card/upload",
+            method: "POST",
+            body: CPRCardUploadRequest(
+                studentId: studentId,
+                classSessionId: classSessionId,
+                attendee: attendee,
+                fileName: fileName,
+                mimeType: mimeType,
+                dataUrl: "data:\(mimeType);base64,\(imageData.base64EncodedString())",
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     @discardableResult
     func saveProgress(
         _ progress: CKProgress,
@@ -362,6 +393,11 @@ final class ClassManagerAPIClient {
     private static func classSessionId(for value: String) -> String {
         let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return clean.isEmpty ? "undated" : clean.replacingOccurrences(of: "/", with: "-")
+    }
+
+    private static func studentId(for attendee: RosterAttendee) -> String {
+        let oemsId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+        return oemsId.isEmpty ? attendee.submissionId : oemsId
     }
 
     private static func isoString(_ date: Date) -> String {
@@ -616,6 +652,28 @@ extension ClassManagerAPIClient {
         let inOut: String
         let submissionId: String?
         let updatedAt: String
+    }
+
+    struct CPRCardStatusResponse: Decodable {
+        let ok: Bool
+        let hasCprCard: Bool
+    }
+
+    struct CPRCardUploadRequest: Encodable {
+        let studentId: String
+        let classSessionId: String
+        let attendee: RosterAttendee
+        let fileName: String
+        let mimeType: String
+        let dataUrl: String
+        let deviceId: String?
+    }
+
+    struct CPRCardUploadResponse: Decodable {
+        let ok: Bool
+        let id: String
+        let r2Key: String
+        let uploadedAt: String
     }
 
     struct QuizAssignRequest: Encodable {

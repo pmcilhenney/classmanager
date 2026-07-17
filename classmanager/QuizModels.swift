@@ -12,6 +12,8 @@ struct QuizInfo: Identifiable {
     static let refresherAVersionBQuizId = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b"
     static let refresherBVersionBQuizId = "76483815-190a-4c67-89ff-2e69c74b0c2a"
     static let refresherCVersionBQuizId = "36088669-4530-48b8-ae82-1f549009d380"
+    static let versionAPassingPercent = 70
+    static let versionBPassingPercent = 75
 
     let id: String
     let flexiQuizId: String
@@ -43,6 +45,14 @@ struct QuizInfo: Identifiable {
 
     static func isVersionBQuizId(_ quizId: String) -> Bool {
         [refresherAVersionBQuizId, refresherBVersionBQuizId, refresherCVersionBQuizId].contains(quizId)
+    }
+
+    static func passingPercent(for quizId: String) -> Int {
+        isVersionBQuizId(quizId) ? versionBPassingPercent : versionAPassingPercent
+    }
+
+    static func passingPercentText(for quizId: String) -> String {
+        "\(passingPercent(for: quizId))%"
     }
 
     static func versionBQuiz(forCombinedQuizId combinedQuizId: String) -> QuizInfo? {
