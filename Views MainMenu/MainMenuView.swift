@@ -1375,6 +1375,11 @@ struct MainMenuView: View {
             .replacingOccurrences(of: "/", with: "-")
         add("classSessionId", classSessionId)
         add("classManagerStudentId", studentId)
+        add("typeA90", attendee.courseId)
+        add("q90_typeA90", attendee.courseId)
+        add("q91_classsessionid", classSessionId)
+        add("classsessionid", classSessionId)
+        add("q92_classManagerStudentId", studentId)
         add("theseComments", aiComment)
         if let courseDate = attendee.courseDate {
             let df = DateFormatter()
