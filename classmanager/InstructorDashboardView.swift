@@ -343,7 +343,7 @@ struct InstructorDashboardView: View {
                 )
             }
             if passedExam {
-                statusChip("√ Passed", color: .green)
+                statusChip("Passed", color: .green, systemImage: "checkmark.circle.fill")
             }
             if let score = finalScoreText(final) {
                 statusChip(
@@ -357,8 +357,14 @@ struct InstructorDashboardView: View {
         }
     }
 
-    private func statusChip(_ text: String, color: Color) -> some View {
-        Text(text)
+    private func statusChip(_ text: String, color: Color, systemImage: String? = nil) -> some View {
+        Group {
+            if let systemImage {
+                Label(text, systemImage: systemImage)
+            } else {
+                Text(text)
+            }
+        }
             .font(.caption2.weight(.semibold))
             .foregroundStyle(color)
             .padding(.horizontal, 7)
