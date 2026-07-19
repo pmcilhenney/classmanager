@@ -437,78 +437,83 @@ struct MainMenuView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.secondary)
             VStack(spacing: 10) {
-                actionButton(title: "Check In", systemImage: "checkmark.circle", done: progressStore.progress.didCheckIn, disabled: progressStore.progress.didCheckIn) {
-                    check(inOut: "Check-In")
-                }
-                checkOutButton()
+                if examWorkflowComplete {
+                    checkOutButton()
+                    finalExamReviewButton()
+                } else {
+                    actionButton(title: "Check In", systemImage: "checkmark.circle", done: progressStore.progress.didCheckIn, disabled: progressStore.progress.didCheckIn) {
+                        check(inOut: "Check-In")
+                    }
+                    checkOutButton()
 
-                actionButton(
-                    title: "CPR Card",
-                    systemImage: cprCardStatus?.hasCprCard == true ? "checkmark.seal.fill" : "cross.case",
-                    done: cprCardStatus?.hasCprCard == true,
-                    disablesWhenDone: false
-                ) {
-                    showingCPRUpload = true
-                }
-                
-                // CONDITIONAL SKILLS BUTTON
-                // Show for Refresher courses (always) OR Elective courses WITH a skills URL
-                if shouldShowSkillsButton() {
                     actionButton(
-                        title: "Validate Skills",
-                        systemImage: "person.crop.circle.badge.checkmark",
-                        done: progressStore.progress.didOpenSkills,
-                        locked: !skillsValidationUnlocked,
-                        lockedMessage: skillsLockedMessage
+                        title: "CPR Card",
+                        systemImage: cprCardStatus?.hasCprCard == true ? "checkmark.seal.fill" : "cross.case",
+                        done: cprCardStatus?.hasCprCard == true,
+                        disablesWhenDone: false
                     ) {
-                        guard skillsValidationUnlocked else {
-                            toast = skillsLockedMessage
-                            return
-                        }
-                        // If an elective skills URL was detected for this student, open it
-                        // directly. Otherwise fall back to the normal instructor-gated flow.
-                        if let skills = electiveSkillsLink {
-                            skillsURL = skills
-                            showSkills = true
-                        } else {
-                            showingInstructorGate = true
+                        showingCPRUpload = true
+                    }
+                    
+                    // CONDITIONAL SKILLS BUTTON
+                    // Show for Refresher courses (always) OR Elective courses WITH a skills URL
+                    if shouldShowSkillsButton() {
+                        actionButton(
+                            title: "Validate Skills",
+                            systemImage: "person.crop.circle.badge.checkmark",
+                            done: progressStore.progress.didOpenSkills,
+                            locked: !skillsValidationUnlocked,
+                            lockedMessage: skillsLockedMessage
+                        ) {
+                            guard skillsValidationUnlocked else {
+                                toast = skillsLockedMessage
+                                return
+                            }
+                            // If an elective skills URL was detected for this student, open it
+                            // directly. Otherwise fall back to the normal instructor-gated flow.
+                            if let skills = electiveSkillsLink {
+                                skillsURL = skills
+                                showSkills = true
+                            } else {
+                                showingInstructorGate = true
+                            }
                         }
                     }
-                }
-                
-                // CONDITIONAL QUIZZES BUTTON
-                // Show for Refresher courses (always) OR Elective courses WITH quiz URLs
-                if shouldShowQuizzesButton() {
-                    Button(action: {
-                        if !electiveQuizLinks.isEmpty {
-                            // Open the first elective quiz URL in the right pane
-                            electiveQuizURL = electiveQuizLinks.first
-                            showingElectiveQuiz = true
-                            // Ensure quizzes pane isn't shown (we're showing the URL)
-                            showingQuizzes = false
-                        } else {
-                            openQuizzes()
-                        }
-                    }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "list.bullet.clipboard").font(.system(size: 20))
-                            Text("Quizzes").font(.headline)
-                            Spacer()
-                            if completedTrackedQuizCount > 0 {
-                                Text("\(completedTrackedQuizCount)/\(trackedQuizCount)")
-                                    .font(.subheadline.bold())
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.green)
-                                    .cornerRadius(8)
+                    
+                    // CONDITIONAL QUIZZES BUTTON
+                    // Show for Refresher courses (always) OR Elective courses WITH quiz URLs
+                    if shouldShowQuizzesButton() {
+                        Button(action: {
+                            if !electiveQuizLinks.isEmpty {
+                                // Open the first elective quiz URL in the right pane
+                                electiveQuizURL = electiveQuizLinks.first
+                                showingElectiveQuiz = true
+                                // Ensure quizzes pane isn't shown (we're showing the URL)
+                                showingQuizzes = false
+                            } else {
+                                openQuizzes()
                             }
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "list.bullet.clipboard").font(.system(size: 20))
+                                Text("Quizzes").font(.headline)
+                                Spacer()
+                                if completedTrackedQuizCount > 0 {
+                                    Text("\(completedTrackedQuizCount)/\(trackedQuizCount)")
+                                        .font(.subheadline.bold())
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.green)
+                                        .cornerRadius(8)
+                                }
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .padding()
+                            .foregroundColor(.white)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color.accentColor))
                         }
-                        .padding()
-                        .foregroundColor(.white)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.accentColor))
                     }
                 }
                 
@@ -587,6 +592,25 @@ struct MainMenuView: View {
         .buttonStyle(.plain)
     }
 
+    private func finalExamReviewButton() -> some View {
+        Button(action: {
+            openQuizzes()
+        }) {
+            HStack {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.system(size: 18))
+                Text("Review Full Exams")
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .padding()
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.accentColor.opacity(0.12)))
+            .foregroundColor(.accentColor)
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Right Content
     private var rightContent: some View {
         VStack(spacing: 0) {
@@ -627,28 +651,7 @@ struct MainMenuView: View {
                 } else if showingElectiveQuiz, let url = electiveQuizURL {
                     WebViewContainer(url: url)
                 } else if showingQuizzes {
-                    if let prompt = remediationPrompt {
-                        VersionBRemediationSheet(
-                            attendee: attendee,
-                            versionBQuiz: prompt.versionBQuiz,
-                            finalResult: prompt.finalResult,
-                            inPersonRemediationCompleted: prompt.inPersonRemediationCompleted,
-                            onCancel: { remediationPrompt = nil },
-                            onRequestInstructorReview: {
-                                Task { await requestInPersonRemediation(prompt) }
-                            },
-                            onDeclineAndContinue: { signatureDataUrl, signedAt, attestationText in
-                                Task {
-                                    await saveVersionBRemediationAttestation(
-                                        prompt,
-                                        signatureDataUrl: signatureDataUrl,
-                                        signedAt: signedAt,
-                                        attestationText: attestationText
-                                    )
-                                }
-                            }
-                        )
-                    } else if let quiz = selectedReviewQuiz {
+                    if let quiz = selectedReviewQuiz {
                         QuizReviewView(
                             config: config,
                             attendee: attendee,
@@ -689,6 +692,29 @@ struct MainMenuView: View {
                             },
                             onBack: { selectedQuiz = nil }
                         )
+                    } else if examWorkflowComplete {
+                        examCompletionTakeover
+                    } else if let prompt = remediationPrompt {
+                        VersionBRemediationSheet(
+                            attendee: attendee,
+                            versionBQuiz: prompt.versionBQuiz,
+                            finalResult: prompt.finalResult,
+                            inPersonRemediationCompleted: prompt.inPersonRemediationCompleted,
+                            onCancel: { remediationPrompt = nil },
+                            onRequestInstructorReview: {
+                                Task { await requestInPersonRemediation(prompt) }
+                            },
+                            onDeclineAndContinue: { signatureDataUrl, signedAt, attestationText in
+                                Task {
+                                    await saveVersionBRemediationAttestation(
+                                        prompt,
+                                        signatureDataUrl: signatureDataUrl,
+                                        signedAt: signedAt,
+                                        attestationText: attestationText
+                                    )
+                                }
+                            }
+                        )
                     } else {
                         QuizSelectionView(
                             progressStore: progressStore,
@@ -717,6 +743,8 @@ struct MainMenuView: View {
                     pdfViewer(for: url)
                 } else if showingMaterials {
                     materialsList
+                } else if examWorkflowComplete {
+                    examCompletionTakeover
                 } else {
                     // Right-side placeholder – show app logo and guidance (no action buttons on right)
                     VStack {
@@ -736,6 +764,171 @@ struct MainMenuView: View {
                 }
             }
         }
+    }
+
+    private var examCompletionTakeover: some View {
+        ScrollView {
+            VStack(spacing: 22) {
+                Image("gcems_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 112)
+                    .opacity(0.95)
+
+                VStack(spacing: 8) {
+                    Text("Exam Complete")
+                        .font(.system(size: 34, weight: .heavy, design: .rounded))
+                    Text(attendee.fullName)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(cleanCourseName(attendee.courseType))
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+                .multilineTextAlignment(.center)
+
+                if let finalResult = progressStore.progress.finalExamResult {
+                    VStack(spacing: 12) {
+                        HStack(spacing: 10) {
+                            ResultChip(
+                                text: finalResult.passed == true ? "Passed" : "Failed",
+                                systemImage: finalResult.passed == true ? "checkmark.seal.fill" : "xmark.octagon.fill",
+                                color: finalResult.passed == true ? .green : .red
+                            )
+                            if let score = finalScoreText(finalResult) {
+                                ResultChip(text: score, systemImage: "percent", color: .blue)
+                            }
+                            ResultChip(text: finalAttemptText(finalResult), systemImage: "doc.text.fill", color: .orange)
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Text(checkoutInstructionText(finalResult))
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 680)
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        LoadingSpinnerView()
+                            .frame(width: 48, height: 48)
+                        Text("Final exam results are being processed.")
+                            .font(.headline)
+                        Text("This usually takes a few moments. Check out will be available as soon as the final grade is recorded.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: 620)
+                }
+
+                VStack(spacing: 12) {
+                    ForEach(finalExamReviewTargets) { quiz in
+                        Button {
+                            selectedReviewQuiz = quiz
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "doc.text.magnifyingglass")
+                                    .font(.title3)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(quiz.title)
+                                        .font(.headline)
+                                    Text("Review correct and incorrect responses")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
+                            .frame(maxWidth: 620)
+                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Button {
+                        check(inOut: "Check-Out")
+                    } label: {
+                        Label(progressStore.progress.didCheckOut ? "Checked Out" : "Check Out", systemImage: progressStore.progress.didCheckOut ? "checkmark.circle.fill" : "rectangle.portrait.and.arrow.right")
+                            .font(.title3.weight(.bold))
+                            .frame(maxWidth: 620)
+                            .padding()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(progressStore.progress.didCheckOut || !canCheckOut())
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 38)
+        }
+        .background(Color(.systemBackground))
+    }
+
+    private var finalExamReviewTargets: [QuizInfo] {
+        var targets: [QuizInfo] = []
+        if let combinedQuizId = combinedVersionAQuizIdForCourse() {
+            targets.append(fullExamReviewQuiz(quizId: combinedQuizId, title: "Version A Full Exam Review"))
+        }
+        if let final = progressStore.progress.finalExamResult,
+           QuizInfo.isVersionBQuizId(final.quizId) {
+            targets.append(fullExamReviewQuiz(quizId: final.quizId, title: "Version B Full Exam Review"))
+        } else if let final = progressStore.progress.finalExamResult,
+                  !targets.contains(where: { $0.flexiQuizId == final.quizId }) {
+            targets.append(fullExamReviewQuiz(quizId: final.quizId, title: "Full Exam Review"))
+        }
+        return targets
+    }
+
+    private func fullExamReviewQuiz(quizId: String, title: String) -> QuizInfo {
+        QuizInfo(
+            id: "full-exam-review-\(quizId)",
+            flexiQuizId: quizId,
+            number: 0,
+            title: title,
+            url: URL(string: "https://www.flexiquiz.com/SC/N/\(quizId)")!
+        )
+    }
+
+    private func combinedVersionAQuizIdForCourse() -> String? {
+        let courseType = cleanCourseName(attendee.courseType).uppercased()
+        if courseType.contains("REFRESHER A") { return QuizInfo.refresherACombinedQuizId }
+        if courseType.contains("REFRESHER B") { return QuizInfo.refresherBCombinedQuizId }
+        if courseType.contains("REFRESHER C") { return QuizInfo.refresherCCombinedQuizId }
+        return nil
+    }
+
+    private func finalScoreText(_ finalResult: ClassManagerAPIClient.FinalExamResult) -> String? {
+        if let score = finalResult.scoreText?.trimmingCharacters(in: .whitespacesAndNewlines), !score.isEmpty {
+            return score
+        }
+        if let points = finalResult.points,
+           let available = finalResult.availablePoints,
+           available > 0 {
+            return "\(Int(points.rounded()))/\(Int(available.rounded())) (\(Int(((points / available) * 100).rounded()))%)"
+        }
+        if let percentage = finalResult.percentageScore {
+            return "\(Int(percentage.rounded()))%"
+        }
+        return nil
+    }
+
+    private func finalAttemptText(_ finalResult: ClassManagerAPIClient.FinalExamResult) -> String {
+        QuizInfo.isVersionBQuizId(finalResult.quizId) ? "Version B" : "Version A"
+    }
+
+    private func checkoutInstructionText(_ finalResult: ClassManagerAPIClient.FinalExamResult) -> String {
+        if progressStore.progress.didCheckOut {
+            return "Checkout is complete. You may review your full exam record below."
+        }
+        if finalResult.passed == true {
+            return "You must check out to receive credit for today. Checkout begins with the course evaluation."
+        }
+        return "Your exam attempt is complete. You still must check out so your attendance record is complete for today."
     }
 
     // MARK: - Materials List and Picker
@@ -2218,6 +2411,23 @@ private struct VersionBRemediationSheet: View {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.string(from: Date())
+    }
+}
+
+private struct ResultChip: View {
+    let text: String
+    let systemImage: String
+    let color: Color
+
+    var body: some View {
+        Label(text, systemImage: systemImage)
+            .font(.subheadline.weight(.bold))
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .foregroundStyle(color)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(color.opacity(0.12), in: Capsule())
     }
 }
 
