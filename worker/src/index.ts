@@ -376,6 +376,10 @@ export default {
         return await cprCardStatus(url, env);
       }
 
+      if (request.method === "GET" && url.pathname === "/cpr-card/image") {
+        return await cprCardImage(url, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/cpr-card/upload") {
         return await uploadCprCard(request, env);
       }
@@ -436,7 +440,7 @@ async function sessionLookup(request: Request, env: Env): Promise<Response> {
   }
 
   const source = await fetchJotformSubmission(env, submissionId);
-  const normalized = normalizeSessionLookup(source, submissionId);
+  const normalized = await resolveUndatedRegistrationOptions(env, normalizeSessionLookup(source, submissionId));
   const selected = normalized.options[0];
   const attendee = selected ? attendeeWithOption(normalized.attendee, selected) : normalized.attendee;
 
@@ -453,6 +457,13 @@ async function sessionLookup(request: Request, env: Env): Promise<Response> {
     sourceSubmissionId: attendee.submissionId,
     sourceFormId: normalized.formId
   });
+
+  if (selected && validCourseDate(selected.dateRaw)) {
+    const course = instructorCourseFromAttendee(attendee, normalized.formId);
+    const now = new Date().toISOString();
+    await upsertScheduledCourse(env, course, now);
+    await upsertScheduledStudent(env, { attendee, formId: normalized.formId, course }, now);
+  }
 
   await audit(env, "session.lookup", {
     studentId: attendee.oemsId || attendee.submissionId,
@@ -1862,6 +1873,80 @@ function normalizeSessionLookup(source: JsonRecord, requestedSubmissionId: strin
   return normalizeRefresherSubmission(answers, submissionId, formId);
 }
 
+async function resolveUndatedRegistrationOptions(
+  env: Env,
+  normalized: {
+    formId: string;
+    formType: "registration" | "refresher";
+    attendee: NormalizedAttendee;
+    options: SessionOption[];
+  }
+): Promise<typeof normalized> {
+  if (normalized.formType !== "registration") {
+    return normalized;
+  }
+  if (normalized.options.some((option) => validCourseDate(option.dateRaw))) {
+    return normalized;
+  }
+
+  const title = normalized.attendee.courseType || normalized.options[0]?.courseType;
+  if (!title) {
+    return normalized;
+  }
+
+  const matching = await matchingScheduledCourseOptions(env, title);
+  if (matching.length === 0) {
+    return normalized;
+  }
+
+  const attendee = attendeeWithOption(normalized.attendee, matching[0]);
+  return {
+    ...normalized,
+    attendee,
+    options: matching
+  };
+}
+
+async function matchingScheduledCourseOptions(env: Env, courseTitle: string): Promise<SessionOption[]> {
+  const normalizedTitle = courseTitle.trim().toLowerCase().replace(/\s+/g, " ");
+  const rows = await env.DB.prepare(
+    `SELECT course_title, course_date, course_id, course_location, raw_json
+     FROM scheduled_courses
+     WHERE course_date IS NOT NULL
+       AND course_date != ''
+       AND LOWER(TRIM(course_title)) = ?1
+     ORDER BY course_date ASC
+     LIMIT 50`
+  ).bind(normalizedTitle).all<JsonRecord>();
+
+  const today = dateSortValue(todayEasternDate());
+  return (rows.results ?? [])
+    .map((row) => {
+      const raw = parseJsonRecord(stringField(row, "raw_json") ?? "") ?? {};
+      const date = normalizeDateToMMDDYYYY(stringField(row, "course_date") ?? "");
+      return {
+        courseType: stringField(row, "course_title") ?? courseTitle,
+        datePretty: date,
+        dateRaw: date,
+        courseId: stringField(row, "course_id"),
+        courseLocation: stringField(row, "course_location"),
+        productCategories: arrayField(raw, "productCategories").filter((value): value is string => typeof value === "string"),
+        courseImageURL: stringField(raw, "courseImageURL")
+      };
+    })
+    .filter((option) => validCourseDate(option.dateRaw))
+    .sort((a, b) => {
+      const aTime = dateSortValue(a.dateRaw);
+      const bTime = dateSortValue(b.dateRaw);
+      const aUpcoming = aTime >= today;
+      const bUpcoming = bTime >= today;
+      if (aUpcoming !== bUpcoming) {
+        return aUpcoming ? -1 : 1;
+      }
+      return aUpcoming ? aTime - bTime : bTime - aTime;
+    });
+}
+
 function normalizeRegistrationSubmission(
   answers: JsonRecord,
   submissionId: string,
@@ -2389,9 +2474,20 @@ async function cprCardStatus(url: URL, env: Env): Promise<Response> {
   }
 
   const row = await env.DB.prepare(
-    `SELECT id, r2_key, uploaded_at
+    `SELECT id, r2_key, uploaded_at, class_session_id, expiration_date, validation_status, validation_notes
      FROM cpr_card_uploads
-     WHERE student_id = ?1 AND class_session_id = ?2`
+     WHERE student_id = ?1
+       AND (
+         class_session_id = ?2
+         OR expiration_date IS NULL
+         OR expiration_date = ''
+         OR date(expiration_date) >= date('now')
+       )
+     ORDER BY CASE WHEN class_session_id = ?2 THEN 0 ELSE 1 END,
+              CASE WHEN expiration_date IS NOT NULL AND expiration_date != '' THEN 0 ELSE 1 END,
+              expiration_date DESC,
+              uploaded_at DESC
+     LIMIT 1`
   ).bind(studentId, classSessionId).first<JsonRecord>();
 
   return json({
@@ -2400,8 +2496,51 @@ async function cprCardStatus(url: URL, env: Env): Promise<Response> {
     upload: row ? {
       id: stringField(row, "id"),
       r2Key: stringField(row, "r2_key"),
-      uploadedAt: stringField(row, "uploaded_at")
+      uploadedAt: stringField(row, "uploaded_at"),
+      classSessionId: stringField(row, "class_session_id"),
+      expirationDate: stringField(row, "expiration_date"),
+      validationStatus: stringField(row, "validation_status"),
+      validationNotes: stringField(row, "validation_notes"),
+      imageUrl: `${url.origin}/cpr-card/image?studentId=${encodeURIComponent(studentId)}&classSessionId=${encodeURIComponent(classSessionId)}`
     } : null
+  });
+}
+
+async function cprCardImage(url: URL, env: Env): Promise<Response> {
+  const studentId = url.searchParams.get("studentId")?.trim();
+  const classSessionId = url.searchParams.get("classSessionId")?.trim();
+  if (!studentId || !classSessionId) {
+    return json({ error: "missing_cpr_image_fields" }, 400);
+  }
+  const row = await env.DB.prepare(
+    `SELECT r2_key, mime_type
+     FROM cpr_card_uploads
+     WHERE student_id = ?1
+       AND (
+         class_session_id = ?2
+         OR expiration_date IS NULL
+         OR expiration_date = ''
+         OR date(expiration_date) >= date('now')
+       )
+     ORDER BY CASE WHEN class_session_id = ?2 THEN 0 ELSE 1 END,
+              CASE WHEN expiration_date IS NOT NULL AND expiration_date != '' THEN 0 ELSE 1 END,
+              expiration_date DESC,
+              uploaded_at DESC
+     LIMIT 1`
+  ).bind(studentId, classSessionId).first<JsonRecord>();
+  const key = stringField(row ?? {}, "r2_key");
+  if (!key) {
+    return json({ error: "cpr_card_not_found" }, 404);
+  }
+  const object = await env.ARTIFACTS.get(key);
+  if (!object) {
+    return json({ error: "cpr_card_object_not_found" }, 404);
+  }
+  return new Response(object.body, {
+    headers: {
+      "content-type": stringField(row ?? {}, "mime_type") ?? object.httpMetadata?.contentType ?? "image/jpeg",
+      "cache-control": "private, max-age=300"
+    }
   });
 }
 
@@ -2414,6 +2553,9 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
   const mimeType = stringField(body, "mimeType") ?? "image/jpeg";
   const dataUrl = stringField(body, "dataUrl");
   const deviceId = stringField(body, "deviceId");
+  const expirationDate = normalizeDateToISODate(stringField(body, "expirationDate") ?? "");
+  const recognizedText = stringField(body, "recognizedText");
+  const validation = validateCprCardUpload(expirationDate, recognizedText);
 
   if (!studentId || !classSessionId || !attendee || !dataUrl) {
     return json({ error: "missing_cpr_upload_fields" }, 400);
@@ -2456,14 +2598,19 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
   await env.DB.prepare(
     `INSERT INTO cpr_card_uploads (
        id, student_id, class_session_id, file_name, mime_type, r2_key,
-       uploaded_at, device_id, raw_json, created_at, updated_at
-     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?7, ?7)
+       uploaded_at, device_id, expiration_date, validation_status, validation_notes,
+       recognized_text, raw_json, created_at, updated_at
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?7, ?7)
      ON CONFLICT(student_id, class_session_id) DO UPDATE SET
        file_name = excluded.file_name,
        mime_type = excluded.mime_type,
        r2_key = excluded.r2_key,
        uploaded_at = excluded.uploaded_at,
        device_id = COALESCE(excluded.device_id, cpr_card_uploads.device_id),
+       expiration_date = COALESCE(excluded.expiration_date, cpr_card_uploads.expiration_date),
+       validation_status = excluded.validation_status,
+       validation_notes = excluded.validation_notes,
+       recognized_text = COALESCE(excluded.recognized_text, cpr_card_uploads.recognized_text),
        raw_json = excluded.raw_json,
        updated_at = excluded.updated_at`
   ).bind(
@@ -2475,17 +2622,54 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
     key,
     now,
     deviceId ?? null,
-    JSON.stringify({ originalFileName: fileName, source: "classmanager-app" })
+    expirationDate ?? null,
+    validation.status,
+    validation.notes,
+    recognizedText ?? null,
+    JSON.stringify({ originalFileName: fileName, source: "classmanager-app", expirationDate, validation })
   ).run();
 
   await audit(env, "cpr_card.upload", {
     studentId,
     classSessionId,
     deviceId,
-    payload: { r2Key: key, fileName, mimeType: safeMimeType }
+    payload: { r2Key: key, fileName, mimeType: safeMimeType, expirationDate, validation }
   });
 
-  return json({ ok: true, id, r2Key: key, uploadedAt: now });
+  return json({ ok: true, id, r2Key: key, uploadedAt: now, expirationDate, validationStatus: validation.status, validationNotes: validation.notes });
+}
+
+function validateCprCardUpload(expirationDate?: string, recognizedText?: string): { status: string; notes: string } {
+  const text = (recognizedText ?? "").toLowerCase();
+  const hasProvider = /\b(american heart association|aha|red cross|arc|healthcare provider|basic life support|bls|cpr|aed)\b/.test(text);
+  if (!expirationDate) {
+    return {
+      status: hasProvider ? "needs_expiration" : "needs_review",
+      notes: hasProvider
+        ? "CPR/BLS wording was detected, but the expiration date could not be read automatically."
+        : "The app could not verify CPR/BLS provider wording or expiration automatically."
+    };
+  }
+
+  const expires = Date.parse(`${expirationDate}T23:59:59-05:00`);
+  if (Number.isFinite(expires) && expires < Date.now()) {
+    return {
+      status: "expired",
+      notes: "The expiration date appears to be expired."
+    };
+  }
+
+  if (!hasProvider) {
+    return {
+      status: "needs_review",
+      notes: "The expiration date was captured, but CPR/BLS provider wording could not be verified automatically."
+    };
+  }
+
+  return {
+    status: "valid",
+    notes: "CPR/BLS wording and a future expiration date were detected."
+  };
 }
 
 async function postAcademyRmsAttendance(
@@ -4468,8 +4652,8 @@ function applyQuestionRationales(review: QuizReviewPayload): QuizReviewPayload {
   let mappedCount = 0;
   const questions = review.questions.map((question) => {
     const existing = question.feedback?.trim();
-    if (existing) {
-      return { ...question, feedback: existing };
+    if (existing && rationaleLooksClinicallyUseful(existing)) {
+      return { ...question, feedback: cleanText(existing) };
     }
 
     const mapped = mappedRationaleForQuestion(review.quizId, question);
@@ -4492,13 +4676,30 @@ function applyQuestionRationales(review: QuizReviewPayload): QuizReviewPayload {
   };
 }
 
+function rationaleLooksClinicallyUseful(value: string): boolean {
+  const clean = cleanText(value);
+  if (clean.length < 80) {
+    return false;
+  }
+  if (/\bkeyed answer\b|\bkeyed option\b|question stem|question wording|answer choices|best fits the presentation, protocol, or EMT decision point/i.test(clean)) {
+    return false;
+  }
+  return true;
+}
+
 function mappedRationaleForQuestion(quizId: string, question: QuizReviewQuestion): string | undefined {
   const knownRationale = knownRationaleForQuestion(quizId, question);
-  if (knownRationale) {
-    return knownRationale;
+  if (knownRationale && rationaleLooksClinicallyUseful(knownRationale)) {
+    return normalizeRationaleText(knownRationale);
   }
 
   return fallbackRationaleForQuestion(question);
+}
+
+function normalizeRationaleText(value: string): string {
+  return cleanText(value)
+    .replace(/^Correct answer:\s*[^.]+(?:\.\s*)?/i, "")
+    .trim();
 }
 
 function knownRationaleForQuestion(quizId: string, question: QuizReviewQuestion): string | undefined {
@@ -4519,21 +4720,39 @@ function knownRationaleForQuestion(quizId: string, question: QuizReviewQuestion)
 }
 
 function fallbackRationaleForQuestion(question: QuizReviewQuestion): string | undefined {
-  const correctAnswer = question.correctAnswer?.trim();
+  const correctAnswer = cleanText(question.correctAnswer ?? "");
   if (!correctAnswer) {
     return undefined;
   }
 
-  const studentAnswer = question.studentAnswer?.trim();
-  if (studentAnswer && question.isCorrect === false) {
-    return `The keyed correct answer is "${correctAnswer}". Your selected answer was "${studentAnswer}", so review the question wording and answer choices that point to "${correctAnswer}".`;
+  return clinicalRationaleForQuestion(question, correctAnswer);
+}
+
+function clinicalRationaleForQuestion(question: QuizReviewQuestion, correctAnswer: string): string {
+  const prompt = questionRationaleKey(question.prompt);
+  const answer = questionRationaleKey(correctAnswer);
+  const combined = `${prompt} ${answer}`;
+
+  if (/\bairway|snor|gurg|stridor|suction|opa|npa|ventilat|breath|respirat|oxygen|bvm|mask|dentures|vomit|carbon dioxide|co2\b/.test(combined)) {
+    return `${correctAnswer} is the best answer because airway and ventilation decisions are driven by what is immediately affecting air movement and oxygenation. In practice, match the finding to the airway problem, correct reversible obstruction early, and support ventilations before the patient deteriorates.`;
+  }
+  if (/\bcpr|compress|aed|pulseless|apneic|cardiac arrest|unresponsive|choking\b/.test(combined)) {
+    return `${correctAnswer} is the best answer because resuscitation priorities are time-sensitive: confirm unresponsiveness, breathing, and pulse quickly, start high-quality CPR when indicated, and use an AED as soon as it is available. Delays or ineffective compressions reduce perfusion.`;
+  }
+  if (/\bdiabet|glucose|sugar|insulin|hypogly|altered mental|confus|sweaty\b/.test(combined)) {
+    return `${correctAnswer} is the best answer because diabetic emergencies are guided by mental status, perfusion, and the likelihood of hypoglycemia versus hyperglycemia. Cool, sweaty skin with confusion or agitation should keep low blood glucose high on the differential and prompt treatment within local protocol.`;
+  }
+  if (/\btrauma|fall|bleed|shock|spine|fracture|burn|mechanism|collision|ejection|penetrat\b/.test(combined)) {
+    return `${correctAnswer} is the best answer because trauma care depends on mechanism, immediate life threats, and early recognition of bleeding, shock, and spinal-risk patterns. The correct option best fits the assessment finding or treatment priority that should drive EMT actions on scene.`;
+  }
+  if (/\bchild|infant|pediatric|newborn|neonate|delivery|pregnan|labor|birth\b/.test(combined)) {
+    return `${correctAnswer} is the best answer because pediatric and obstetric calls require age-appropriate assessment and early support of airway, breathing, circulation, warmth, and perfusion. The correct option matches the safest priority for that patient group.`;
+  }
+  if (/\bstroke|seizure|neuro|pupil|speech|weakness|headache\b/.test(combined)) {
+    return `${correctAnswer} is the best answer because neurologic complaints require focused assessment, glucose consideration when appropriate, time-sensitive recognition, and rapid transport decisions. The correct option best supports those priorities.`;
   }
 
-  if (question.isCorrect === true) {
-    return `The keyed correct answer is "${correctAnswer}". This item was answered correctly; use the question wording and answer choices to reinforce why this option fits best.`;
-  }
-
-  return `The keyed correct answer is "${correctAnswer}". Review the question wording and answer choices that point to this option.`;
+  return `${correctAnswer} is the best answer because it matches the patient presentation and the EMT priority described in the question. Focus on the assessment finding that changes care first, then choose the option that best protects airway, breathing, circulation, safety, or timely transport.`;
 }
 
 function questionRationaleKey(value: string): string {
@@ -5639,7 +5858,7 @@ function correctnessFromText(text?: string): boolean | undefined {
 }
 
 function cleanText(value: string): string {
-  return htmlDecode(value)
+  return stripTags(htmlDecode(value))
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -5705,6 +5924,18 @@ function normalizeDateToMMDDYYYY(raw: string): string {
   }
 
   return value;
+}
+
+function normalizeDateToISODate(raw: string): string | undefined {
+  const mmddyyyy = normalizeDateToMMDDYYYY(raw);
+  const match = mmddyyyy.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) {
+    return undefined;
+  }
+  const month = match[1].padStart(2, "0");
+  const day = match[2].padStart(2, "0");
+  const year = match[3];
+  return `${year}-${month}-${day}`;
 }
 
 function extractDatePart(raw: string): string | undefined {

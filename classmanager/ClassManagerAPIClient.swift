@@ -268,7 +268,7 @@ final class ClassManagerAPIClient {
         )
     }
 
-    func uploadCprCard(attendee: RosterAttendee, imageData: Data, fileName: String, mimeType: String) async throws -> CPRCardUploadResponse {
+    func uploadCprCard(attendee: RosterAttendee, imageData: Data, fileName: String, mimeType: String, expirationDate: String?, recognizedText: String?) async throws -> CPRCardUploadResponse {
         let studentId = Self.studentId(for: attendee)
         let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
         return try await send(
@@ -281,7 +281,9 @@ final class ClassManagerAPIClient {
                 fileName: fileName,
                 mimeType: mimeType,
                 dataUrl: "data:\(mimeType);base64,\(imageData.base64EncodedString())",
-                deviceId: UIDevice.current.identifierForVendor?.uuidString
+                deviceId: UIDevice.current.identifierForVendor?.uuidString,
+                expirationDate: expirationDate,
+                recognizedText: recognizedText
             )
         )
     }
@@ -657,6 +659,18 @@ extension ClassManagerAPIClient {
     struct CPRCardStatusResponse: Decodable {
         let ok: Bool
         let hasCprCard: Bool
+        let upload: CPRCardUploadStatus?
+    }
+
+    struct CPRCardUploadStatus: Decodable {
+        let id: String?
+        let r2Key: String?
+        let uploadedAt: String?
+        let classSessionId: String?
+        let expirationDate: String?
+        let validationStatus: String?
+        let validationNotes: String?
+        let imageUrl: String?
     }
 
     struct CPRCardUploadRequest: Encodable {
@@ -667,6 +681,8 @@ extension ClassManagerAPIClient {
         let mimeType: String
         let dataUrl: String
         let deviceId: String?
+        let expirationDate: String?
+        let recognizedText: String?
     }
 
     struct CPRCardUploadResponse: Decodable {
@@ -674,6 +690,9 @@ extension ClassManagerAPIClient {
         let id: String
         let r2Key: String
         let uploadedAt: String
+        let expirationDate: String?
+        let validationStatus: String?
+        let validationNotes: String?
     }
 
     struct QuizAssignRequest: Encodable {

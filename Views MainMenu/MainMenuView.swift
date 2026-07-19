@@ -6,6 +6,7 @@ import WebKit
 import CloudKit
 import PencilKit
 import PhotosUI
+import Vision
 
 struct MainMenuView: View {
     let config: AppConfig
@@ -39,6 +40,7 @@ struct MainMenuView: View {
     @State private var showingElectiveQuiz = false
     @State private var electiveQuizURL: URL? = nil
     @State private var showingCPRUpload = false
+    @State private var cprCardStatus: ClassManagerAPIClient.CPRCardStatusResponse?
 
     // Course Materials state
     @State private var showingMaterials = false
@@ -228,9 +230,11 @@ struct MainMenuView: View {
         .sheet(isPresented: $showingCPRUpload) {
             CPRCardUploadSheet(
                 attendee: attendee,
+                existingUpload: cprCardStatus?.upload,
                 onCancel: { showingCPRUpload = false },
                 onUploaded: {
                     showingCPRUpload = false
+                    Task { await loadCprCardStatus() }
                     toast = "CPR card uploaded."
                 }
             )
@@ -422,6 +426,14 @@ struct MainMenuView: View {
                     check(inOut: "Check-In")
                 }
                 checkOutButton()
+
+                actionButton(
+                    title: "CPR Card",
+                    systemImage: cprCardStatus?.hasCprCard == true ? "checkmark.seal.fill" : "cross.case",
+                    done: cprCardStatus?.hasCprCard == true
+                ) {
+                    showingCPRUpload = true
+                }
                 
                 // CONDITIONAL SKILLS BUTTON
                 // Show for Refresher courses (always) OR Elective courses WITH a skills URL
@@ -816,6 +828,7 @@ struct MainMenuView: View {
             await progressStore.load(oemsId: attendee.oemsId, courseDate: attendee.courseDate ?? "")
             // Ensure we also fetch latest server progress and merge so UI is up-to-date
             await progressStore.fetchLatestAndMerge()
+            await loadCprCardStatus()
             electiveQuizLinks = []
             electiveSkillsLink = nil
             showingElectiveQuiz = false
@@ -1052,13 +1065,21 @@ struct MainMenuView: View {
 
     @MainActor
     private func promptForCprCardIfNeeded() async {
+        await loadCprCardStatus()
+        if cprCardStatus?.hasCprCard == true {
+            showingCPRUpload = true
+            return
+        }
+        showingCPRUpload = true
+    }
+
+    @MainActor
+    private func loadCprCardStatus() async {
         do {
             let status = try await ClassManagerAPIClient.shared.fetchCprCardStatus(attendee: attendee)
-            if !status.hasCprCard {
-                showingCPRUpload = true
-            }
+            cprCardStatus = status
         } catch {
-            showingCPRUpload = true
+            cprCardStatus = nil
         }
     }
 
@@ -1807,6 +1828,7 @@ private struct AttendanceCaptureAction: Identifiable {
 
 private struct CPRCardUploadSheet: View {
     let attendee: RosterAttendee
+    let existingUpload: ClassManagerAPIClient.CPRCardUploadStatus?
     let onCancel: () -> Void
     let onUploaded: () -> Void
 
@@ -1814,6 +1836,10 @@ private struct CPRCardUploadSheet: View {
     @State private var showingCamera = false
     @State private var isUploading = false
     @State private var errorMessage: String?
+    @State private var pendingUpload: PendingCPRUpload?
+    @State private var expirationDateText = ""
+    @State private var showingExpirationPrompt = false
+    @State private var isUpdatingExisting = false
 
     var body: some View {
         NavigationStack {
@@ -1824,25 +1850,31 @@ private struct CPRCardUploadSheet: View {
                             .font(.title2.weight(.semibold))
                         Text(attendee.fullName)
                             .font(.headline)
-                        Text("Add the CPR card for this class. This is only requested once per student per class.")
+                        Text(existingUpload == nil ? "Add the CPR card for this class." : "Confirm the saved CPR card is still current or upload an updated card.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
 
-                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                        Label("Choose Photo", systemImage: "photo.on.rectangle")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
+                    if let existingUpload, !isUpdatingExisting {
+                        existingCardSummary(existingUpload)
+                        Button {
+                            onUploaded()
+                        } label: {
+                            Label("This Is Still Current", systemImage: "checkmark.seal.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
 
-                    Button {
-                        showingCamera = true
-                    } label: {
-                        Label("Take Photo", systemImage: "camera")
-                            .frame(maxWidth: .infinity)
+                        Button {
+                            isUpdatingExisting = true
+                        } label: {
+                            Label("Update CPR Card", systemImage: "arrow.triangle.2.circlepath")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        uploadControls
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
 
                     if let errorMessage {
                         Text(errorMessage)
@@ -1878,10 +1910,82 @@ private struct CPRCardUploadSheet: View {
                         errorMessage = "Could not prepare the photo."
                         return
                     }
-                    Task { await upload(data: data, fileName: "cpr-card.jpg", mimeType: "image/jpeg") }
+                    Task { await prepareUpload(data: data, fileName: "cpr-card.jpg", mimeType: "image/jpeg") }
                 } onCancel: {
                     showingCamera = false
                 }
+            }
+            .alert("Expiration Date", isPresented: $showingExpirationPrompt) {
+                TextField("MM/DD/YYYY", text: $expirationDateText)
+                    .keyboardType(.numbersAndPunctuation)
+                Button("Upload") {
+                    guard let pendingUpload else { return }
+                    Task {
+                        await upload(
+                            data: pendingUpload.data,
+                            fileName: pendingUpload.fileName,
+                            mimeType: pendingUpload.mimeType,
+                            expirationDate: normalizedExpirationDate(expirationDateText),
+                            recognizedText: pendingUpload.recognizedText
+                        )
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingUpload = nil
+                }
+            } message: {
+                Text("We could not confidently read the CPR card expiration date. Enter it so the app can avoid asking again before it expires.")
+            }
+        }
+    }
+
+    private var uploadControls: some View {
+        VStack(spacing: 12) {
+            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                Label("Choose Photo", systemImage: "photo.on.rectangle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button {
+                showingCamera = true
+            } label: {
+                Label("Take Photo", systemImage: "camera")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
+        }
+    }
+
+    private func existingCardSummary(_ upload: ClassManagerAPIClient.CPRCardUploadStatus) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let imageUrl = upload.imageUrl, let url = URL(string: imageUrl) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFit()
+                    case .failure:
+                        ContentUnavailableView("Preview unavailable", systemImage: "photo")
+                    default:
+                        LoadingSpinnerView()
+                    }
+                }
+                .frame(maxHeight: 260)
+                .frame(maxWidth: .infinity)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+            }
+
+            if let expiration = upload.expirationDate, !expiration.isEmpty {
+                Label("Expires \(expiration)", systemImage: "calendar.badge.checkmark")
+                    .font(.subheadline.weight(.semibold))
+            }
+            if let notes = upload.validationNotes, !notes.isEmpty {
+                Text(notes)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -1893,13 +1997,27 @@ private struct CPRCardUploadSheet: View {
                 return
             }
             let mimeType = imageMimeType(for: data)
-            await upload(data: data, fileName: mimeType == "image/png" ? "cpr-card.png" : "cpr-card.jpg", mimeType: mimeType)
+            await prepareUpload(data: data, fileName: mimeType == "image/png" ? "cpr-card.png" : "cpr-card.jpg", mimeType: mimeType)
         } catch {
             await MainActor.run { errorMessage = "Could not read the selected photo." }
         }
     }
 
-    private func upload(data: Data, fileName: String, mimeType: String) async {
+    private func prepareUpload(data: Data, fileName: String, mimeType: String) async {
+        let recognizedText = await recognizeText(in: data)
+        let expiration = expirationDate(from: recognizedText)
+        if expiration == nil {
+            await MainActor.run {
+                pendingUpload = PendingCPRUpload(data: data, fileName: fileName, mimeType: mimeType, recognizedText: recognizedText)
+                expirationDateText = ""
+                showingExpirationPrompt = true
+            }
+            return
+        }
+        await upload(data: data, fileName: fileName, mimeType: mimeType, expirationDate: expiration, recognizedText: recognizedText)
+    }
+
+    private func upload(data: Data, fileName: String, mimeType: String, expirationDate: String?, recognizedText: String?) async {
         await MainActor.run {
             isUploading = true
             errorMessage = nil
@@ -1911,7 +2029,9 @@ private struct CPRCardUploadSheet: View {
                 attendee: attendee,
                 imageData: data,
                 fileName: fileName,
-                mimeType: mimeType
+                mimeType: mimeType,
+                expirationDate: expirationDate,
+                recognizedText: recognizedText
             )
             await MainActor.run { onUploaded() }
         } catch {
@@ -1921,6 +2041,66 @@ private struct CPRCardUploadSheet: View {
 
     private func imageMimeType(for data: Data) -> String {
         data.starts(with: [0x89, 0x50, 0x4E, 0x47]) ? "image/png" : "image/jpeg"
+    }
+
+    private func recognizeText(in data: Data) async -> String? {
+        guard let image = UIImage(data: data), let cgImage = image.cgImage else { return nil }
+        return await withCheckedContinuation { continuation in
+            let request = VNRecognizeTextRequest { request, _ in
+                let text = (request.results as? [VNRecognizedTextObservation])?
+                    .compactMap { $0.topCandidates(1).first?.string }
+                    .joined(separator: "\n")
+                continuation.resume(returning: text)
+            }
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            DispatchQueue.global(qos: .userInitiated).async {
+                try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
+            }
+        }
+    }
+
+    private func expirationDate(from text: String?) -> String? {
+        guard let text else { return nil }
+        let patterns = [
+            #"(?:exp(?:ires|iration)?\.?\s*(?:date)?[:\s]*)?(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})"#,
+            #"(?:exp(?:ires|iration)?\.?\s*(?:date)?[:\s]*)?([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})"#
+        ]
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            let range = NSRange(text.startIndex..<text.endIndex, in: text)
+            let matches = regex.matches(in: text, range: range)
+            for match in matches {
+                guard match.numberOfRanges > 1, let swiftRange = Range(match.range(at: 1), in: text) else { continue }
+                if let normalized = normalizedExpirationDate(String(text[swiftRange])) {
+                    return normalized
+                }
+            }
+        }
+        return nil
+    }
+
+    private func normalizedExpirationDate(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York")
+        let formats = ["M/d/yyyy", "MM/dd/yyyy", "M-d-yyyy", "MM-dd-yyyy", "M/d/yy", "MM/dd/yy", "MMM d yyyy", "MMMM d yyyy", "MMM d, yyyy", "MMMM d, yyyy"]
+        for format in formats {
+            formatter.dateFormat = format
+            if let date = formatter.date(from: trimmed) {
+                formatter.dateFormat = "yyyy-MM-dd"
+                return formatter.string(from: date)
+            }
+        }
+        return nil
+    }
+
+    private struct PendingCPRUpload {
+        let data: Data
+        let fileName: String
+        let mimeType: String
+        let recognizedText: String?
     }
 }
 
