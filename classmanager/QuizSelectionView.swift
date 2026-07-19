@@ -205,43 +205,48 @@ struct QuizSelectionView: View {
     }
 
     private func versionBRetestCard(_ quiz: QuizInfo) -> some View {
-        let unlocked = versionAReviewCompleted
+        let unlocked = versionAReviewCompleted && !remediationWaiting
+        let canLaunch = unlocked && remediationCleared
         let completed = progressStore.progress.finalExamResult?.quizId == quiz.flexiQuizId
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                Image(systemName: completed ? "checkmark.seal.fill" : (unlocked ? "arrow.clockwise.circle.fill" : "lock.fill"))
+                Image(systemName: completed ? "checkmark.seal.fill" : (canLaunch ? "arrow.clockwise.circle.fill" : "lock.fill"))
                     .font(.title2)
-                    .foregroundStyle(completed ? .green : (unlocked ? Color.accentColor : .secondary))
+                    .foregroundStyle(completed ? .green : (canLaunch ? Color.accentColor : .secondary))
                     .frame(width: 32)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Version B Retest")
                         .font(.headline)
-                    Text(unlocked ? "50 new questions, \(QuizInfo.versionBPassingPercent)% required" : "Locked until Version A review is complete")
+                    Text(versionBStatusText)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(unlocked ? Color.accentColor : .secondary)
+                        .foregroundStyle(canLaunch ? Color.accentColor : .secondary)
                 }
                 Spacer()
-                Image(systemName: unlocked ? "chevron.right" : "lock.fill")
+                Image(systemName: canLaunch ? "chevron.right" : "lock.fill")
                     .foregroundStyle(.secondary)
             }
 
             Button {
-                guard unlocked else {
+                guard versionAReviewCompleted else {
                     onBlocked("Open the Version A full exam review first. Version B unlocks after review and remediation.")
                     return
                 }
                 if completed {
                     onReview(quiz)
+                } else if remediationWaiting {
+                    onBlocked("Your instructor has been notified. Version B unlocks after the instructor marks remediation complete.")
+                } else if remediationCleared {
+                    selectedQuiz = quiz
                 } else {
                     if let finalResult = progressStore.progress.finalExamResult {
                         onVersionBStartRequested(quiz, finalResult)
                     } else {
-                        selectedQuiz = quiz
+                        onBlocked("The Version A result is not ready yet.")
                     }
                 }
             } label: {
-                Label(completed ? "Review Version B" : (unlocked ? "Start Version B" : "Review Version A First"),
-                      systemImage: completed ? "doc.text.magnifyingglass" : (unlocked ? "play.fill" : "lock.fill"))
+                Label(versionBButtonText(completed: completed, canLaunch: canLaunch),
+                      systemImage: completed ? "doc.text.magnifyingglass" : (canLaunch ? "play.fill" : "lock.fill"))
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, alignment: .center)
             }
@@ -305,6 +310,40 @@ struct QuizSelectionView: View {
         let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
         guard let finalQuizId = progressStore.progress.finalExamResult?.quizId else { return false }
         return completed.contains(QuizInfo.versionAReviewMarkerId(for: finalQuizId))
+    }
+
+    private var remediationWaiting: Bool {
+        guard let finalQuizId = progressStore.progress.finalExamResult?.quizId else { return false }
+        let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
+        return completed.contains(QuizInfo.versionBRemediationRequestedMarkerId(for: finalQuizId)) && !remediationCleared
+    }
+
+    private var remediationCleared: Bool {
+        guard let finalQuizId = progressStore.progress.finalExamResult?.quizId else { return false }
+        let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
+        return completed.contains(QuizInfo.versionBRemediationDeclinedMarkerId(for: finalQuizId))
+            || completed.contains(QuizInfo.versionBRemediationCompletedMarkerId(for: finalQuizId))
+    }
+
+    private var versionBStatusText: String {
+        if !versionAReviewCompleted {
+            return "Locked until Version A review is complete"
+        }
+        if remediationWaiting {
+            return "Waiting for instructor remediation sign-off"
+        }
+        if remediationCleared {
+            return "50 new questions, \(QuizInfo.versionBPassingPercent)% required"
+        }
+        return "Remediation attestation required before Version B"
+    }
+
+    private func versionBButtonText(completed: Bool, canLaunch: Bool) -> String {
+        if completed { return "Review Version B" }
+        if canLaunch { return "Start Version B" }
+        if remediationWaiting { return "Waiting for Instructor" }
+        if versionAReviewCompleted { return "Complete Remediation Step" }
+        return "Review Version A First"
     }
 
     private var versionBInProgress: Bool {

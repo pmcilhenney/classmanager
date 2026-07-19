@@ -129,6 +129,21 @@ const REFRESHER_B_VERSION_B_QUIZ_ID = "76483815-190a-4c67-89ff-2e69c74b0c2a";
 const REFRESHER_C_VERSION_B_QUIZ_ID = "36088669-4530-48b8-ae82-1f549009d380";
 const REFRESHER_VERSION_A_PASSING_SCORE = 70;
 const REFRESHER_VERSION_B_PASSING_SCORE = 75;
+function versionAReviewMarkerId(combinedQuizId: string): string {
+  return `${combinedQuizId}-version-a-review-complete`;
+}
+
+function versionBRemediationRequestedMarkerId(combinedQuizId: string): string {
+  return `${combinedQuizId}-version-b-remediation-requested`;
+}
+
+function versionBRemediationDeclinedMarkerId(combinedQuizId: string): string {
+  return `${combinedQuizId}-version-b-remediation-declined`;
+}
+
+function versionBRemediationCompletedMarkerId(combinedQuizId: string): string {
+  return `${combinedQuizId}-version-b-remediation-completed`;
+}
 const REFRESHER_VERSION_A_COURSES = [
   {
     letter: "A",
@@ -407,6 +422,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/quiz/remediation/decline") {
         return await declineRemediationReview(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/quiz/remediation/complete") {
+        return await completeRemediationReview(request, env);
       }
 
       if (request.method === "POST" && url.pathname === "/rms/flexiquiz-result") {
@@ -990,7 +1009,8 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   ).bind(classSessionId).all<JsonRecord>();
   const remediations = await env.DB.prepare(
     `SELECT id, student_id, class_session_id, quiz_id, version_b_quiz_id,
-            action, score_text, course_title, course_date, signed_at, created_at, updated_at
+            action, score_text, course_title, course_date, instructor_person_id,
+            signed_at, created_at, updated_at
      FROM remediation_attestations
      WHERE class_session_id = ?1
      ORDER BY created_at DESC
@@ -1902,6 +1922,7 @@ function dashboardRemediationAttestation(row: JsonRecord): JsonRecord {
     scoreText: stringField(row, "score_text"),
     courseTitle: stringField(row, "course_title"),
     courseDate: stringField(row, "course_date"),
+    instructorPersonId: stringField(row, "instructor_person_id"),
     signedAt: stringField(row, "signed_at"),
     createdAt: stringField(row, "created_at"),
     updatedAt: stringField(row, "updated_at")
@@ -3780,6 +3801,53 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
       return json({ error: "aggregate_review_not_ready" }, 404);
     }
     if (studentId && classSessionId) {
+      const aggregateFinal = {
+        quizId: aggregateReview.quizId,
+        quizName: aggregateCourse.quizName,
+        responseId: aggregateReview.responseId,
+        scoreText: aggregateReview.scoreText,
+        resultText: aggregateReview.resultText,
+        passed: aggregateReview.passed,
+        completedAt: aggregateReview.completedAt,
+        percentageScore: percentageFromScoreText(aggregateReview.scoreText)
+      };
+      const existingAggregate = await env.DB.prepare(
+        `SELECT score_text, result_text, passed, percentage_score
+         FROM final_exam_results
+         WHERE student_id = ?1
+           AND class_session_id = ?2
+           AND quiz_id = ?3
+           AND response_id = ?4
+         LIMIT 1`
+      ).bind(studentId, classSessionId, aggregateFinal.quizId, aggregateFinal.responseId ?? null).first<JsonRecord>();
+      const aggregateChanged = !existingAggregate ||
+        stringField(existingAggregate, "score_text") !== aggregateFinal.scoreText ||
+        stringField(existingAggregate, "result_text") !== aggregateFinal.resultText ||
+        boolFromUnknown(existingAggregate.passed) !== aggregateFinal.passed ||
+        numberFromUnknown(existingAggregate.percentage_score) !== aggregateFinal.percentageScore;
+      if (aggregateChanged) {
+        await saveFinalExamResult(env, {
+          ...aggregateFinal,
+          studentId,
+          classSessionId,
+          email,
+          flexiquizUserId,
+          raw: {
+            source: "version_a_aggregate_review",
+            passingScore: REFRESHER_VERSION_A_PASSING_SCORE,
+            warnings: aggregateReview.warnings
+          }
+        });
+      }
+      if (aggregateReview.passed === false) {
+        await saveProgressMarkerAttempt(env, {
+          studentId,
+          classSessionId,
+          quizId: versionAReviewMarkerId(quizId),
+          resultText: "Version A review complete",
+          scoreText: aggregateReview.scoreText
+        });
+      }
       await audit(env, "quiz.review.requested", {
         studentId,
         classSessionId,
@@ -4034,6 +4102,14 @@ async function requestRemediationReview(request: Request, env: Env): Promise<Res
     JSON.stringify(body),
     now
   ).run();
+  await saveProgressMarkerAttempt(env, {
+    studentId,
+    classSessionId,
+    quizId: versionBRemediationRequestedMarkerId(quizId),
+    resultText: "In-person remediation requested",
+    scoreText: scoreText ?? undefined,
+    completedAt: now
+  });
 
   await notifyInstructorDashboard(env, {
     classSessionId,
@@ -4106,6 +4182,14 @@ async function declineRemediationReview(request: Request, env: Env): Promise<Res
     JSON.stringify({ ...body, signatureDataUrl: "[redacted-data-url]" }),
     now
   ).run();
+  await saveProgressMarkerAttempt(env, {
+    studentId,
+    classSessionId,
+    quizId: versionBRemediationDeclinedMarkerId(quizId),
+    resultText: "In-person remediation declined",
+    scoreText: scoreText ?? undefined,
+    completedAt: signedAt
+  });
 
   await notifyInstructorDashboard(env, {
     classSessionId,
@@ -4124,6 +4208,91 @@ async function declineRemediationReview(request: Request, env: Env): Promise<Res
     payload: { quizId, versionBQuizId, scoreText, courseTitle, courseDate, signedAt }
   });
   return json({ ok: true, id, signedAt });
+}
+
+async function completeRemediationReview(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const instructorPersonId = stringField(body, "instructorPersonId");
+  const quizId = stringField(body, "quizId");
+  const versionBQuizId = stringField(body, "versionBQuizId");
+  const scoreText = stringField(body, "scoreText");
+  const courseTitle = stringField(body, "courseTitle");
+  const courseDate = stringField(body, "courseDate");
+  const deviceId = stringField(body, "deviceId");
+  if (!studentId || !classSessionId || !instructorPersonId || !quizId || !versionBQuizId) {
+    return json({ error: "missing_remediation_complete_fields" }, 400);
+  }
+
+  const now = new Date().toISOString();
+  const id = `${classSessionId}:${studentId}:${quizId}:completed`;
+  await env.DB.prepare(
+    `INSERT INTO remediation_attestations (
+      id, student_id, class_session_id, quiz_id, version_b_quiz_id, action,
+      score_text, course_title, course_date, instructor_person_id,
+      signed_at, device_id, raw_json, created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, 'completed_in_person_review', ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?10, ?10)
+    ON CONFLICT(id) DO UPDATE SET
+      version_b_quiz_id = excluded.version_b_quiz_id,
+      score_text = COALESCE(excluded.score_text, remediation_attestations.score_text),
+      course_title = COALESCE(excluded.course_title, remediation_attestations.course_title),
+      course_date = COALESCE(excluded.course_date, remediation_attestations.course_date),
+      instructor_person_id = excluded.instructor_person_id,
+      signed_at = excluded.signed_at,
+      device_id = COALESCE(excluded.device_id, remediation_attestations.device_id),
+      raw_json = excluded.raw_json,
+      updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    studentId,
+    classSessionId,
+    quizId,
+    versionBQuizId,
+    scoreText ?? null,
+    courseTitle ?? null,
+    courseDate ?? null,
+    instructorPersonId,
+    now,
+    deviceId ?? null,
+    JSON.stringify(body)
+  ).run();
+  await saveProgressMarkerAttempt(env, {
+    studentId,
+    classSessionId,
+    quizId: versionBRemediationCompletedMarkerId(quizId),
+    resultText: "In-person remediation complete",
+    scoreText: scoreText ?? undefined,
+    completedAt: now
+  });
+
+  const instructorName = await instructorDisplayName(env, instructorPersonId);
+  await notifyInstructorDashboard(env, {
+    classSessionId,
+    studentId,
+    event: "remediation_review_completed",
+    title: "Remediation complete",
+    body: `${await studentDisplayName(env, studentId)} completed in-person review with ${instructorName}.`,
+    quizId,
+    scoreText,
+    completedAt: now
+  });
+  await notifyStudentDevicesForContext(env, {
+    studentId,
+    classSessionId,
+    event: "remediation_review_completed",
+    title: "Version B unlocked",
+    body: `In-person remediation is complete. Version B is ready.`,
+    quizId: versionBQuizId,
+    completedAt: now
+  });
+  await audit(env, "quiz.remediation.completed", {
+    studentId,
+    classSessionId,
+    deviceId,
+    payload: { quizId, versionBQuizId, scoreText, courseTitle, courseDate, instructorPersonId }
+  });
+  return json({ ok: true, id, createdAt: now });
 }
 
 async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response> {
@@ -4477,6 +4646,53 @@ async function sendDirectStudentFinalExamApns(
   }
 }
 
+async function notifyStudentDevicesForContext(
+  env: Env,
+  input: {
+    studentId: string;
+    classSessionId: string;
+    event: string;
+    title: string;
+    body: string;
+    quizId?: string;
+    completedAt?: string;
+  }
+): Promise<void> {
+  const rows = await env.DB.prepare(
+    `SELECT token, apns_environment
+     FROM device_tokens
+     WHERE student_id = ?1
+       AND class_session_id = ?2
+       AND token IS NOT NULL
+     ORDER BY updated_at DESC
+     LIMIT 10`
+  ).bind(input.studentId, input.classSessionId).all<JsonRecord>();
+
+  for (const row of rows.results ?? []) {
+    const token = stringField(row, "token");
+    if (!token) {
+      continue;
+    }
+    try {
+      await sendStudentWorkflowApns(env, {
+        token,
+        apnsEnvironment: normalizeApnsEnvironment(stringField(row, "apns_environment")),
+        ...input
+      });
+      await env.DB.prepare(
+        `UPDATE device_tokens SET last_push_at = ?2, updated_at = ?2 WHERE token = ?1`
+      ).bind(token, new Date().toISOString()).run();
+    } catch (error) {
+      await handleApnsFailure(env, token, error);
+      await audit(env, "student.workflow.push.failed", {
+        studentId: input.studentId,
+        classSessionId: input.classSessionId,
+        payload: { event: input.event, quizId: input.quizId ?? null, error: String(error) }
+      });
+    }
+  }
+}
+
 async function matchingDeviceContexts(
   env: Env,
   input: { email?: string; flexiquizUserId?: string }
@@ -4638,6 +4854,19 @@ async function studentDisplayName(env: Env, studentId?: string): Promise<string>
     .join(" ")
     .trim();
   return name || "Student";
+}
+
+async function instructorDisplayName(env: Env, personId?: string): Promise<string> {
+  if (!personId) {
+    return "Instructor";
+  }
+  const row = await env.DB.prepare(
+    `SELECT full_name
+     FROM instructors
+     WHERE person_id = ?1
+     LIMIT 1`
+  ).bind(personId).first<JsonRecord>();
+  return stringField(row ?? {}, "full_name") ?? "Instructor";
 }
 
 async function instructorDisplayNameForClassSession(env: Env, classSessionId?: string): Promise<string | undefined> {
@@ -5098,6 +5327,47 @@ function versionAReviewRatio(review: QuizReviewPayload): string | undefined {
   }
   const correct = answered.filter((question) => question.isCorrect === true).length;
   return `${correct}/${answered.length}`;
+}
+
+function percentageFromScoreText(scoreText?: string): number | undefined {
+  return scoreText ? scorePartsFromText(scoreText).percent : undefined;
+}
+
+async function saveProgressMarkerAttempt(
+  env: Env,
+  input: {
+    studentId: string;
+    classSessionId: string;
+    quizId: string;
+    resultText: string;
+    scoreText?: string;
+    completedAt?: string;
+  }
+): Promise<void> {
+  const now = new Date().toISOString();
+  const id = `${input.classSessionId}:${input.studentId}:${input.quizId}`;
+  await env.DB.prepare(
+    `INSERT INTO quiz_attempts (
+      id, student_id, class_session_id, quiz_id, response_id,
+      result_text, score_text, passed, review_released, completed_at,
+      created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?4, ?5, ?6, NULL, 1, ?7, ?8, ?8)
+    ON CONFLICT(id) DO UPDATE SET
+      result_text = excluded.result_text,
+      score_text = COALESCE(excluded.score_text, quiz_attempts.score_text),
+      review_released = 1,
+      completed_at = COALESCE(excluded.completed_at, quiz_attempts.completed_at),
+      updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    input.studentId,
+    input.classSessionId,
+    input.quizId,
+    input.resultText,
+    input.scoreText ?? null,
+    input.completedAt ?? now,
+    now
+  ).run();
 }
 
 async function saveQuizAttemptFromFinalResult(
@@ -7032,6 +7302,61 @@ async function sendFinalExamApns(
       scoreText: input.result.scoreText ?? null,
       percentageScore: input.result.percentageScore ?? null,
       completedAt: input.result.completedAt ?? null
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`apns_${response.status}_${text}`);
+  }
+}
+
+async function sendStudentWorkflowApns(
+  env: Env,
+  input: {
+    token: string;
+    apnsEnvironment: "prod" | "sandbox";
+    studentId: string;
+    classSessionId: string;
+    event: string;
+    title: string;
+    body: string;
+    quizId?: string;
+    completedAt?: string;
+  }
+): Promise<void> {
+  const topic = (env.APNS_BUNDLE_ID ?? "").trim();
+  if (!topic) {
+    throw new Error("missing_apns_topic");
+  }
+
+  const host = input.apnsEnvironment === "sandbox"
+    ? "https://api.sandbox.push.apple.com"
+    : "https://api.push.apple.com";
+  const jwt = await apnsJwt(env);
+  const sentAt = new Date().toISOString();
+  const response = await fetch(`${host}/3/device/${input.token}`, {
+    method: "POST",
+    headers: {
+      authorization: `bearer ${jwt}`,
+      "apns-topic": topic,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+      "apns-collapse-id": `student-workflow-${input.classSessionId}-${input.studentId}-${input.event}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      aps: {
+        alert: { title: input.title, body: input.body },
+        sound: "default",
+        "content-available": 1
+      },
+      type: input.event,
+      sentAt,
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      quizId: input.quizId ?? null,
+      completedAt: input.completedAt ?? null
     })
   });
 

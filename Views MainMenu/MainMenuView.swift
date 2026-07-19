@@ -1620,6 +1620,9 @@ struct MainMenuView: View {
                 scoreText: prompt.finalResult.scoreText
             )
             await MainActor.run {
+                let markerId = QuizInfo.versionBRemediationRequestedMarkerId(for: prompt.finalResult.quizId)
+                completedQuizzes.insert(markerId)
+                progressStore.markQuizResult(markerId, result: "In-person remediation requested")
                 remediationPrompt = nil
                 toast = "Your instructor has been notified for an in-person review before Version B."
             }
@@ -1647,6 +1650,9 @@ struct MainMenuView: View {
                 signedAt: signedAt
             )
             await MainActor.run {
+                let markerId = QuizInfo.versionBRemediationDeclinedMarkerId(for: prompt.finalResult.quizId)
+                completedQuizzes.insert(markerId)
+                progressStore.markQuizResult(markerId, result: "In-person remediation declined")
                 remediationPrompt = nil
                 selectedQuiz = prompt.versionBQuiz
             }

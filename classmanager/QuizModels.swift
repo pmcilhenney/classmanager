@@ -57,6 +57,18 @@ struct QuizInfo: Identifiable {
         "\(versionBQuizId)-version-b-started"
     }
 
+    static func versionBRemediationRequestedMarkerId(for combinedQuizId: String) -> String {
+        "\(combinedQuizId)-version-b-remediation-requested"
+    }
+
+    static func versionBRemediationDeclinedMarkerId(for combinedQuizId: String) -> String {
+        "\(combinedQuizId)-version-b-remediation-declined"
+    }
+
+    static func versionBRemediationCompletedMarkerId(for combinedQuizId: String) -> String {
+        "\(combinedQuizId)-version-b-remediation-completed"
+    }
+
     static func isCombinedVersionAQuizId(_ quizId: String) -> Bool {
         [refresherACombinedQuizId, refresherBCombinedQuizId, refresherCCombinedQuizId].contains(quizId)
     }

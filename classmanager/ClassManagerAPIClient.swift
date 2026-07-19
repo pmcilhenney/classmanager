@@ -297,6 +297,33 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func completeRemediationReview(
+        studentId: String,
+        classSessionId: String,
+        instructorPersonId: String,
+        quizId: String,
+        versionBQuizId: String,
+        scoreText: String?,
+        courseTitle: String,
+        courseDate: String?
+    ) async throws -> RemediationResponse {
+        try await send(
+            path: "/quiz/remediation/complete",
+            method: "POST",
+            body: RemediationCompleteRequest(
+                studentId: studentId,
+                classSessionId: classSessionId,
+                instructorPersonId: instructorPersonId,
+                quizId: quizId,
+                versionBQuizId: versionBQuizId,
+                scoreText: scoreText,
+                courseTitle: courseTitle,
+                courseDate: courseDate,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     @discardableResult
     func submitAttendance(
         formId: String,
@@ -726,6 +753,7 @@ extension ClassManagerAPIClient {
         let scoreText: String?
         let courseTitle: String?
         let courseDate: String?
+        let instructorPersonId: String?
         let signedAt: String?
         let createdAt: String?
         let updatedAt: String?
@@ -941,6 +969,18 @@ extension ClassManagerAPIClient {
         let attestationText: String
         let signatureDataUrl: String
         let signedAt: String
+        let deviceId: String?
+    }
+
+    struct RemediationCompleteRequest: Encodable {
+        let studentId: String
+        let classSessionId: String
+        let instructorPersonId: String
+        let quizId: String
+        let versionBQuizId: String
+        let scoreText: String?
+        let courseTitle: String
+        let courseDate: String?
         let deviceId: String?
     }
 

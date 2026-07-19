@@ -147,20 +147,6 @@ struct InstructorDashboardView: View {
                     )
                 }
             }
-            .fullScreenCover(item: $cprPreview) { item in
-                InstructorCprCardPreview(url: item.url) {
-                    cprPreview = nil
-                }
-            }
-            .sheet(item: $instructorReview) { item in
-                QuizReviewView(
-                    config: config,
-                    attendee: item.attendee,
-                    quiz: item.quiz,
-                    onLoaded: nil,
-                    onDone: { instructorReview = nil }
-                )
-            }
             .confirmationDialog(
                 "Reset this student's ClassManager progress?",
                 isPresented: Binding(
@@ -558,6 +544,14 @@ struct InstructorDashboardView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        if remediation.action == "requested_in_person_review" {
+                            Button {
+                                Task { await completeRemediation(for: student) }
+                            } label: {
+                                Label("Mark Remediation Complete", systemImage: "checkmark.seal")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
                     }
                 }
 
@@ -646,6 +640,20 @@ struct InstructorDashboardView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { selectedStudent = nil }
                 }
+            }
+            .fullScreenCover(item: $cprPreview) { item in
+                InstructorCprCardPreview(url: item.url) {
+                    cprPreview = nil
+                }
+            }
+            .sheet(item: $instructorReview) { item in
+                QuizReviewView(
+                    config: config,
+                    attendee: item.attendee,
+                    quiz: item.quiz,
+                    onLoaded: nil,
+                    onDone: { instructorReview = nil }
+                )
             }
         }
     }
@@ -790,6 +798,35 @@ struct InstructorDashboardView: View {
             await MainActor.run { notice = "CPR card approved." }
         } catch {
             await MainActor.run { notice = "Could not approve CPR card." }
+        }
+    }
+
+    private func completeRemediation(for student: ClassManagerAPIClient.DashboardStudent) async {
+        guard let remediation = remediationAttestation(for: student),
+              let quizId = remediation.quizId,
+              let versionBQuizId = remediation.versionBQuizId else {
+            await MainActor.run { notice = "Remediation record is not ready yet." }
+            return
+        }
+
+        await MainActor.run { busy = true }
+        defer { Task { @MainActor in busy = false } }
+
+        do {
+            _ = try await ClassManagerAPIClient.shared.completeRemediationReview(
+                studentId: student.studentId,
+                classSessionId: student.classSessionId,
+                instructorPersonId: instructor.personId,
+                quizId: quizId,
+                versionBQuizId: versionBQuizId,
+                scoreText: remediation.scoreText,
+                courseTitle: remediation.courseTitle ?? student.courseTitle,
+                courseDate: remediation.courseDate ?? student.courseDate
+            )
+            await refresh()
+            await MainActor.run { notice = "Remediation complete. Version B is unlocked for the student." }
+        } catch {
+            await MainActor.run { notice = "Could not mark remediation complete." }
         }
     }
 
@@ -949,6 +986,9 @@ struct InstructorDashboardView: View {
         if row.action == "declined_in_person_review" {
             return ("Review declined", .secondary, "signature")
         }
+        if row.action == "completed_in_person_review" {
+            return ("Review complete", .green, "checkmark.seal.fill")
+        }
         return nil
     }
 
@@ -958,6 +998,8 @@ struct InstructorDashboardView: View {
             return "Student requested in-person remediation before Version B."
         case "declined_in_person_review":
             return "Student declined in-person remediation and signed the self-review attestation before Version B."
+        case "completed_in_person_review":
+            return "Instructor marked in-person remediation complete. Version B is unlocked."
         default:
             return row.action?.replacingOccurrences(of: "_", with: " ").capitalized ?? "Remediation status recorded"
         }
