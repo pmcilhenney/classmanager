@@ -2024,7 +2024,7 @@ private struct CPRCardUploadSheet: View {
                 get: { fullScreenImageURL.map { FullScreenImageURL(url: $0) } },
                 set: { if $0 == nil { fullScreenImageURL = nil } }
             )) { item in
-                CPRCardFullScreenImage(url: item.url) {
+                CPRCardFullScreenPreview(url: item.url) {
                     fullScreenImageURL = nil
                 }
             }
@@ -2079,21 +2079,7 @@ private struct CPRCardUploadSheet: View {
                 Button {
                     fullScreenImageURL = url
                 } label: {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFit()
-                        case .failure:
-                            ContentUnavailableView("Preview unavailable", systemImage: "photo")
-                        default:
-                            LoadingSpinnerView()
-                        }
-                    }
-                    .frame(maxHeight: 260)
-                    .frame(maxWidth: .infinity)
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+                    CPRCardPreviewTile(url: url, maxHeight: 260)
                 }
                 .buttonStyle(.plain)
             }
@@ -2339,28 +2325,80 @@ private struct CPRExpirationDateSheet: View {
     }
 }
 
-private struct CPRCardFullScreenImage: View {
+struct CPRCardPreviewTile: View {
+    let url: URL
+    let maxHeight: CGFloat
+    @State private var preview: CPRCardPreviewContent?
+    @State private var failed = false
+
+    var body: some View {
+        Group {
+            if let preview {
+                switch preview {
+                case .image(let image):
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                case .pdf(let document):
+                    CPRCardPDFThumbnail(document: document)
+                }
+            } else if failed {
+                ContentUnavailableView("Preview unavailable", systemImage: "doc")
+            } else {
+                LoadingSpinnerView()
+            }
+        }
+        .frame(maxHeight: maxHeight)
+        .frame(maxWidth: .infinity)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .task(id: url) {
+            await loadPreview()
+        }
+    }
+
+    @MainActor
+    private func loadPreview() async {
+        do {
+            preview = try await CPRCardPreviewContent.load(from: url)
+            failed = false
+        } catch {
+            preview = nil
+            failed = true
+        }
+    }
+}
+
+struct CPRCardFullScreenPreview: View {
     let url: URL
     let onClose: () -> Void
+    @State private var preview: CPRCardPreviewContent?
+    @State private var failed = false
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .padding()
-                    case .failure:
-                        ContentUnavailableView("Preview unavailable", systemImage: "photo")
+                Group {
+                    if let preview {
+                        switch preview {
+                        case .image(let image):
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .padding()
+                        case .pdf(let document):
+                            CPRCardPDFView(document: document)
+                        }
+                    } else if failed {
+                        ContentUnavailableView("Preview unavailable", systemImage: "doc")
                             .foregroundStyle(.white)
-                    default:
+                    } else {
                         LoadingSpinnerView()
                     }
                 }
+            }
+            .task(id: url) {
+                await loadPreview()
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -2369,6 +2407,77 @@ private struct CPRCardFullScreenImage: View {
                 }
             }
         }
+    }
+
+    @MainActor
+    private func loadPreview() async {
+        do {
+            preview = try await CPRCardPreviewContent.load(from: url)
+            failed = false
+        } catch {
+            preview = nil
+            failed = true
+        }
+    }
+}
+
+enum CPRCardPreviewContent {
+    case image(UIImage)
+    case pdf(PDFDocument)
+
+    static func load(from url: URL) async throws -> CPRCardPreviewContent {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        let contentType = (response as? HTTPURLResponse)?
+            .value(forHTTPHeaderField: "content-type")?
+            .lowercased() ?? ""
+        if contentType.contains("pdf") || data.starts(with: [0x25, 0x50, 0x44, 0x46]),
+           let document = PDFDocument(data: data) {
+            return .pdf(document)
+        }
+        if let image = UIImage(data: data) {
+            return .image(image)
+        }
+        throw URLError(.cannotDecodeContentData)
+    }
+}
+
+struct CPRCardPDFThumbnail: View {
+    let document: PDFDocument
+
+    var body: some View {
+        if let page = document.page(at: 0) {
+            let thumbnail = page.thumbnail(of: CGSize(width: 640, height: 860), for: .mediaBox)
+            Image(uiImage: thumbnail)
+                .resizable()
+                .scaledToFit()
+                .overlay(alignment: .bottomTrailing) {
+                    Label("PDF", systemImage: "doc.richtext")
+                        .font(.caption.weight(.semibold))
+                        .padding(6)
+                        .background(.thinMaterial, in: Capsule())
+                        .padding(8)
+                }
+        } else {
+            ContentUnavailableView("Preview unavailable", systemImage: "doc")
+        }
+    }
+}
+
+struct CPRCardPDFView: UIViewRepresentable {
+    let document: PDFDocument
+
+    func makeUIView(context: Context) -> PDFView {
+        let pdfView = PDFView()
+        pdfView.autoScales = true
+        pdfView.displayMode = .singlePageContinuous
+        pdfView.displayDirection = .vertical
+        pdfView.backgroundColor = .black
+        pdfView.document = document
+        return pdfView
+    }
+
+    func updateUIView(_ pdfView: PDFView, context: Context) {
+        pdfView.document = document
     }
 }
 

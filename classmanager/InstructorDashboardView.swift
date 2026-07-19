@@ -517,21 +517,7 @@ struct InstructorDashboardView: View {
                                 Button {
                                     cprPreview = InstructorCprPreviewURL(url: url)
                                 } label: {
-                                    AsyncImage(url: url) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .scaledToFit()
-                                        case .failure:
-                                            ContentUnavailableView("Preview unavailable", systemImage: "photo")
-                                        default:
-                                            LoadingSpinnerView()
-                                        }
-                                    }
-                                    .frame(maxHeight: 220)
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+                                    CPRCardPreviewTile(url: url, maxHeight: 220)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1264,30 +1250,8 @@ private struct InstructorCprCardPreview: View {
     let onClose: () -> Void
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .padding()
-                    case .failure:
-                        ContentUnavailableView("Preview unavailable", systemImage: "photo")
-                            .foregroundStyle(.white)
-                    default:
-                        LoadingSpinnerView()
-                    }
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done", action: onClose)
-                        .foregroundStyle(.white)
-                }
-            }
+        CPRCardFullScreenPreview(url: url) {
+            onClose()
         }
     }
 }
