@@ -1935,7 +1935,7 @@ private struct CPRCardUploadSheet: View {
     @State private var isUploading = false
     @State private var errorMessage: String?
     @State private var pendingUpload: PendingCPRUpload?
-    @State private var expirationDateText = ""
+    @State private var manualExpirationDate = Date()
     @State private var showingExpirationPrompt = false
     @State private var isUpdatingExisting = false
     @State private var fullScreenImageURL: URL?
@@ -2028,26 +2028,28 @@ private struct CPRCardUploadSheet: View {
                     fullScreenImageURL = nil
                 }
             }
-            .alert("Expiration Date", isPresented: $showingExpirationPrompt) {
-                TextField("MM/DD/YYYY", text: $expirationDateText)
-                    .keyboardType(.numbersAndPunctuation)
-                Button("Upload") {
-                    guard let pendingUpload else { return }
-                    Task {
-                        await upload(
-                            data: pendingUpload.data,
-                            fileName: pendingUpload.fileName,
-                            mimeType: pendingUpload.mimeType,
-                            expirationDate: normalizedExpirationDate(expirationDateText),
-                            recognizedText: pendingUpload.recognizedText
-                        )
+            .sheet(isPresented: $showingExpirationPrompt) {
+                CPRExpirationDateSheet(
+                    selectedDate: $manualExpirationDate,
+                    onCancel: {
+                        pendingUpload = nil
+                        showingExpirationPrompt = false
+                    },
+                    onUpload: {
+                        guard let pendingUpload else { return }
+                        let expirationDate = isoDateString(from: manualExpirationDate)
+                        showingExpirationPrompt = false
+                        Task {
+                            await upload(
+                                data: pendingUpload.data,
+                                fileName: pendingUpload.fileName,
+                                mimeType: pendingUpload.mimeType,
+                                expirationDate: expirationDate,
+                                recognizedText: pendingUpload.recognizedText
+                            )
+                        }
                     }
-                }
-                Button("Cancel", role: .cancel) {
-                    pendingUpload = nil
-                }
-            } message: {
-                Text("We could not confidently read the CPR card expiration date. Enter it so the app can avoid asking again before it expires.")
+                )
             }
         }
     }
@@ -2163,7 +2165,7 @@ private struct CPRCardUploadSheet: View {
         if expiration == nil {
             await MainActor.run {
                 pendingUpload = PendingCPRUpload(data: data, fileName: fileName, mimeType: mimeType, recognizedText: recognizedText)
-                expirationDateText = ""
+                manualExpirationDate = Calendar.current.date(byAdding: .year, value: 2, to: Date()) ?? Date()
                 showingExpirationPrompt = true
             }
             return
@@ -2222,8 +2224,10 @@ private struct CPRCardUploadSheet: View {
     private func expirationDate(from text: String?) -> String? {
         guard let text else { return nil }
         let patterns = [
-            #"(?:exp(?:ires|iration)?\.?|renew(?:al)?|valid\s+(?:thru|through|until)|good\s+(?:thru|through|until))\s*(?:date)?[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})"#,
-            #"(?:exp(?:ires|iration)?\.?|renew(?:al)?|valid\s+(?:thru|through|until)|good\s+(?:thru|through|until))\s*(?:date)?[:\s]*([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})"#
+            #"(?:exp(?:ires|iration)?\.?|renew\s*by|renew(?:al)?|valid\s+(?:thru|through|until)|good\s+(?:thru|through|until))\s*(?:date)?[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})"#,
+            #"(?:exp(?:ires|iration)?\.?|renew\s*by|renew(?:al)?|valid\s+(?:thru|through|until)|good\s+(?:thru|through|until))\s*(?:date)?[:\s]*(\d{1,2}[/-]\d{4})"#,
+            #"(?:exp(?:ires|iration)?\.?|renew\s*by|renew(?:al)?|valid\s+(?:thru|through|until)|good\s+(?:thru|through|until))\s*(?:date)?[:\s]*([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})"#,
+            #"(?:exp(?:ires|iration)?\.?|renew\s*by|renew(?:al)?|valid\s+(?:thru|through|until)|good\s+(?:thru|through|until))\s*(?:date)?[:\s]*([A-Za-z]{3,9}\s+\d{4})"#
         ]
         for pattern in patterns {
             guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
@@ -2253,15 +2257,30 @@ private struct CPRCardUploadSheet: View {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(identifier: "America/New_York")
+        let monthYearFormats = ["M/yyyy", "MM/yyyy", "M-yyyy", "MM-yyyy", "MMM yyyy", "MMMM yyyy"]
+        for format in monthYearFormats {
+            formatter.dateFormat = format
+            if let date = formatter.date(from: trimmed),
+               let endOfMonth = Calendar(identifier: .gregorian).dateInterval(of: .month, for: date)?.end.addingTimeInterval(-1) {
+                return isoDateString(from: endOfMonth)
+            }
+        }
         let formats = ["M/d/yyyy", "MM/dd/yyyy", "M-d-yyyy", "MM-dd-yyyy", "M/d/yy", "MM/dd/yy", "MMM d yyyy", "MMMM d yyyy", "MMM d, yyyy", "MMMM d, yyyy"]
         for format in formats {
             formatter.dateFormat = format
             if let date = formatter.date(from: trimmed) {
-                formatter.dateFormat = "yyyy-MM-dd"
-                return formatter.string(from: date)
+                return isoDateString(from: date)
             }
         }
         return nil
+    }
+
+    private func isoDateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 
     private struct PendingCPRUpload {
@@ -2278,6 +2297,45 @@ private struct CPRCardUploadSheet: View {
     private struct FullScreenImageURL: Identifiable {
         let url: URL
         var id: String { url.absoluteString }
+    }
+}
+
+private struct CPRExpirationDateSheet: View {
+    @Binding var selectedDate: Date
+    let onCancel: () -> Void
+    let onUpload: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("We could not confidently read the CPR card expiration date. Select the card's expiration date so the app can avoid asking again before it expires.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                DatePicker(
+                    "Expiration Date",
+                    selection: $selectedDate,
+                    in: Date()...,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Expiration Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Upload", action: onUpload)
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
