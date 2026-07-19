@@ -592,25 +592,30 @@ async function checkoutEvaluationDraft(request: Request, env: Env): Promise<Resp
   const fallbackInstructor = recordField(body, "authenticatedInstructor");
   const primaryName = stringField(primaryInstructor ?? {}, "fullName") ?? stringField(fallbackInstructor ?? {}, "fullName");
   const primaryEmail = stringField(primaryInstructor ?? {}, "email") ?? stringField(fallbackInstructor ?? {}, "email");
+  const courseTitle = displayCourseTitle(
+    stringField(body, "courseTitle") ??
+    stringField(attendee, "courseType") ??
+    ""
+  );
+  const courseId = stringField(body, "courseId") ?? stringField(attendee, "courseId") ?? "";
 
-  const fields: JsonRecord = {
-    "23": displayCourseTitle(stringField(attendee, "courseType") ?? ""),
-    "24": primaryName ?? "",
-    "25": primaryEmail ?? "",
-    "28": stringField(attendee, "courseId") ?? ""
-  };
+  const fields: JsonRecord = {};
+  setJotformField(fields, "23", "courseType", courseTitle);
+  setJotformField(fields, "24", "primaryInstructor", primaryName ?? "");
+  setJotformField(fields, "25", "email", primaryEmail ?? "");
+  setJotformField(fields, "28", "njCourse", courseId);
 
-  const additionalFieldPairs: Array<[string, string]> = [
-    ["29", "30"],
-    ["31", "32"],
-    ["33", "34"]
+  const additionalFieldPairs: Array<[string, string, string, string]> = [
+    ["29", "additionalInstructor", "30", "additionalInstructor30"],
+    ["31", "additionalInstructor31", "32", "additionalInstructor32"],
+    ["33", "additionalInstructor33", "34", "additionalInstructor34"]
   ];
   for (let index = 0; index < additionalFieldPairs.length; index += 1) {
     const instructor = instructors[index + 1];
     if (!instructor) continue;
-    const [nameQid, emailQid] = additionalFieldPairs[index];
-    fields[nameQid] = stringField(instructor, "fullName") ?? "";
-    fields[emailQid] = stringField(instructor, "email") ?? "";
+    const [nameQid, nameKey, emailQid, emailKey] = additionalFieldPairs[index];
+    setJotformField(fields, nameQid, nameKey, stringField(instructor, "fullName") ?? "");
+    setJotformField(fields, emailQid, emailKey, stringField(instructor, "email") ?? "");
   }
 
   const draft = await postJotformSubmission(env, CHECKOUT_EVALUATION_FORM_ID, fields);
@@ -630,7 +635,10 @@ async function checkoutEvaluationDraft(request: Request, env: Env): Promise<Resp
     payload: {
       formId: CHECKOUT_EVALUATION_FORM_ID,
       submissionId: draft.submissionId,
-      editUrl: editUrl.toString()
+      editUrl: editUrl.toString(),
+      courseTitlePresent: courseTitle.length > 0,
+      courseIdPresent: courseId.length > 0,
+      instructorCount: instructors.length
     }
   });
 
@@ -6930,6 +6938,15 @@ function sessionIdFor(value: string): string {
 
 function displayCourseTitle(value: string): string {
   return value.replace(/^\d+\s*-\s*/, "").trim();
+}
+
+function setJotformField(fields: JsonRecord, qid: string, name: string, value: string): void {
+  const clean = value.trim();
+  if (!clean) {
+    return;
+  }
+  fields[qid] = clean;
+  fields[name] = clean;
 }
 
 function stringField(source: JsonRecord, key: string): string | undefined {

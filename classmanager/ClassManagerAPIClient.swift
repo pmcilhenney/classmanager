@@ -97,6 +97,8 @@ final class ClassManagerAPIClient {
                 studentId: studentId,
                 classSessionId: classSessionId,
                 attendee: attendee,
+                courseTitle: attendee.courseType,
+                courseId: attendee.courseId,
                 instructors: activeInstructors.map {
                     CheckoutEvaluationInstructor(fullName: $0.fullName, email: $0.email)
                 },
@@ -699,6 +701,8 @@ extension ClassManagerAPIClient {
         let studentId: String
         let classSessionId: String
         let attendee: RosterAttendee
+        let courseTitle: String
+        let courseId: String?
         let instructors: [CheckoutEvaluationInstructor]
         let authenticatedInstructor: CheckoutEvaluationInstructor?
         let deviceId: String?
