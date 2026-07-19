@@ -71,6 +71,7 @@ struct WelcomeView: View {
     @State private var showSessionPicker = false
     @State private var sessionOptions: [RegistrationOption] = []
     @State private var isScanningBusy = false
+    @State private var pendingNotificationRoute: ClassManagerNotificationRoute?
 
     // 2nd-pass booster
     @State private var lastSubmissionId: String = ""
@@ -103,7 +104,8 @@ struct WelcomeView: View {
                     instructor: instructorSession.instructor,
                     initialCourse: instructorSession.defaultCourse,
                     courses: instructorSession.courses,
-                    initialAttendance: instructorSession.attendance
+                    initialAttendance: instructorSession.attendance,
+                    initialNotificationRoute: pendingNotificationRoute
                 )
             } else if navigateToMain, let att = acceptedAttendee {
                 // Main 2-panel view
@@ -112,7 +114,8 @@ struct WelcomeView: View {
                     attendee: att,
                     jotform: jotform,
                     flexi: flexi,
-                    onRequestLaunchReset: resetActiveSessionForNewClass
+                    onRequestLaunchReset: resetActiveSessionForNewClass,
+                    initialNotificationRoute: pendingNotificationRoute
                 )
             } else {
                 // Welcome / scanning UI
@@ -252,6 +255,10 @@ struct WelcomeView: View {
                 expireActiveSessionIfNeeded()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .classManagerNotificationTapped)) { notification in
+            guard let route = ClassManagerNotificationRoute(userInfo: notification.userInfo ?? [:]) else { return }
+            handleTappedNotification(route)
+        }
     }
 
     // MARK: - Scan handler
@@ -272,6 +279,7 @@ struct WelcomeView: View {
         lastPickedOption = nil
         registrationProductMap = [:]
         lastScanWasRegistration = false
+        pendingNotificationRoute = nil
     }
 
     private func expireActiveSessionIfNeeded() {
@@ -312,6 +320,21 @@ struct WelcomeView: View {
             let attendee = lookup.attendee
             lastSubmissionId = submissionId
             ClassManagerLaunchSession.markScan()
+
+            if let route = pendingNotificationRoute, route.matches(attendee: attendee) {
+                await MainActor.run {
+                    self.fetched = attendee
+                    self.acceptedAttendee = attendee
+                    self.showReview = false
+                    self.showSessionPicker = false
+                    self.navigateToMain = true
+                }
+                return
+            } else if pendingNotificationRoute != nil {
+                await MainActor.run {
+                    pendingNotificationRoute = nil
+                }
+            }
 
             if lookup.options.count > 1 {
                 await MainActor.run {
@@ -362,6 +385,24 @@ struct WelcomeView: View {
                 errorText = "Could not start instructor dashboard."
             }
         }
+    }
+
+    private func handleTappedNotification(_ route: ClassManagerNotificationRoute) {
+        guard route.isStudentExamRoute else { return }
+
+        if route.isFresh, let acceptedAttendee, route.matches(attendee: acceptedAttendee) {
+            pendingNotificationRoute = route
+            navigateToMain = true
+            return
+        }
+
+        pendingNotificationRoute = route
+        navigateToMain = false
+        acceptedAttendee = nil
+        fetched = nil
+        showReview = false
+        showSessionPicker = false
+        scanning = true
     }
 
     // MARK: - Second pass after user picks a session

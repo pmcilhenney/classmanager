@@ -128,6 +128,26 @@ final class ClassManagerAPIClient {
     }
 
     @discardableResult
+    func overrideCprCard(
+        studentId: String,
+        classSessionId: String,
+        instructorPersonId: String,
+        notes: String
+    ) async throws -> CPRCardOverrideResponse {
+        try await send(
+            path: "/cpr-card/override",
+            method: "POST",
+            body: CPRCardOverrideRequest(
+                studentId: studentId,
+                classSessionId: classSessionId,
+                instructorPersonId: instructorPersonId,
+                notes: notes,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
+    @discardableResult
     func markSkillsOpened(
         studentId: String,
         classSessionId: String,
@@ -406,12 +426,12 @@ final class ClassManagerAPIClient {
         value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
     }
 
-    private static func classSessionId(for value: String) -> String {
+    static func classSessionId(for value: String) -> String {
         let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return clean.isEmpty ? "undated" : clean.replacingOccurrences(of: "/", with: "-")
     }
 
-    private static func studentId(for attendee: RosterAttendee) -> String {
+    static func studentId(for attendee: RosterAttendee) -> String {
         let oemsId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
         return oemsId.isEmpty ? attendee.submissionId : oemsId
     }
@@ -552,6 +572,7 @@ extension ClassManagerAPIClient {
         let quizResults: [DashboardQuizResult]
         let finalResults: [DashboardFinalResult]
         let skillsVerifications: [DashboardSkillsVerification]
+        let cprCards: [DashboardCprCard]?
     }
 
     struct DashboardStudent: Decodable, Identifiable, Hashable {
@@ -617,6 +638,37 @@ extension ClassManagerAPIClient {
         let updatedAt: String?
 
         var id: String { [studentId, classSessionId, openedAt].compactMap { $0 }.joined(separator: ":") }
+    }
+
+    struct DashboardCprCard: Decodable, Identifiable, Hashable {
+        let id: String?
+        let studentId: String?
+        let classSessionId: String?
+        let uploadedAt: String?
+        let expirationDate: String?
+        let validationStatus: String?
+        let validationNotes: String?
+        let overriddenByPersonId: String?
+        let overriddenAt: String?
+        let overrideNotes: String?
+
+        var stableId: String { [id, studentId, classSessionId, uploadedAt].compactMap { $0 }.joined(separator: ":") }
+    }
+
+    struct CPRCardOverrideRequest: Encodable {
+        let studentId: String
+        let classSessionId: String
+        let instructorPersonId: String
+        let notes: String
+        let deviceId: String?
+    }
+
+    struct CPRCardOverrideResponse: Decodable {
+        let ok: Bool
+        let id: String
+        let validationStatus: String?
+        let validationNotes: String?
+        let overriddenAt: String?
     }
 
     struct StudentResetRequest: Encodable {

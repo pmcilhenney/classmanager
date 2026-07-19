@@ -63,6 +63,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         NotificationCenter.default.post(
+            name: .classManagerNotificationTapped,
+            object: nil,
+            userInfo: response.notification.request.content.userInfo
+        )
+        NotificationCenter.default.post(
             name: .ckRemoteNotificationReceived,
             object: nil,
             userInfo: response.notification.request.content.userInfo

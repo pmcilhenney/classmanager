@@ -15,6 +15,7 @@ struct MainMenuView: View {
     let flexi: FlexiQuizClient
     let onRequestScanNew: (() -> Void)? = nil
     let onRequestLaunchReset: (() -> Void)?
+    let initialNotificationRoute: ClassManagerNotificationRoute?
 
     @StateObject var materialsManager: CourseMaterialsManager
     @Environment(\.dismiss) private var dismiss
@@ -119,12 +120,14 @@ struct MainMenuView: View {
         attendee: RosterAttendee,
         jotform: JotFormClient,
         flexi: FlexiQuizClient,
-        onRequestLaunchReset: (() -> Void)? = nil
+        onRequestLaunchReset: (() -> Void)? = nil,
+        initialNotificationRoute: ClassManagerNotificationRoute? = nil
     ) {
         self.config = config
         self.jotform = jotform
         self.flexi = flexi
         self.onRequestLaunchReset = onRequestLaunchReset
+        self.initialNotificationRoute = initialNotificationRoute
         _attendee = State(initialValue: attendee)
         _materialsManager = StateObject(wrappedValue: CourseMaterialsManager(jotformApiKey: config.jotformApiKey, materialsFormId: (Bundle.main.object(forInfoDictionaryKey: "COURSE_MATERIALS_ID") as? String) ?? ""))
     }
@@ -160,6 +163,7 @@ struct MainMenuView: View {
         .onAppear {
             expireActiveSessionIfNeeded()
             onAppearLoad()
+            routeNotificationIfNeeded(initialNotificationRoute)
         }
         .onChange(of: scenePhase) { phase in
             if phase == .active {
@@ -173,6 +177,10 @@ struct MainMenuView: View {
                 let ckIDs = Set(progressStore.progress.completedQuizIDs).intersection(courseQuizIDs)
                 completedQuizzes.formUnion(ckIDs)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .classManagerNotificationTapped)) { notification in
+            guard let route = ClassManagerNotificationRoute(userInfo: notification.userInfo ?? [:]) else { return }
+            routeNotificationIfNeeded(route)
         }
         .alert(item: Binding(
             get: { toast.map { ToastMessage(id: UUID(), message: $0) } },
@@ -1467,6 +1475,48 @@ struct MainMenuView: View {
         }
     }
 
+    private func routeNotificationIfNeeded(_ route: ClassManagerNotificationRoute?) {
+        guard let route, route.isFresh, route.matches(attendee: attendee) else { return }
+        if route.isStudentExamRoute || route.quizId != nil {
+            openExamReviewFromNotification(route)
+        }
+    }
+
+    private func openExamReviewFromNotification(_ route: ClassManagerNotificationRoute) {
+        guard let quiz = quizForNotificationRoute(route) else {
+            openQuizzes()
+            return
+        }
+        showSkills = false
+        showingElectiveForm = false
+        showingMaterials = false
+        showingPDF = false
+        showingElectiveQuiz = false
+        selectedQuiz = nil
+        selectedReviewQuiz = quiz
+        showingQuizzes = true
+    }
+
+    private func quizForNotificationRoute(_ route: ClassManagerNotificationRoute) -> QuizInfo? {
+        guard let quizId = route.quizId else { return nil }
+        if let versionB = getVersionBQuizForCourse(), versionB.flexiQuizId == quizId {
+            return versionB
+        }
+        if let existing = getQuizzesForCourse().first(where: { $0.flexiQuizId == quizId || $0.id == quizId }) {
+            return existing
+        }
+        if let first = getQuizzesForCourse().first, first.flexiQuizId == quizId || QuizInfo.isCombinedVersionAQuizId(quizId) {
+            return QuizInfo(
+                id: "full-exam-review-\(quizId)",
+                flexiQuizId: quizId,
+                number: 0,
+                title: "Full Exam Review",
+                url: first.url
+            )
+        }
+        return nil
+    }
+
     private func markQuizComplete(quizId: String) {
         Task { @MainActor in
             completedQuizzes.insert(quizId)
@@ -1862,6 +1912,7 @@ private struct CPRCardUploadSheet: View {
     @State private var expirationDateText = ""
     @State private var showingExpirationPrompt = false
     @State private var isUpdatingExisting = false
+    @State private var fullScreenImageURL: URL?
 
     var body: some View {
         NavigationStack {
@@ -1879,13 +1930,19 @@ private struct CPRCardUploadSheet: View {
 
                     if let existingUpload, !isUpdatingExisting {
                         existingCardSummary(existingUpload)
-                        Button {
-                            Task { await confirmCurrentCard() }
-                        } label: {
-                            Label("This Is Still Current", systemImage: "checkmark.seal.fill")
-                                .frame(maxWidth: .infinity)
+                        if isAcceptedCprStatus(existingUpload.validationStatus) {
+                            Button {
+                                Task { await confirmCurrentCard() }
+                            } label: {
+                                Label("This Is Still Current", systemImage: "checkmark.seal.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else {
+                            Label("A new upload is required unless an instructor approves this card.", systemImage: "exclamationmark.triangle.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.red)
                         }
-                        .buttonStyle(.borderedProminent)
 
                         Button {
                             isUpdatingExisting = true
@@ -1937,6 +1994,14 @@ private struct CPRCardUploadSheet: View {
                     showingCamera = false
                 }
             }
+            .fullScreenCover(item: Binding(
+                get: { fullScreenImageURL.map { FullScreenImageURL(url: $0) } },
+                set: { if $0 == nil { fullScreenImageURL = nil } }
+            )) { item in
+                CPRCardFullScreenImage(url: item.url) {
+                    fullScreenImageURL = nil
+                }
+            }
             .alert("Expiration Date", isPresented: $showingExpirationPrompt) {
                 TextField("MM/DD/YYYY", text: $expirationDateText)
                     .keyboardType(.numbersAndPunctuation)
@@ -1983,23 +2048,33 @@ private struct CPRCardUploadSheet: View {
     private func existingCardSummary(_ upload: ClassManagerAPIClient.CPRCardUploadStatus) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             if let imageUrl = upload.imageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    case .failure:
-                        ContentUnavailableView("Preview unavailable", systemImage: "photo")
-                    default:
-                        LoadingSpinnerView()
+                Button {
+                    fullScreenImageURL = url
+                } label: {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFit()
+                        case .failure:
+                            ContentUnavailableView("Preview unavailable", systemImage: "photo")
+                        default:
+                            LoadingSpinnerView()
+                        }
                     }
+                    .frame(maxHeight: 260)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
                 }
-                .frame(maxHeight: 260)
-                .frame(maxWidth: .infinity)
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+                .buttonStyle(.plain)
             }
 
+            if let status = upload.validationStatus, !status.isEmpty {
+                Label(cprStatusLabel(status), systemImage: isAcceptedCprStatus(status) ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(isAcceptedCprStatus(status) ? .green : .red)
+            }
             if let expiration = upload.expirationDate, !expiration.isEmpty {
                 Label("Expires \(expiration)", systemImage: "calendar.badge.checkmark")
                     .font(.subheadline.weight(.semibold))
@@ -2009,6 +2084,22 @@ private struct CPRCardUploadSheet: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private func isAcceptedCprStatus(_ status: String?) -> Bool {
+        status == "valid" || status == "approved_by_instructor"
+    }
+
+    private func cprStatusLabel(_ status: String) -> String {
+        switch status {
+        case "valid": return "Accepted"
+        case "approved_by_instructor": return "Approved by Instructor"
+        case "expired": return "Expired"
+        case "name_mismatch": return "Name Mismatch"
+        case "needs_expiration": return "Expiration Needed"
+        case "needs_review": return "Instructor Review Needed"
+        default: return status.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 
@@ -2071,6 +2162,11 @@ private struct CPRCardUploadSheet: View {
                 recognizedText: recognizedText
             )
             await MainActor.run { onUploaded() }
+        } catch ClassManagerAPIClient.APIError.httpStatus(_, let body) {
+            await MainActor.run {
+                errorMessage = cprUploadErrorMessage(from: body)
+                isUpdatingExisting = true
+            }
         } catch {
             await MainActor.run { errorMessage = "CPR card upload failed. Please try again." }
         }
@@ -2100,8 +2196,8 @@ private struct CPRCardUploadSheet: View {
     private func expirationDate(from text: String?) -> String? {
         guard let text else { return nil }
         let patterns = [
-            #"(?:exp(?:ires|iration)?\.?\s*(?:date)?[:\s]*)?(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})"#,
-            #"(?:exp(?:ires|iration)?\.?\s*(?:date)?[:\s]*)?([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})"#
+            #"(?:exp(?:ires|iration)?\.?|renew(?:al)?|valid\s+(?:thru|through|until)|good\s+(?:thru|through|until))\s*(?:date)?[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})"#,
+            #"(?:exp(?:ires|iration)?\.?|renew(?:al)?|valid\s+(?:thru|through|until)|good\s+(?:thru|through|until))\s*(?:date)?[:\s]*([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})"#
         ]
         for pattern in patterns {
             guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
@@ -2115,6 +2211,15 @@ private struct CPRCardUploadSheet: View {
             }
         }
         return nil
+    }
+
+    private func cprUploadErrorMessage(from body: String?) -> String {
+        guard let body,
+              let data = body.data(using: .utf8),
+              let payload = try? JSONDecoder().decode(CPRUploadErrorPayload.self, from: data) else {
+            return "This CPR card could not be accepted. Upload a new card or ask an instructor to review it."
+        }
+        return payload.validationNotes ?? "This CPR card could not be accepted. Upload a new card or ask an instructor to review it."
     }
 
     private func normalizedExpirationDate(_ raw: String) -> String? {
@@ -2138,6 +2243,48 @@ private struct CPRCardUploadSheet: View {
         let fileName: String
         let mimeType: String
         let recognizedText: String?
+    }
+
+    private struct CPRUploadErrorPayload: Decodable {
+        let validationNotes: String?
+    }
+
+    private struct FullScreenImageURL: Identifiable {
+        let url: URL
+        var id: String { url.absoluteString }
+    }
+}
+
+private struct CPRCardFullScreenImage: View {
+    let url: URL
+    let onClose: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .padding()
+                    case .failure:
+                        ContentUnavailableView("Preview unavailable", systemImage: "photo")
+                            .foregroundStyle(.white)
+                    default:
+                        LoadingSpinnerView()
+                    }
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done", action: onClose)
+                        .foregroundStyle(.white)
+                }
+            }
+        }
     }
 }
 

@@ -15,6 +15,7 @@ struct InstructorPhoneView: View {
     @State private var busy = false
     @State private var notice: String?
     @State private var instructorSession: ClassManagerAPIClient.InstructorScanResponse?
+    @State private var pendingNotificationRoute: ClassManagerNotificationRoute?
     @StateObject private var progressStore = CKProgressStore()
 
     var body: some View {
@@ -27,7 +28,8 @@ struct InstructorPhoneView: View {
                     instructor: instructorSession.instructor,
                     initialCourse: instructorSession.defaultCourse,
                     courses: instructorSession.courses,
-                    initialAttendance: instructorSession.attendance
+                    initialAttendance: instructorSession.attendance,
+                    initialNotificationRoute: pendingNotificationRoute
                 )
             } else {
                 instructorLoginView
@@ -37,6 +39,15 @@ struct InstructorPhoneView: View {
         .onChange(of: scenePhase) { phase in
             if phase == .active {
                 expireActiveSessionIfNeeded()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .classManagerNotificationTapped)) { notification in
+            guard let route = ClassManagerNotificationRoute(userInfo: notification.userInfo ?? [:]),
+                  route.isInstructorDashboardUpdate else { return }
+            pendingNotificationRoute = route
+            if instructorSession == nil {
+                notice = route.isFresh ? "Scan instructor QR to open this student." : "Scan instructor QR to continue."
+                showingScanner = true
             }
         }
     }
@@ -358,6 +369,7 @@ struct InstructorPhoneView: View {
         busy = false
         notice = nil
         instructorSession = nil
+        pendingNotificationRoute = nil
     }
 
     private func loadProgress(for attendee: RosterAttendee) async {

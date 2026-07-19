@@ -9,6 +9,7 @@ struct InstructorDashboardView: View {
     let initialCourse: ClassManagerAPIClient.InstructorCourse?
     let courses: [ClassManagerAPIClient.InstructorCourse]
     let initialAttendance: ClassManagerAPIClient.InstructorAttendance?
+    let initialNotificationRoute: ClassManagerNotificationRoute?
 
     @State private var dashboard: ClassManagerAPIClient.InstructorDashboardResponse?
     @State private var selectedCourse: ClassManagerAPIClient.InstructorCourse?
@@ -17,12 +18,14 @@ struct InstructorDashboardView: View {
     @State private var skillsURL: URL?
     @State private var isPreparingSkillsForm = false
     @State private var repeatSkillsCandidate: ClassManagerAPIClient.DashboardStudent?
+    @State private var cprOverrideCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var resetCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var resetConfirmationText = ""
     @State private var showingResetText = false
     @State private var attendanceAction: InstructorAttendanceAction?
     @State private var busy = false
     @State private var notice: String?
+    @State private var pendingTappedStudentId: String?
 
     private var availableCourses: [ClassManagerAPIClient.InstructorCourse] {
         let remote = dashboard?.courses ?? []
@@ -40,7 +43,8 @@ struct InstructorDashboardView: View {
         instructor: ClassManagerAPIClient.InstructorDashboardInstructor,
         initialCourse: ClassManagerAPIClient.InstructorCourse?,
         courses: [ClassManagerAPIClient.InstructorCourse],
-        initialAttendance: ClassManagerAPIClient.InstructorAttendance? = nil
+        initialAttendance: ClassManagerAPIClient.InstructorAttendance? = nil,
+        initialNotificationRoute: ClassManagerNotificationRoute? = nil
     ) {
         self.config = config
         self.jotform = jotform
@@ -49,7 +53,9 @@ struct InstructorDashboardView: View {
         self.initialCourse = initialCourse
         self.courses = courses
         self.initialAttendance = initialAttendance
+        self.initialNotificationRoute = initialNotificationRoute
         _attendance = State(initialValue: initialAttendance)
+        _pendingTappedStudentId = State(initialValue: initialNotificationRoute?.isFresh == true ? initialNotificationRoute?.studentId : nil)
     }
 
     var body: some View {
@@ -82,9 +88,14 @@ struct InstructorDashboardView: View {
                     selectedCourse = initialCourse
                 }
                 await refresh()
+                await selectPendingTappedStudentIfAvailable()
             }
             .onReceive(NotificationCenter.default.publisher(for: .ckRemoteNotificationReceived)) { notification in
                 Task { await handleRemoteDashboardUpdate(notification.userInfo) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .classManagerNotificationTapped)) { notification in
+                guard let route = ClassManagerNotificationRoute(userInfo: notification.userInfo ?? [:]) else { return }
+                Task { await handleTappedDashboardNotification(route) }
             }
             .sheet(item: $selectedStudent) { student in
                 studentDetail(student)
@@ -171,6 +182,26 @@ struct InstructorDashboardView: View {
                 }
             } message: {
                 Text("This student already has a completed skills verification. Continue only if you intentionally need to submit another form.")
+            }
+            .confirmationDialog(
+                "Approve this CPR card?",
+                isPresented: Binding(
+                    get: { cprOverrideCandidate != nil },
+                    set: { if !$0 { cprOverrideCandidate = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Approve CPR Card", role: .destructive) {
+                    if let student = cprOverrideCandidate {
+                        cprOverrideCandidate = nil
+                        Task { await approveCprCard(for: student) }
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    cprOverrideCandidate = nil
+                }
+            } message: {
+                Text("Use this only after personally reviewing the CPR card against NJ OEMS requirements.")
             }
             .alert("Type RESET STUDENT", isPresented: $showingResetText) {
                 TextField("RESET STUDENT", text: $resetConfirmationText)
@@ -473,6 +504,44 @@ struct InstructorDashboardView: View {
                     }
                 }
 
+                Section("CPR Card") {
+                    if let cpr = cprCard(for: student) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Label(cprStatusLabel(cpr.validationStatus), systemImage: cprAccepted(cpr) ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                                    .foregroundStyle(cprAccepted(cpr) ? .green : .red)
+                                Spacer()
+                                if let expiration = cpr.expirationDate, !expiration.isEmpty {
+                                    Text("Expires \(expiration)")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            if let notes = cpr.validationNotes, !notes.isEmpty {
+                                Text(notes)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let uploaded = cpr.uploadedAt {
+                                Text("Uploaded \(formatEasternTime(uploaded))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if !cprAccepted(cpr) {
+                                Button {
+                                    cprOverrideCandidate = student
+                                } label: {
+                                    Label("Approve CPR Card", systemImage: "checkmark.shield")
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                        }
+                    } else {
+                        Text("No CPR card uploaded yet.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Instructor Actions") {
                     let skillsLockedForFailedExams = failedVersionAAndB(student)
                     Button {
@@ -555,6 +624,29 @@ struct InstructorDashboardView: View {
         await refresh()
     }
 
+    private func handleTappedDashboardNotification(_ route: ClassManagerNotificationRoute) async {
+        guard route.isInstructorDashboardUpdate, route.isFresh else { return }
+        let currentSessionId = await MainActor.run { activeCourse?.classSessionId }
+        guard route.classSessionId == nil || currentSessionId == nil || route.classSessionId == currentSessionId else {
+            return
+        }
+        await MainActor.run {
+            pendingTappedStudentId = route.studentId
+        }
+        await refresh()
+        await selectPendingTappedStudentIfAvailable()
+    }
+
+    private func selectPendingTappedStudentIfAvailable() async {
+        await MainActor.run {
+            if let studentId = pendingTappedStudentId,
+               let match = dashboard?.students.first(where: { $0.studentId == studentId }) {
+                selectedStudent = match
+            }
+            pendingTappedStudentId = nil
+        }
+    }
+
     private func submitAttendance(inOut: String, attestation: ClassManagerAPIClient.AttendanceAttestation) async {
         guard let course = activeCourse else {
             await MainActor.run { notice = "Select a course before checking in." }
@@ -616,6 +708,24 @@ struct InstructorDashboardView: View {
             skillsURL = buildSkillsURL(for: student, formURL: formURL, aiComment: aiComment)
         }
         await refresh()
+    }
+
+    private func approveCprCard(for student: ClassManagerAPIClient.DashboardStudent) async {
+        await MainActor.run { busy = true }
+        defer { Task { @MainActor in busy = false } }
+
+        do {
+            _ = try await ClassManagerAPIClient.shared.overrideCprCard(
+                studentId: student.studentId,
+                classSessionId: student.classSessionId,
+                instructorPersonId: instructor.personId,
+                notes: "Instructor approved CPR card after review."
+            )
+            await refresh()
+            await MainActor.run { notice = "CPR card approved." }
+        } catch {
+            await MainActor.run { notice = "Could not approve CPR card." }
+        }
     }
 
     private func resetSelectedStudent() async {
@@ -751,6 +861,28 @@ struct InstructorDashboardView: View {
     private func skillsVerification(for student: ClassManagerAPIClient.DashboardStudent) -> ClassManagerAPIClient.DashboardSkillsVerification? {
         (dashboard?.skillsVerifications ?? []).first {
             $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
+        }
+    }
+
+    private func cprCard(for student: ClassManagerAPIClient.DashboardStudent) -> ClassManagerAPIClient.DashboardCprCard? {
+        (dashboard?.cprCards ?? []).first {
+            $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
+        }
+    }
+
+    private func cprAccepted(_ card: ClassManagerAPIClient.DashboardCprCard) -> Bool {
+        card.validationStatus == "valid" || card.validationStatus == "approved_by_instructor"
+    }
+
+    private func cprStatusLabel(_ status: String?) -> String {
+        switch status {
+        case "valid": return "Accepted"
+        case "approved_by_instructor": return "Approved by Instructor"
+        case "expired": return "Expired"
+        case "name_mismatch": return "Name Mismatch"
+        case "needs_expiration": return "Expiration Needed"
+        case "needs_review": return "Instructor Review Needed"
+        default: return status?.replacingOccurrences(of: "_", with: " ").capitalized ?? "Review Needed"
         }
     }
 

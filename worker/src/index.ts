@@ -388,6 +388,10 @@ export default {
         return await confirmCprCard(request, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/cpr-card/override") {
+        return await overrideCprCard(request, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/quiz/assign") {
         return await assignQuiz(request, env);
       }
@@ -881,7 +885,8 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
       students: [],
       quizResults: [],
       finalResults: [],
-      skillsVerifications: []
+      skillsVerifications: [],
+      cprCards: []
     });
   }
 
@@ -963,6 +968,15 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
      ORDER BY opened_at DESC
      LIMIT 250`
   ).bind(classSessionId).all<JsonRecord>();
+  const cprCards = await env.DB.prepare(
+    `SELECT id, student_id, class_session_id, uploaded_at, expiration_date,
+            validation_status, validation_notes, overridden_by_person_id,
+            overridden_at, override_notes
+     FROM cpr_card_uploads
+     WHERE class_session_id = ?1
+     ORDER BY uploaded_at DESC
+     LIMIT 250`
+  ).bind(classSessionId).all<JsonRecord>();
   const attendance = instructorPersonId
     ? await instructorAttendanceForCourse(env, instructorPersonId, classSessionId)
     : undefined;
@@ -976,7 +990,8 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
     students: (rows.results ?? []).map(dashboardStudent),
     quizResults: (attempts.results ?? []).map(dashboardQuizResult),
     finalResults: (finals.results ?? []).map(dashboardFinalResult),
-    skillsVerifications: (skills.results ?? []).map(dashboardSkillsVerification)
+    skillsVerifications: (skills.results ?? []).map(dashboardSkillsVerification),
+    cprCards: (cprCards.results ?? []).map(dashboardCprCard)
   });
 }
 
@@ -1835,6 +1850,21 @@ function dashboardSkillsVerification(row: JsonRecord): JsonRecord {
   };
 }
 
+function dashboardCprCard(row: JsonRecord): JsonRecord {
+  return {
+    id: stringField(row, "id"),
+    studentId: stringField(row, "student_id"),
+    classSessionId: stringField(row, "class_session_id"),
+    uploadedAt: stringField(row, "uploaded_at"),
+    expirationDate: stringField(row, "expiration_date"),
+    validationStatus: stringField(row, "validation_status"),
+    validationNotes: stringField(row, "validation_notes"),
+    overriddenByPersonId: stringField(row, "overridden_by_person_id"),
+    overriddenAt: stringField(row, "overridden_at"),
+    overrideNotes: stringField(row, "override_notes")
+  };
+}
+
 async function fetchJotformSubmission(env: Env, submissionId: string): Promise<JsonRecord> {
   const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/submission/${encodeURIComponent(submissionId)}`));
   url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
@@ -2494,9 +2524,11 @@ async function cprCardStatus(url: URL, env: Env): Promise<Response> {
      LIMIT 1`
   ).bind(studentId, classSessionId).first<JsonRecord>();
 
+  const validationStatus = stringField(row ?? {}, "validation_status");
+  const hasAcceptedCard = validationStatus === "valid" || validationStatus === "approved_by_instructor";
   return json({
     ok: true,
-    hasCprCard: Boolean(row),
+    hasCprCard: hasAcceptedCard,
     upload: row ? {
       id: stringField(row, "id"),
       r2Key: stringField(row, "r2_key"),
@@ -2559,7 +2591,7 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
   const deviceId = stringField(body, "deviceId");
   const expirationDate = normalizeDateToISODate(stringField(body, "expirationDate") ?? "");
   const recognizedText = stringField(body, "recognizedText");
-  const validation = validateCprCardUpload(expirationDate, recognizedText);
+  const validation = validateCprCardUpload(expirationDate, recognizedText, attendee);
 
   if (!studentId || !classSessionId || !attendee || !dataUrl) {
     return json({ error: "missing_cpr_upload_fields" }, 400);
@@ -2650,7 +2682,17 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
     validationNotes: validation.notes
   });
 
-  return json({ ok: true, id, r2Key: key, uploadedAt: now, expirationDate, validationStatus: validation.status, validationNotes: validation.notes });
+  const responseBody = {
+    ok: validation.accepted,
+    error: validation.accepted ? undefined : "cpr_card_rejected",
+    id,
+    r2Key: key,
+    uploadedAt: now,
+    expirationDate,
+    validationStatus: validation.status,
+    validationNotes: validation.notes
+  };
+  return json(responseBody, validation.accepted ? 200 : 422);
 }
 
 async function confirmCprCard(request: Request, env: Env): Promise<Response> {
@@ -2680,6 +2722,13 @@ async function confirmCprCard(request: Request, env: Env): Promise<Response> {
   ).bind(studentId, classSessionId).first<JsonRecord>();
   if (!row) {
     return json({ error: "cpr_card_not_found" }, 404);
+  }
+  if (!isAcceptedCprValidationStatus(stringField(row, "validation_status"))) {
+    return json({
+      error: "cpr_card_requires_instructor_review",
+      validationStatus: stringField(row, "validation_status"),
+      validationNotes: stringField(row, "validation_notes")
+    }, 409);
   }
 
   const now = new Date().toISOString();
@@ -2713,6 +2762,58 @@ async function confirmCprCard(request: Request, env: Env): Promise<Response> {
   });
 }
 
+async function overrideCprCard(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const instructorPersonId = stringField(body, "instructorPersonId");
+  const notes = stringField(body, "notes") ?? "Instructor approved CPR card after review.";
+  if (!studentId || !classSessionId || !instructorPersonId) {
+    return json({ error: "missing_cpr_override_fields" }, 400);
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT id
+     FROM cpr_card_uploads
+     WHERE student_id = ?1 AND class_session_id = ?2
+     ORDER BY uploaded_at DESC
+     LIMIT 1`
+  ).bind(studentId, classSessionId).first<JsonRecord>();
+  const id = stringField(row ?? {}, "id");
+  if (!id) {
+    return json({ error: "cpr_card_not_found" }, 404);
+  }
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `UPDATE cpr_card_uploads
+     SET validation_status = 'approved_by_instructor',
+         validation_notes = 'Instructor approved CPR card after review.',
+         overridden_by_person_id = ?2,
+         overridden_at = ?3,
+         override_notes = ?4,
+         updated_at = ?3
+     WHERE id = ?1`
+  ).bind(id, instructorPersonId, now, notes).run();
+
+  await audit(env, "cpr_card.override", {
+    studentId,
+    classSessionId,
+    payload: { id, instructorPersonId, notes }
+  });
+
+  await notifyInstructorCprCard(env, {
+    studentId,
+    classSessionId,
+    event: "cpr_card_approved",
+    action: "approved",
+    validationStatus: "approved_by_instructor",
+    validationNotes: notes
+  });
+
+  return json({ ok: true, id, validationStatus: "approved_by_instructor", validationNotes: notes, overriddenAt: now });
+}
+
 async function notifyInstructorCprCard(
   env: Env,
   input: {
@@ -2732,23 +2833,32 @@ async function notifyInstructorCprCard(
     classSessionId: input.classSessionId,
     studentId: input.studentId,
     event: input.event,
-    title: input.action === "confirmed" ? "CPR card confirmed" : "CPR card uploaded",
+    title: input.action === "confirmed" ? "CPR card confirmed" : input.action === "approved" ? "CPR card approved" : "CPR card uploaded",
     body: `${name} ${input.action} CPR card status${status}.${expiration}`,
     resultText: input.validationNotes,
     completedAt: new Date().toISOString()
   });
 }
 
-function validateCprCardUpload(expirationDate?: string, recognizedText?: string): { status: string; notes: string } {
+function validateCprCardUpload(expirationDate?: string, recognizedText?: string, attendee?: JsonRecord): { status: string; notes: string; accepted: boolean } {
   const text = (recognizedText ?? "").toLowerCase();
   const approval = approvedCprCertificationMatch(text);
   const disqualifier = cprCardDisqualifier(text);
+  const nameMismatch = cprCardNameMismatch(text, attendee);
+  if (nameMismatch) {
+    return {
+      status: "name_mismatch",
+      notes: nameMismatch,
+      accepted: false
+    };
+  }
   if (!expirationDate) {
     return {
       status: approval ? "needs_expiration" : "needs_review",
       notes: approval
         ? `${approval} appears to match NJ OEMS accepted CPR certification guidance, but the expiration date could not be read automatically.`
-        : "The app could not verify an NJ OEMS accepted CPR certification or expiration automatically."
+        : "The app could not verify an NJ OEMS accepted CPR certification or expiration automatically.",
+      accepted: false
     };
   }
 
@@ -2756,28 +2866,56 @@ function validateCprCardUpload(expirationDate?: string, recognizedText?: string)
   if (Number.isFinite(expires) && expires < Date.now()) {
     return {
       status: "expired",
-      notes: "The expiration date appears to be expired."
+      notes: "The expiration date appears to be expired.",
+      accepted: false
     };
   }
 
   if (disqualifier) {
     return {
       status: "needs_review",
-      notes: disqualifier
+      notes: disqualifier,
+      accepted: false
     };
   }
 
   if (!approval) {
     return {
       status: "needs_review",
-      notes: "The expiration date was captured, but the card text did not clearly match an NJ OEMS accepted CPR certification."
+      notes: "The expiration date was captured, but the card text did not clearly match an NJ OEMS accepted CPR certification.",
+      accepted: false
     };
   }
 
   return {
     status: "valid",
-    notes: `${approval} appears to match NJ OEMS accepted CPR certification guidance and has a future expiration date.`
+    notes: `${approval} appears to match NJ OEMS accepted CPR certification guidance and has a future expiration date.`,
+    accepted: true
   };
+}
+
+function isAcceptedCprValidationStatus(status?: string): boolean {
+  return status === "valid" || status === "approved_by_instructor";
+}
+
+function cprCardNameMismatch(rawText: string, attendee?: JsonRecord): string | undefined {
+  if (!attendee) {
+    return undefined;
+  }
+  const firstName = normalizeCprNameToken(stringField(attendee, "firstName") ?? stringField(attendee, "first_name") ?? "");
+  const lastName = normalizeCprNameToken(stringField(attendee, "lastName") ?? stringField(attendee, "last_name") ?? "");
+  if (!firstName || !lastName) {
+    return undefined;
+  }
+  const text = normalizeCprText(rawText);
+  if (text.includes(firstName) && text.includes(lastName)) {
+    return undefined;
+  }
+  return `The card text does not appear to match ${firstName} ${lastName}. Instructor review is required.`;
+}
+
+function normalizeCprNameToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/)[0] ?? "";
 }
 
 function approvedCprCertificationMatch(rawText: string): string | undefined {
@@ -6351,6 +6489,7 @@ async function sendFinalExamApns(
     ? "https://api.sandbox.push.apple.com"
     : "https://api.push.apple.com";
   const jwt = await apnsJwt(env);
+  const sentAt = new Date().toISOString();
 
   const response = await fetch(`${host}/3/device/${input.token}`, {
     method: "POST",
@@ -6369,6 +6508,7 @@ async function sendFinalExamApns(
         "content-available": 1
       },
       type: "classmanager.final_exam_result",
+      sentAt,
       studentId: input.studentId,
       classSessionId: input.classSessionId,
       quizId: input.result.quizId,
@@ -6431,6 +6571,7 @@ async function sendInstructorReminderApns(
     ? "https://api.sandbox.push.apple.com"
     : "https://api.push.apple.com";
   const jwt = await apnsJwt(env);
+  const sentAt = new Date().toISOString();
 
   const response = await fetch(`${host}/3/device/${input.token}`, {
     method: "POST",
@@ -6449,6 +6590,7 @@ async function sendInstructorReminderApns(
         "content-available": 1
       },
       type: "classmanager.instructor_checkout_reminder",
+      sentAt,
       classSessionId: input.classSessionId
     })
   });
@@ -6485,6 +6627,7 @@ async function sendInstructorDashboardApns(
     ? "https://api.sandbox.push.apple.com"
     : "https://api.push.apple.com";
   const jwt = await apnsJwt(env);
+  const sentAt = new Date().toISOString();
 
   const response = await fetch(`${host}/3/device/${input.token}`, {
     method: "POST",
@@ -6503,6 +6646,7 @@ async function sendInstructorDashboardApns(
         "content-available": 1
       },
       type: "classmanager.instructor_dashboard_update",
+      sentAt,
       event: input.event,
       classSessionId: input.classSessionId,
       studentId: input.studentId ?? null,
