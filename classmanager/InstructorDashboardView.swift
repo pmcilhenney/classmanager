@@ -950,8 +950,19 @@ struct InstructorDashboardView: View {
 
     private func quizResults(for student: ClassManagerAPIClient.DashboardStudent) -> [ClassManagerAPIClient.DashboardQuizResult] {
         (dashboard?.quizResults ?? []).filter {
-            $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
+            $0.studentId == student.studentId
+                && $0.classSessionId == student.classSessionId
+                && !isProgressMarkerQuizId($0.quizId)
         }
+    }
+
+    private func isProgressMarkerQuizId(_ quizId: String?) -> Bool {
+        guard let quizId else { return false }
+        return quizId.hasSuffix("-version-a-review-complete")
+            || quizId.hasSuffix("-version-b-remediation-requested")
+            || quizId.hasSuffix("-version-b-remediation-declined")
+            || quizId.hasSuffix("-version-b-remediation-completed")
+            || quizId.hasSuffix("-version-b-started")
     }
 
     private func finalResults(for student: ClassManagerAPIClient.DashboardStudent) -> [ClassManagerAPIClient.DashboardFinalResult] {

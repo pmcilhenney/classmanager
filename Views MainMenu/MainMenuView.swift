@@ -661,7 +661,9 @@ struct MainMenuView: View {
                                 selectedReviewQuiz = nil
                                 if let pending = pendingRemediationPromptAfterReview {
                                     pendingRemediationPromptAfterReview = nil
-                                    remediationPrompt = pending
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                        remediationPrompt = pending
+                                    }
                                 }
                             }
                         )
@@ -2070,17 +2072,17 @@ private struct VersionBRemediationSheet: View {
                     }
 
                     Button {
-                        onRequestInstructorReview()
+                        showingSignature = true
                     } label: {
-                        Label("Request In-Person Review", systemImage: "person.2.wave.2.fill")
+                        Label("Take Version B Now", systemImage: "play.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
 
                     Button {
-                        showingSignature = true
+                        onRequestInstructorReview()
                     } label: {
-                        Label("Decline Review and Continue", systemImage: "signature")
+                        Label("Request In-Person Review First", systemImage: "person.2.wave.2.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -2091,7 +2093,7 @@ private struct VersionBRemediationSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
+                    Button("Close", action: onCancel)
                 }
             }
             .sheet(isPresented: $showingSignature) {
@@ -2119,7 +2121,7 @@ private struct VersionBRemediationSheet: View {
                             }
                         }
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Start Version B") {
+                            Button("Sign and Start Version B") {
                                 guard let signature = signatureDataUrl() else { return }
                                 onDeclineAndContinue(signature, isoNow(), attestationText)
                             }
@@ -2134,7 +2136,7 @@ private struct VersionBRemediationSheet: View {
     }
 
     private var messageText: String {
-        "You may complete an in-person review with the instructor before taking Version B. Version B requires a \(QuizInfo.versionBPassingPercent)% or better. If you are unsuccessful on Version B, you will need to register for a future offering of \(attendee.courseType) and will not receive credit for today's offering."
+        "Version B is required because Version A was below the passing standard. You may take Version B now after signing the self-review attestation, or you may request an in-person review session with the instructor before taking Version B. Version B requires a \(QuizInfo.versionBPassingPercent)% or better. If unsuccessful on Version B, you will need to register for a future offering of \(attendee.courseType) and will not receive credit for today's offering."
     }
 
     private var attestationText: String {

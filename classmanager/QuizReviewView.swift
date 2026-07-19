@@ -86,7 +86,7 @@ struct QuizReviewView: View {
                             .foregroundStyle(.secondary)
                     }
                     if !isSectionReview, review.passed == false {
-                        Label("Review and remediation required for scores below \(passingScoreText).", systemImage: "exclamationmark.triangle.fill")
+                        Label("Review your correct and incorrect responses, then tap Done to continue to the required Version B options.", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.red)
                     }
