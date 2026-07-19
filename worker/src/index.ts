@@ -1236,7 +1236,7 @@ async function activeInstructor(url: URL, env: Env): Promise<Response> {
     return json({ error: "missing_class_session_id" }, 400);
   }
 
-  const row = await env.DB.prepare(
+  const instructors = await env.DB.prepare(
     `SELECT i.person_id, i.full_name, i.first_name, i.last_name, i.email, i.oems_id,
             ia.checked_in_at, ia.checked_out_at, ia.course_title, ia.course_date
      FROM instructor_attendance ia
@@ -1244,16 +1244,19 @@ async function activeInstructor(url: URL, env: Env): Promise<Response> {
      WHERE ia.class_session_id = ?1
      ORDER BY CASE WHEN ia.checked_out_at IS NULL THEN 0 ELSE 1 END,
               ia.checked_in_at DESC
-     LIMIT 1`
-  ).bind(classSessionId).first<JsonRecord>();
+     LIMIT 12`
+  ).bind(classSessionId).all<JsonRecord>();
 
-  if (!row) {
-    return json({ ok: true, instructor: null });
+  const rows = instructors.results ?? [];
+  if (rows.length === 0) {
+    return json({ ok: true, instructor: null, instructors: [] });
   }
+  const row = rows[0];
 
   return json({
     ok: true,
     instructor: instructorProfileFromRow(row),
+    instructors: rows.map(instructorProfileFromRow),
     attendance: {
       checkedInAt: stringField(row, "checked_in_at") ?? null,
       checkedOutAt: stringField(row, "checked_out_at") ?? null,

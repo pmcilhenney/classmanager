@@ -1176,21 +1176,27 @@ struct MainMenuView: View {
         busy = true
         defer { busy = false }
 
-        let activeInstructor: ClassManagerAPIClient.InstructorDashboardInstructor?
+        let activeInstructors: [ClassManagerAPIClient.InstructorDashboardInstructor]
         do {
             let response = try await ClassManagerAPIClient.shared.fetchActiveInstructor(
                 classSessionId: classSessionIdForCurrentAttendee()
             )
-            activeInstructor = response.instructor
+            if let instructors = response.instructors, !instructors.isEmpty {
+                activeInstructors = instructors
+            } else if let instructor = response.instructor {
+                activeInstructors = [instructor]
+            } else {
+                activeInstructors = []
+            }
         } catch {
-            activeInstructor = nil
+            activeInstructors = []
         }
 
-        checkoutSurveyURL = buildCheckoutSurveyURL(activeInstructor: activeInstructor)
+        checkoutSurveyURL = buildCheckoutSurveyURL(activeInstructors: activeInstructors)
         showingCheckoutSurvey = true
     }
 
-    private func buildCheckoutSurveyURL(activeInstructor: ClassManagerAPIClient.InstructorDashboardInstructor?) -> URL? {
+    private func buildCheckoutSurveyURL(activeInstructors: [ClassManagerAPIClient.InstructorDashboardInstructor]) -> URL? {
         guard var comps = URLComponents(string: "https://form.jotform.com/240184388762060") else {
             return URL(string: "https://form.jotform.com/240184388762060")
         }
@@ -1201,8 +1207,9 @@ struct MainMenuView: View {
             items.append(URLQueryItem(name: name, value: value))
         }
 
-        let instructorName = activeInstructor?.fullName ?? authenticatedInstructor?.fullName
-        let instructorEmail = activeInstructor?.email ?? authenticatedInstructor?.email
+        let primaryInstructor = activeInstructors.first
+        let instructorName = primaryInstructor?.fullName ?? authenticatedInstructor?.fullName
+        let instructorEmail = primaryInstructor?.email ?? authenticatedInstructor?.email
         let courseName = cleanCourseName(attendee.courseType)
         let njCourseId = attendee.courseId
         let classSessionId = classSessionIdForCurrentAttendee()
@@ -1218,8 +1225,26 @@ struct MainMenuView: View {
         add("q29_classSessionId", classSessionId)
         add("primaryInstructor", instructorName)
         add("q24_primaryInstructor", instructorName)
+        add("q24", instructorName)
         add("email", instructorEmail)
         add("q25_email", instructorEmail)
+        add("primaryInstructorEmail", instructorEmail)
+        add("q25_primaryInstructorEmail", instructorEmail)
+        add("q25", instructorEmail)
+
+        for (index, instructor) in activeInstructors.dropFirst().prefix(6).enumerated() {
+            let number = index + 1
+            let name = instructor.fullName
+            let email = instructor.email
+            add("additionalInstructor\(number)", name)
+            add("additionalInstructor\(number)Name", name)
+            add("additionalInstructor\(number)Email", email)
+            add("additional_instructor_\(number)", name)
+            add("additional_instructor_\(number)_name", name)
+            add("additional_instructor_\(number)_email", email)
+            add("q\(25 + number)_additionalInstructor\(number)", name)
+            add("q\(25 + number)_additionalInstructor\(number)Email", email)
+        }
 
         comps.queryItems = items
         return comps.url
@@ -3338,6 +3363,8 @@ private struct SurveyWebView: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.backgroundColor = .systemBackground
+        webView.addObserver(context.coordinator, forKeyPath: "URL", options: [.new], context: nil)
+        context.coordinator.webView = webView
         isLoading = true
         webView.load(URLRequest(url: url))
         return webView
@@ -3349,9 +3376,15 @@ private struct SurveyWebView: UIViewRepresentable {
         }
     }
 
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        uiView.removeObserver(coordinator, forKeyPath: "URL")
+    }
+
     class Coordinator: NSObject, WKNavigationDelegate {
         @Binding var isLoading: Bool
         var onComplete: () -> Void
+        weak var webView: WKWebView?
+        private var didComplete = false
         init(isLoading: Binding<Bool>, onComplete: @escaping () -> Void) {
             _isLoading = isLoading
             self.onComplete = onComplete
@@ -3363,21 +3396,56 @@ private struct SurveyWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             isLoading = false
-            // Detect the exact thank-you marker added to the JotForm thank-you page.
-            let completionMarker = "6e0a9b0f6f6d5a0d2d3d2c88c97e7b1a"
-            // Check URL first
-            if let u = webView.url?.absoluteString, u.contains(completionMarker) {
-                DispatchQueue.main.async { self.onComplete() }
+            detectCompletion(in: webView)
+        }
+
+        override func observeValue(
+            forKeyPath keyPath: String?,
+            of object: Any?,
+            change: [NSKeyValueChangeKey : Any]?,
+            context: UnsafeMutableRawPointer?
+        ) {
+            guard keyPath == "URL", let webView else { return }
+            detectCompletion(in: webView)
+        }
+
+        private func detectCompletion(in webView: WKWebView) {
+            guard !didComplete else { return }
+            if isCompletionURL(webView.url) {
+                complete()
                 return
             }
-            // Inspect page text for the exact marker
             webView.evaluateJavaScript("document.body.innerText") { result, _ in
-                if let txt = result as? String {
-                    if txt.contains(completionMarker) {
-                        DispatchQueue.main.async { self.onComplete() }
-                    }
+                guard !self.didComplete, let text = result as? String else { return }
+                if self.isCompletionText(text) {
+                    self.complete()
                 }
             }
+        }
+
+        private func isCompletionURL(_ url: URL?) -> Bool {
+            guard let value = url?.absoluteString.lowercased() else { return false }
+            return value.contains("thankyou")
+                || value.contains("thank-you")
+                || value.contains("/submission/")
+                || value.contains("submissionid=")
+                || value.contains("submission_id=")
+                || value.contains("6e0a9b0f6f6d5a0d2d3d2c88c97e7b1a")
+        }
+
+        private func isCompletionText(_ text: String) -> Bool {
+            let value = text.lowercased()
+            return value.contains("6e0a9b0f6f6d5a0d2d3d2c88c97e7b1a")
+                || value.contains("thank you for your submission")
+                || value.contains("your submission has been received")
+                || value.contains("we have received your submission")
+                || value.contains("form submitted")
+        }
+
+        private func complete() {
+            guard !didComplete else { return }
+            didComplete = true
+            DispatchQueue.main.async { self.onComplete() }
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

@@ -659,6 +659,7 @@ extension ClassManagerAPIClient {
     struct ActiveInstructorResponse: Decodable {
         let ok: Bool
         let instructor: InstructorDashboardInstructor?
+        let instructors: [InstructorDashboardInstructor]?
         let attendance: ActiveInstructorAttendance?
     }
 
