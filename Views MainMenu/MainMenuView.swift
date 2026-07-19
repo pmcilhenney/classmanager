@@ -254,27 +254,6 @@ struct MainMenuView: View {
                 }
             )
         }
-        .sheet(item: $remediationPrompt) { prompt in
-            VersionBRemediationSheet(
-                attendee: attendee,
-                versionBQuiz: prompt.versionBQuiz,
-                finalResult: prompt.finalResult,
-                onCancel: { remediationPrompt = nil },
-                onRequestInstructorReview: {
-                    Task { await requestInPersonRemediation(prompt) }
-                },
-                onDeclineAndContinue: { signatureDataUrl, signedAt, attestationText in
-                    Task {
-                        await declineInPersonRemediation(
-                            prompt,
-                            signatureDataUrl: signatureDataUrl,
-                            signedAt: signedAt,
-                            attestationText: attestationText
-                        )
-                    }
-                }
-            )
-        }
     }
 
     private var requiresInitialCheckIn: Bool {
@@ -648,7 +627,27 @@ struct MainMenuView: View {
                 } else if showingElectiveQuiz, let url = electiveQuizURL {
                     WebViewContainer(url: url)
                 } else if showingQuizzes {
-                    if let quiz = selectedReviewQuiz {
+                    if let prompt = remediationPrompt {
+                        VersionBRemediationSheet(
+                            attendee: attendee,
+                            versionBQuiz: prompt.versionBQuiz,
+                            finalResult: prompt.finalResult,
+                            onCancel: { remediationPrompt = nil },
+                            onRequestInstructorReview: {
+                                Task { await requestInPersonRemediation(prompt) }
+                            },
+                            onDeclineAndContinue: { signatureDataUrl, signedAt, attestationText in
+                                Task {
+                                    await declineInPersonRemediation(
+                                        prompt,
+                                        signatureDataUrl: signatureDataUrl,
+                                        signedAt: signedAt,
+                                        attestationText: attestationText
+                                    )
+                                }
+                            }
+                        )
+                    } else if let quiz = selectedReviewQuiz {
                         QuizReviewView(
                             config: config,
                             attendee: attendee,
@@ -1627,10 +1626,7 @@ struct MainMenuView: View {
         let finalResult = progressStore.progress.finalExamResult?.quizId == quiz.flexiQuizId
             ? progressStore.progress.finalExamResult!
             : finalExamResult(from: review, quiz: quiz)
-        let prompt = RemediationPrompt(versionBQuiz: versionBQuiz, finalResult: finalResult)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            remediationPrompt = prompt
-        }
+        remediationPrompt = RemediationPrompt(versionBQuiz: versionBQuiz, finalResult: finalResult)
     }
 
     private func finalExamResult(from review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> ClassManagerAPIClient.FinalExamResult {
