@@ -4591,7 +4591,10 @@ async function saveQuizAttempt(
     return;
   }
   const quizId = section?.quizId ?? input.review.quizId;
+  const isVersionAComponent = isVersionAComponentQuizId(quizId);
   const scoreText = section?.scoreText ?? versionAReviewRatio(input.review) ?? input.review.scoreText ?? null;
+  const resultText = isVersionAComponent ? null : section?.resultText ?? input.review.resultText ?? null;
+  const passed = isVersionAComponent || section ? null : input.review.passed === undefined ? null : boolInt(input.review.passed);
   const attemptId = section
     ? `${input.review.responseId ?? input.review.quizId}:section:${input.questionStart}-${input.questionEnd}`
     : input.review.responseId ?? crypto.randomUUID();
@@ -4619,9 +4622,9 @@ async function saveQuizAttempt(
     input.flexiquizUserId ?? null,
     quizId,
     input.review.responseId ?? null,
-    section?.resultText ?? input.review.resultText ?? null,
+    resultText,
     scoreText,
-    section ? null : input.review.passed === undefined ? null : boolInt(input.review.passed),
+    passed,
     input.review.reportUrl ?? null,
     section ? now : input.review.completedAt ?? now,
     now
@@ -4636,7 +4639,7 @@ async function saveQuizAttempt(
     quizId,
     responseId: input.review.responseId,
     scoreText: scoreText ?? undefined,
-    resultText: section?.resultText ?? input.review.resultText,
+    resultText: resultText ?? undefined,
     completedAt: section ? now : input.review.completedAt ?? now
   });
 }
@@ -4670,9 +4673,12 @@ async function saveQuizAttemptFromFinalResult(
   }
 ): Promise<void> {
   const now = new Date().toISOString();
-  const scoreText = isVersionAComponentQuizId(input.quizId)
+  const isVersionAComponent = isVersionAComponentQuizId(input.quizId);
+  const scoreText = isVersionAComponent
     ? (scoreTextFromPoints(input.finalResult.points, input.finalResult.availablePoints) ?? ratioScoreText(input.finalResult.scoreText) ?? input.finalResult.scoreText)
     : input.finalResult.scoreText;
+  const resultText = isVersionAComponent ? null : input.finalResult.resultText ?? null;
+  const passed = isVersionAComponent ? null : input.finalResult.passed === undefined ? null : boolInt(input.finalResult.passed);
   await env.DB.prepare(
     `INSERT INTO quiz_attempts (
       id, student_id, class_session_id, flexiquiz_user_id, quiz_id, response_id,
@@ -4683,9 +4689,9 @@ async function saveQuizAttemptFromFinalResult(
       flexiquiz_user_id = COALESCE(excluded.flexiquiz_user_id, quiz_attempts.flexiquiz_user_id),
       quiz_id = excluded.quiz_id,
       response_id = excluded.response_id,
-      result_text = COALESCE(excluded.result_text, quiz_attempts.result_text),
+      result_text = excluded.result_text,
       score_text = COALESCE(excluded.score_text, quiz_attempts.score_text),
-      passed = COALESCE(excluded.passed, quiz_attempts.passed),
+      passed = excluded.passed,
       review_url = COALESCE(excluded.review_url, quiz_attempts.review_url),
       review_released = 1,
       completed_at = COALESCE(excluded.completed_at, quiz_attempts.completed_at),
@@ -4697,9 +4703,9 @@ async function saveQuizAttemptFromFinalResult(
     input.flexiquizUserId ?? null,
     input.quizId,
     input.responseId,
-    input.finalResult.resultText ?? null,
+    resultText,
     scoreText ?? null,
-    input.finalResult.passed === undefined ? null : boolInt(input.finalResult.passed),
+    passed,
     input.finalResult.reportUrl ?? null,
     input.finalResult.completedAt ?? now,
     now
@@ -4714,7 +4720,7 @@ async function saveQuizAttemptFromFinalResult(
     quizId: input.quizId,
     responseId: input.responseId,
     scoreText,
-    resultText: input.finalResult.resultText,
+    resultText: resultText ?? undefined,
     completedAt: input.finalResult.completedAt ?? now
   });
 }
@@ -5196,14 +5202,14 @@ function scoreTextFromSources(sources: JsonRecord[]): string | undefined {
   if (direct) {
     return direct;
   }
-  const percentage = firstNumber(sources, ["percentage_score", "percentageScore", "percentage", "percent"]);
-  if (percentage !== undefined) {
-    return `${Math.round(percentage)}%`;
-  }
   const points = firstNumber(sources, ["points"]);
   const available = firstNumber(sources, ["available_points", "availablePoints"]);
   if (points !== undefined && available !== undefined && available > 0) {
     return `${Math.round((points / available) * 100)}% (${points}/${available})`;
+  }
+  const percentage = firstNumber(sources, ["percentage_score", "percentageScore", "percentage", "percent"]);
+  if (percentage !== undefined) {
+    return `${Math.round(percentage)}%`;
   }
   return firstText(sources, ["grade"]);
 }

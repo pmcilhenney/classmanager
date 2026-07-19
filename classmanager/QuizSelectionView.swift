@@ -328,8 +328,14 @@ struct QuizSelectionView: View {
     }
 
     private func displayResult(_ result: String, for quiz: QuizInfo) -> String {
-        if QuizInfo.isVersionAQuizId(quiz.flexiQuizId), let ratio = ratioScoreText(result) {
-            return ratio
+        if QuizInfo.isVersionAQuizId(quiz.flexiQuizId) {
+            if let ratio = ratioScoreText(result) {
+                return ratio
+            }
+            let cleaned = result
+                .replacingOccurrences(of: #"(?i)\b(pass(?:ed)?|fail(?:ed)?)\b"#, with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return cleaned.isEmpty ? "Completed" : cleaned
         }
         guard quiz.questionRange != nil else { return result }
         let lower = result.lowercased()

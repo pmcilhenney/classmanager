@@ -200,6 +200,11 @@ final class CKProgressStore: ObservableObject {
                 }
             }
         }
+
+        // Worker/D1 is the source of truth for ClassManager 3.x progress. Re-apply it
+        // after any CloudKit merge so stale CK quiz labels cannot overwrite current
+        // Worker quiz ratios or final exam results.
+        await fetchLatestFromWorker()
     }
 
     /// Called by AppDelegate/Scene when a CK notification arrives. We don't rely on payload parsing; just fetch latest.

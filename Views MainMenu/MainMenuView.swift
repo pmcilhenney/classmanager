@@ -1610,6 +1610,16 @@ struct MainMenuView: View {
             return "\(correct)/\(answered.count)"
         }
 
+        if QuizInfo.isVersionAQuizId(quiz.flexiQuizId) {
+            if let scoreText = review.scoreText, let ratio = ratioScoreText(scoreText) {
+                return ratio
+            }
+            if let scoreText = review.scoreText, let normalized = versionAMiniQuizFallbackScore(scoreText) {
+                return normalized
+            }
+            return "Completed"
+        }
+
         let status: String? = {
             if let passed = review.passed {
                 return passed ? "Passed" : "Failed"
@@ -1619,12 +1629,6 @@ struct MainMenuView: View {
 
         if quiz.questionRange != nil, let status, status.lowercased().contains("fail"), review.scoreText?.contains("0") == true {
             return "Section submitted"
-        }
-
-        if QuizInfo.isVersionAQuizId(quiz.flexiQuizId),
-           let scoreText = review.scoreText,
-           let ratio = ratioScoreText(scoreText) {
-            return ratio
         }
 
         let summary = [status, review.scoreText]
@@ -1646,6 +1650,19 @@ struct MainMenuView: View {
         let available = Double(value[availableRange]) ?? 0
         guard available > 0 else { return nil }
         return "\(Int(points.rounded()))/\(Int(available.rounded()))"
+    }
+
+    private func versionAMiniQuizFallbackScore(_ value: String) -> String? {
+        let withoutStatus = value
+            .replacingOccurrences(of: #"(?i)\b(pass(?:ed)?|fail(?:ed)?)\b"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let ratio = ratioScoreText(withoutStatus) {
+            return ratio
+        }
+        if withoutStatus.range(of: #"\d+\s*%"#, options: .regularExpression) != nil {
+            return withoutStatus
+        }
+        return withoutStatus.isEmpty ? nil : withoutStatus
     }
 
     private func answeredQuestionCount(_ review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> Int {
