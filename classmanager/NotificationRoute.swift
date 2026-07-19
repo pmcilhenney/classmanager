@@ -40,6 +40,10 @@ struct ClassManagerNotificationRoute: Equatable {
         type == "classmanager.final_exam_result"
     }
 
+    var isStudentCprRoute: Bool {
+        type == "classmanager.cpr_card_update"
+    }
+
     func matches(attendee: RosterAttendee) -> Bool {
         guard let studentId, let classSessionId else { return false }
         return studentId == ClassManagerAPIClient.studentId(for: attendee)

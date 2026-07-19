@@ -19,6 +19,7 @@ struct InstructorDashboardView: View {
     @State private var isPreparingSkillsForm = false
     @State private var repeatSkillsCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var cprOverrideCandidate: ClassManagerAPIClient.DashboardStudent?
+    @State private var cprPreview: InstructorCprPreviewURL?
     @State private var resetCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var resetConfirmationText = ""
     @State private var showingResetText = false
@@ -143,6 +144,11 @@ struct InstructorDashboardView: View {
                             Task { await submitAttendance(inOut: action.inOut, attestation: attestation) }
                         }
                     )
+                }
+            }
+            .fullScreenCover(item: $cprPreview) { item in
+                InstructorCprCardPreview(url: item.url) {
+                    cprPreview = nil
                 }
             }
             .confirmationDialog(
@@ -507,6 +513,28 @@ struct InstructorDashboardView: View {
                 Section("CPR Card") {
                     if let cpr = cprCard(for: student) {
                         VStack(alignment: .leading, spacing: 8) {
+                            if let imageUrl = cpr.imageUrl, let url = URL(string: imageUrl) {
+                                Button {
+                                    cprPreview = InstructorCprPreviewURL(url: url)
+                                } label: {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFit()
+                                        case .failure:
+                                            ContentUnavailableView("Preview unavailable", systemImage: "photo")
+                                        default:
+                                            LoadingSpinnerView()
+                                        }
+                                    }
+                                    .frame(maxHeight: 220)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+                                }
+                                .buttonStyle(.plain)
+                            }
                             HStack {
                                 Label(cprStatusLabel(cpr.validationStatus), systemImage: cprAccepted(cpr) ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                                     .foregroundStyle(cprAccepted(cpr) ? .green : .red)
@@ -1222,6 +1250,44 @@ private struct InstructorSignatureCanvas: UIViewRepresentable {
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
             drawing = canvasView.drawing
+        }
+    }
+}
+
+private struct InstructorCprPreviewURL: Identifiable {
+    let url: URL
+    var id: String { url.absoluteString }
+}
+
+private struct InstructorCprCardPreview: View {
+    let url: URL
+    let onClose: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .padding()
+                    case .failure:
+                        ContentUnavailableView("Preview unavailable", systemImage: "photo")
+                            .foregroundStyle(.white)
+                    default:
+                        LoadingSpinnerView()
+                    }
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done", action: onClose)
+                        .foregroundStyle(.white)
+                }
+            }
         }
     }
 }

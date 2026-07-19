@@ -991,7 +991,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
     quizResults: (attempts.results ?? []).map(dashboardQuizResult),
     finalResults: (finals.results ?? []).map(dashboardFinalResult),
     skillsVerifications: (skills.results ?? []).map(dashboardSkillsVerification),
-    cprCards: (cprCards.results ?? []).map(dashboardCprCard)
+    cprCards: (cprCards.results ?? []).map((row) => dashboardCprCard(row, url.origin))
   });
 }
 
@@ -1850,18 +1850,23 @@ function dashboardSkillsVerification(row: JsonRecord): JsonRecord {
   };
 }
 
-function dashboardCprCard(row: JsonRecord): JsonRecord {
+function dashboardCprCard(row: JsonRecord, origin: string): JsonRecord {
+  const studentId = stringField(row, "student_id");
+  const classSessionId = stringField(row, "class_session_id");
   return {
     id: stringField(row, "id"),
-    studentId: stringField(row, "student_id"),
-    classSessionId: stringField(row, "class_session_id"),
+    studentId,
+    classSessionId,
     uploadedAt: stringField(row, "uploaded_at"),
     expirationDate: stringField(row, "expiration_date"),
     validationStatus: stringField(row, "validation_status"),
     validationNotes: stringField(row, "validation_notes"),
     overriddenByPersonId: stringField(row, "overridden_by_person_id"),
     overriddenAt: stringField(row, "overridden_at"),
-    overrideNotes: stringField(row, "override_notes")
+    overrideNotes: stringField(row, "override_notes"),
+    imageUrl: studentId && classSessionId
+      ? `${origin}/cpr-card/image?studentId=${encodeURIComponent(studentId)}&classSessionId=${encodeURIComponent(classSessionId)}`
+      : undefined
   };
 }
 
@@ -2646,6 +2651,9 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
        expiration_date = COALESCE(excluded.expiration_date, cpr_card_uploads.expiration_date),
        validation_status = excluded.validation_status,
        validation_notes = excluded.validation_notes,
+       overridden_by_person_id = NULL,
+       overridden_at = NULL,
+       override_notes = NULL,
        recognized_text = COALESCE(excluded.recognized_text, cpr_card_uploads.recognized_text),
        raw_json = excluded.raw_json,
        updated_at = excluded.updated_at`
@@ -2670,6 +2678,12 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
     classSessionId,
     deviceId,
     payload: { r2Key: key, fileName, mimeType: safeMimeType, expirationDate, validation }
+  });
+  await touchDeviceContext(env, {
+    deviceId,
+    studentId,
+    classSessionId,
+    email: stringField(attendee, "email")
   });
 
   await notifyInstructorCprCard(env, {
@@ -2742,6 +2756,11 @@ async function confirmCprCard(request: Request, env: Env): Promise<Response> {
       validationStatus: stringField(row, "validation_status") ?? null
     }
   });
+  await touchDeviceContext(env, {
+    deviceId,
+    studentId,
+    classSessionId
+  });
 
   await notifyInstructorCprCard(env, {
     studentId,
@@ -2810,6 +2829,13 @@ async function overrideCprCard(request: Request, env: Env): Promise<Response> {
     validationStatus: "approved_by_instructor",
     validationNotes: notes
   });
+  await notifyStudentCprCard(env, {
+    studentId,
+    classSessionId,
+    title: "CPR card approved",
+    body: "Your CPR card was approved by the instructor.",
+    validationStatus: "approved_by_instructor"
+  });
 
   return json({ ok: true, id, validationStatus: "approved_by_instructor", validationNotes: notes, overriddenAt: now });
 }
@@ -2838,6 +2864,49 @@ async function notifyInstructorCprCard(
     resultText: input.validationNotes,
     completedAt: new Date().toISOString()
   });
+}
+
+async function notifyStudentCprCard(
+  env: Env,
+  input: {
+    studentId: string;
+    classSessionId: string;
+    title: string;
+    body: string;
+    validationStatus?: string;
+  }
+): Promise<void> {
+  const tokens = await env.DB.prepare(
+    `SELECT token, apns_environment
+     FROM device_tokens
+     WHERE student_id = ?1 AND class_session_id = ?2
+     ORDER BY updated_at DESC
+     LIMIT 10`
+  ).bind(input.studentId, input.classSessionId).all<JsonRecord>();
+
+  for (const row of tokens.results ?? []) {
+    const token = stringField(row, "token");
+    if (!token) {
+      continue;
+    }
+    try {
+      await sendStudentCprCardApns(env, {
+        token,
+        apnsEnvironment: normalizeApnsEnvironment(stringField(row, "apns_environment")),
+        studentId: input.studentId,
+        classSessionId: input.classSessionId,
+        title: input.title,
+        body: input.body,
+        validationStatus: input.validationStatus
+      });
+      await env.DB.prepare(
+        `UPDATE device_tokens SET last_push_at = ?2, updated_at = ?2 WHERE token = ?1`
+      ).bind(token, new Date().toISOString()).run();
+    } catch (error) {
+      await handleApnsFailure(env, token, error);
+      console.warn("student CPR APNs failed", { tokenSuffix: token.slice(-8), error: String(error) });
+    }
+  }
 }
 
 function validateCprCardUpload(expirationDate?: string, recognizedText?: string, attendee?: JsonRecord): { status: string; notes: string; accepted: boolean } {
@@ -6655,6 +6724,59 @@ async function sendInstructorDashboardApns(
       scoreText: input.scoreText ?? null,
       resultText: input.resultText ?? null,
       completedAt: input.completedAt ?? null
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`apns_${response.status}_${text}`);
+  }
+}
+
+async function sendStudentCprCardApns(
+  env: Env,
+  input: {
+    token: string;
+    apnsEnvironment: "prod" | "sandbox";
+    studentId: string;
+    classSessionId: string;
+    title: string;
+    body: string;
+    validationStatus?: string;
+  }
+): Promise<void> {
+  const topic = (env.APNS_BUNDLE_ID ?? "").trim();
+  if (!topic) {
+    throw new Error("missing_apns_topic");
+  }
+
+  const host = input.apnsEnvironment === "sandbox"
+    ? "https://api.sandbox.push.apple.com"
+    : "https://api.push.apple.com";
+  const jwt = await apnsJwt(env);
+  const sentAt = new Date().toISOString();
+
+  const response = await fetch(`${host}/3/device/${input.token}`, {
+    method: "POST",
+    headers: {
+      authorization: `bearer ${jwt}`,
+      "apns-topic": topic,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
+      "apns-collapse-id": `student-cpr-${input.classSessionId}-${input.studentId}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      aps: {
+        alert: { title: input.title, body: input.body },
+        sound: "default",
+        "content-available": 1
+      },
+      type: "classmanager.cpr_card_update",
+      sentAt,
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      validationStatus: input.validationStatus ?? null
     })
   });
 

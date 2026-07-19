@@ -651,6 +651,7 @@ extension ClassManagerAPIClient {
         let overriddenByPersonId: String?
         let overriddenAt: String?
         let overrideNotes: String?
+        let imageUrl: String?
 
         var stableId: String { [id, studentId, classSessionId, uploadedAt].compactMap { $0 }.joined(separator: ":") }
     }

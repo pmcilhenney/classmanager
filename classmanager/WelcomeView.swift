@@ -388,7 +388,7 @@ struct WelcomeView: View {
     }
 
     private func handleTappedNotification(_ route: ClassManagerNotificationRoute) {
-        guard route.isStudentExamRoute else { return }
+        guard route.isStudentExamRoute || route.isStudentCprRoute else { return }
 
         if route.isFresh, let acceptedAttendee, route.matches(attendee: acceptedAttendee) {
             pendingNotificationRoute = route

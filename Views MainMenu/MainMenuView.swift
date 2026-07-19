@@ -182,6 +182,12 @@ struct MainMenuView: View {
             guard let route = ClassManagerNotificationRoute(userInfo: notification.userInfo ?? [:]) else { return }
             routeNotificationIfNeeded(route)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .ckRemoteNotificationReceived)) { notification in
+            guard let route = ClassManagerNotificationRoute(userInfo: notification.userInfo ?? [:]),
+                  route.isStudentCprRoute,
+                  route.matches(attendee: attendee) else { return }
+            Task { await loadCprCardStatus() }
+        }
         .alert(item: Binding(
             get: { toast.map { ToastMessage(id: UUID(), message: $0) } },
             set: { _ in toast = nil }
@@ -1477,7 +1483,10 @@ struct MainMenuView: View {
 
     private func routeNotificationIfNeeded(_ route: ClassManagerNotificationRoute?) {
         guard let route, route.isFresh, route.matches(attendee: attendee) else { return }
-        if route.isStudentExamRoute || route.quizId != nil {
+        if route.isStudentCprRoute {
+            Task { await loadCprCardStatus() }
+            showingCPRUpload = true
+        } else if route.isStudentExamRoute || route.quizId != nil {
             openExamReviewFromNotification(route)
         }
     }
