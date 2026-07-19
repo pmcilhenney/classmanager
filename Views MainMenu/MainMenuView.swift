@@ -3363,7 +3363,17 @@ private struct SurveyWebView: UIViewRepresentable {
     var onComplete: () -> Void
     func makeCoordinator() -> Coordinator { Coordinator(isLoading: $isLoading, onComplete: onComplete) }
     func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView(frame: .zero)
+        let config = WKWebViewConfiguration()
+        let userContentController = WKUserContentController()
+        userContentController.addUserScript(WKUserScript(
+            source: Self.completionBridgeScript,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        ))
+        userContentController.add(context.coordinator, name: "classmanagerSurvey")
+        config.userContentController = userContentController
+
+        let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.backgroundColor = .systemBackground
@@ -3382,16 +3392,116 @@ private struct SurveyWebView: UIViewRepresentable {
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
         uiView.removeObserver(coordinator, forKeyPath: "URL")
+        uiView.configuration.userContentController.removeScriptMessageHandler(forName: "classmanagerSurvey")
+        uiView.navigationDelegate = nil
     }
 
-    class Coordinator: NSObject, WKNavigationDelegate {
+    private static let completionBridgeScript = """
+    (function() {
+      if (window.__classManagerSurveyBridgeInstalled) return;
+      window.__classManagerSurveyBridgeInstalled = true;
+
+      function post(type) {
+        try {
+          window.webkit.messageHandlers.classmanagerSurvey.postMessage({
+            type: type,
+            href: window.location.href,
+            at: new Date().toISOString()
+          });
+        } catch (e) {}
+      }
+
+      function pageText() {
+        return ((document.body && document.body.innerText) || '').toLowerCase();
+      }
+
+      function hasValidationErrors() {
+        var selectors = [
+          '.form-line-error',
+          '.form-error-message',
+          '.form-validation-error',
+          '.jfField-error',
+          '.error-navigation-container',
+          '[aria-invalid="true"]'
+        ];
+        return selectors.some(function(selector) {
+          return Array.prototype.some.call(document.querySelectorAll(selector), function(el) {
+            var style = window.getComputedStyle(el);
+            return style && style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null;
+          });
+        });
+      }
+
+      function hasCompletionText() {
+        var text = pageText();
+        return text.indexOf('thank you for your submission') !== -1 ||
+          text.indexOf('your submission has been received') !== -1 ||
+          text.indexOf('we have received your submission') !== -1 ||
+          text.indexOf('form submitted') !== -1 ||
+          text.indexOf('submission has been updated') !== -1 ||
+          text.indexOf('successfully updated') !== -1 ||
+          text.indexOf('response has been updated') !== -1 ||
+          text.indexOf('6e0a9b0f6f6d5a0d2d3d2c88c97e7b1a') !== -1;
+      }
+
+      window.classManagerSurveyState = function() {
+        return {
+          hasErrors: hasValidationErrors(),
+          hasCompletionText: hasCompletionText(),
+          href: window.location.href
+        };
+      };
+
+      document.addEventListener('submit', function() {
+        post('submit_attempt');
+      }, true);
+
+      document.addEventListener('click', function(event) {
+        var target = event.target && event.target.closest && event.target.closest('button, input, a');
+        if (!target) return;
+        var label = ((target.innerText || target.value || target.getAttribute('aria-label') || '') + '').toLowerCase();
+        var id = ((target.id || target.name || '') + '').toLowerCase();
+        if (label.indexOf('submit') !== -1 || id.indexOf('submit') !== -1) {
+          post('submit_attempt');
+        }
+      }, true);
+
+      var observer = new MutationObserver(function() {
+        if (hasCompletionText()) {
+          post('complete');
+        }
+      });
+      if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      }
+      if (hasCompletionText()) {
+        post('complete');
+      }
+    })();
+    """
+
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         @Binding var isLoading: Bool
         var onComplete: () -> Void
         weak var webView: WKWebView?
         private var didComplete = false
+        private var sawSubmitAttempt = false
         init(isLoading: Binding<Bool>, onComplete: @escaping () -> Void) {
             _isLoading = isLoading
             self.onComplete = onComplete
+        }
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "classmanagerSurvey" else { return }
+            let body = message.body as? [String: Any]
+            let type = body?["type"] as? String
+            if type == "submit_attempt" {
+                sawSubmitAttempt = true
+                isLoading = true
+                schedulePostSubmitCheck()
+            } else if type == "complete" {
+                complete()
+            }
         }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -3401,6 +3511,9 @@ private struct SurveyWebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             isLoading = false
             detectCompletion(in: webView)
+            if sawSubmitAttempt {
+                schedulePostSubmitCheck(delay: 1.5)
+            }
         }
 
         override func observeValue(
@@ -3411,6 +3524,29 @@ private struct SurveyWebView: UIViewRepresentable {
         ) {
             guard keyPath == "URL", let webView else { return }
             detectCompletion(in: webView)
+        }
+
+        private func schedulePostSubmitCheck(delay: TimeInterval = 2.0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.checkPostSubmitState()
+            }
+        }
+
+        private func checkPostSubmitState() {
+            guard !didComplete, sawSubmitAttempt, let webView else { return }
+            webView.evaluateJavaScript("window.classManagerSurveyState ? window.classManagerSurveyState() : null") { result, _ in
+                guard !self.didComplete, self.sawSubmitAttempt else { return }
+                guard let state = result as? [String: Any] else { return }
+                let hasErrors = state["hasErrors"] as? Bool ?? false
+                let hasCompletionText = state["hasCompletionText"] as? Bool ?? false
+                if hasCompletionText || !hasErrors {
+                    self.complete()
+                } else {
+                    DispatchQueue.main.async {
+                        self.isLoading = false
+                    }
+                }
+            }
         }
 
         private func detectCompletion(in webView: WKWebView) {
@@ -3444,6 +3580,9 @@ private struct SurveyWebView: UIViewRepresentable {
                 || value.contains("your submission has been received")
                 || value.contains("we have received your submission")
                 || value.contains("form submitted")
+                || value.contains("submission has been updated")
+                || value.contains("successfully updated")
+                || value.contains("response has been updated")
         }
 
         private func complete() {
