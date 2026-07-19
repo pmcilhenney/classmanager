@@ -47,6 +47,7 @@ struct MainMenuView: View {
     @State private var showingMaterials = false
     @State private var showingCheckoutSurvey = false
     @State private var checkoutSurveyURL: URL? = URL(string: "https://form.jotform.com/240184388762060")
+    @State private var checkoutSurveySubmissionId: String?
     @State private var attendanceCaptureAction: String?
 
     //FlexiQuiz State
@@ -1192,7 +1193,19 @@ struct MainMenuView: View {
             activeInstructors = []
         }
 
-        checkoutSurveyURL = buildCheckoutSurveyURL(activeInstructors: activeInstructors)
+        do {
+            let draft = try await ClassManagerAPIClient.shared.prepareCheckoutEvaluationDraft(
+                attendee: attendee,
+                activeInstructors: activeInstructors,
+                authenticatedInstructor: authenticatedInstructor
+            )
+            checkoutSurveySubmissionId = draft.submissionId
+            checkoutSurveyURL = draft.editUrl
+        } catch {
+            checkoutSurveySubmissionId = nil
+            checkoutSurveyURL = buildCheckoutSurveyURL(activeInstructors: activeInstructors)
+            toast = "Course evaluation opened without instructor prefills."
+        }
         showingCheckoutSurvey = true
     }
 

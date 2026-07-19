@@ -83,6 +83,31 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func prepareCheckoutEvaluationDraft(
+        attendee: RosterAttendee,
+        activeInstructors: [InstructorDashboardInstructor],
+        authenticatedInstructor: InstructorAuthService.Instructor?
+    ) async throws -> CheckoutEvaluationDraftResponse {
+        let studentId = Self.studentId(for: attendee)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/jotform/checkout-evaluation/draft",
+            method: "POST",
+            body: CheckoutEvaluationDraftRequest(
+                studentId: studentId,
+                classSessionId: classSessionId,
+                attendee: attendee,
+                instructors: activeInstructors.map {
+                    CheckoutEvaluationInstructor(fullName: $0.fullName, email: $0.email)
+                },
+                authenticatedInstructor: authenticatedInstructor.map {
+                    CheckoutEvaluationInstructor(fullName: $0.fullName, email: $0.email)
+                },
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     func fetchInstructorDashboard(
         limit: Int = 100,
         classSessionId: String? = nil,
@@ -668,6 +693,27 @@ extension ClassManagerAPIClient {
         let checkedOutAt: String?
         let courseTitle: String?
         let courseDate: String?
+    }
+
+    struct CheckoutEvaluationDraftRequest: Encodable {
+        let studentId: String
+        let classSessionId: String
+        let attendee: RosterAttendee
+        let instructors: [CheckoutEvaluationInstructor]
+        let authenticatedInstructor: CheckoutEvaluationInstructor?
+        let deviceId: String?
+    }
+
+    struct CheckoutEvaluationInstructor: Encodable {
+        let fullName: String
+        let email: String?
+    }
+
+    struct CheckoutEvaluationDraftResponse: Decodable {
+        let ok: Bool
+        let formId: String
+        let submissionId: String
+        let editUrl: URL
     }
 
     struct InstructorAttendance: Decodable, Hashable {

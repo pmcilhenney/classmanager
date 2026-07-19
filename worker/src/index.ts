@@ -106,6 +106,7 @@ type QuizReviewPayload = {
 const REFRESHER_A_COMBINED_QUIZ_ID = "89db2c06-5052-4ff5-867b-95ef67fcfcd2";
 const REFRESHER_B_COMBINED_QUIZ_ID = "bcab075c-a56a-459c-b313-f7b3966d7bb4";
 const REFRESHER_C_COMBINED_QUIZ_ID = "7f21b940-8344-4614-a935-49f2ea4218c7";
+const CHECKOUT_EVALUATION_FORM_ID = "240184388762060";
 const REFRESHER_A_VERSION_A_QUIZ_IDS = [
   "66564166-9de9-4b17-9c2d-6f76bc186970",
   "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
@@ -348,6 +349,10 @@ export default {
         return await jotformFormFields(url, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/jotform/checkout-evaluation/draft") {
+        return await checkoutEvaluationDraft(request, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/instructor/auth") {
         return await instructorAuth(request, env);
       }
@@ -565,6 +570,76 @@ async function jotformFormFields(url: URL, env: Env): Promise<Response> {
     .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
 
   return json({ ok: true, formId, fields });
+}
+
+async function checkoutEvaluationDraft(request: Request, env: Env): Promise<Response> {
+  if (!env.JOTFORM_API_KEY) {
+    return json({ error: "jotform_not_configured" }, 503);
+  }
+
+  const body = await readJson(request);
+  const attendee = recordField(body, "attendee");
+  const classSessionId = stringField(body, "classSessionId");
+  const studentId = stringField(body, "studentId");
+  const deviceId = stringField(body, "deviceId");
+  const instructors = arrayField(body, "instructors").filter(isJsonRecord);
+
+  if (!attendee || !classSessionId || !studentId) {
+    return json({ error: "missing_checkout_evaluation_fields" }, 400);
+  }
+
+  const primaryInstructor = instructors[0];
+  const fallbackInstructor = recordField(body, "authenticatedInstructor");
+  const primaryName = stringField(primaryInstructor ?? {}, "fullName") ?? stringField(fallbackInstructor ?? {}, "fullName");
+  const primaryEmail = stringField(primaryInstructor ?? {}, "email") ?? stringField(fallbackInstructor ?? {}, "email");
+
+  const fields: JsonRecord = {
+    "23": displayCourseTitle(stringField(attendee, "courseType") ?? ""),
+    "24": primaryName ?? "",
+    "25": primaryEmail ?? "",
+    "28": stringField(attendee, "courseId") ?? ""
+  };
+
+  const additionalFieldPairs: Array<[string, string]> = [
+    ["29", "30"],
+    ["31", "32"],
+    ["33", "34"]
+  ];
+  for (let index = 0; index < additionalFieldPairs.length; index += 1) {
+    const instructor = instructors[index + 1];
+    if (!instructor) continue;
+    const [nameQid, emailQid] = additionalFieldPairs[index];
+    fields[nameQid] = stringField(instructor, "fullName") ?? "";
+    fields[emailQid] = stringField(instructor, "email") ?? "";
+  }
+
+  const draft = await postJotformSubmission(env, CHECKOUT_EVALUATION_FORM_ID, fields);
+  if (!draft.submissionId) {
+    return json({ error: "checkout_evaluation_draft_failed" }, 502);
+  }
+
+  const editUrl = new URL("https://www.jotform.com/form.php");
+  editUrl.searchParams.set("formID", CHECKOUT_EVALUATION_FORM_ID);
+  editUrl.searchParams.set("sid", draft.submissionId);
+  editUrl.searchParams.set("mode", "edit");
+
+  await audit(env, "checkout_evaluation.draft", {
+    studentId,
+    classSessionId,
+    deviceId,
+    payload: {
+      formId: CHECKOUT_EVALUATION_FORM_ID,
+      submissionId: draft.submissionId,
+      editUrl: editUrl.toString()
+    }
+  });
+
+  return json({
+    ok: true,
+    formId: CHECKOUT_EVALUATION_FORM_ID,
+    submissionId: draft.submissionId,
+    editUrl: editUrl.toString()
+  });
 }
 
 async function instructorAuth(request: Request, env: Env): Promise<Response> {
@@ -6851,6 +6926,10 @@ function boolInt(value: unknown): number {
 function sessionIdFor(value: string): string {
   const clean = value.trim();
   return clean ? clean.replace(/\//g, "-") : "undated";
+}
+
+function displayCourseTitle(value: string): string {
+  return value.replace(/^\d+\s*-\s*/, "").trim();
 }
 
 function stringField(source: JsonRecord, key: string): string | undefined {
