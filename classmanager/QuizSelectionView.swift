@@ -236,7 +236,11 @@ struct QuizSelectionView: View {
                 } else if remediationWaiting {
                     onBlocked("Your instructor has been notified. Version B unlocks after the instructor marks remediation complete.")
                 } else if remediationCleared {
-                    selectedQuiz = quiz
+                    if let finalResult = progressStore.progress.finalExamResult {
+                        onVersionBStartRequested(quiz, finalResult)
+                    } else {
+                        onBlocked("The Version A result is not ready yet.")
+                    }
                 } else {
                     if let finalResult = progressStore.progress.finalExamResult {
                         onVersionBStartRequested(quiz, finalResult)

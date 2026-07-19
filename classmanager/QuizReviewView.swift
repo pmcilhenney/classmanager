@@ -39,14 +39,16 @@ struct QuizReviewView: View {
             .navigationTitle("Exam Review")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        if let review, let onDoneWithReview {
-                            onDoneWithReview(review)
-                        } else if let onDone {
-                            onDone()
-                        } else {
-                            dismiss()
+                if !loadedReviewRequiresVersionBRemediation {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            if let review, let onDoneWithReview {
+                                onDoneWithReview(review)
+                            } else if let onDone {
+                                onDone()
+                            } else {
+                                dismiss()
+                            }
                         }
                     }
                 }
@@ -57,6 +59,18 @@ struct QuizReviewView: View {
         }
     }
 
+    private var loadedReviewRequiresVersionBRemediation: Bool {
+        guard let review else { return false }
+        return requiresVersionBRemediation(review)
+    }
+
+    private func requiresVersionBRemediation(_ review: ClassManagerAPIClient.QuizReviewResponse) -> Bool {
+        quiz.questionRange == nil
+            && review.passed == false
+            && !QuizInfo.isVersionBQuizId(review.quizId)
+            && !QuizInfo.isVersionBQuizId(quiz.flexiQuizId)
+    }
+
     private func reviewContent(_ review: ClassManagerAPIClient.QuizReviewResponse) -> some View {
         let questions = questionsForCurrentQuiz(review)
         let isSectionReview = quiz.questionRange != nil
@@ -64,10 +78,7 @@ struct QuizReviewView: View {
         let correctQuestions = questions.filter { $0.isCorrect == true }
         let unscoredQuestions = questions.filter { $0.isCorrect == nil }
         let selectedQuestions = filteredQuestions(for: fullReviewFilter, incorrect: incorrectQuestions, correct: correctQuestions, unscored: unscoredQuestions)
-        let requiresVersionBRemediation = !isSectionReview
-            && review.passed == false
-            && !QuizInfo.isVersionBQuizId(review.quizId)
-            && !QuizInfo.isVersionBQuizId(quiz.flexiQuizId)
+        let requiresVersionBRemediation = requiresVersionBRemediation(review)
 
         return List {
             Section {
@@ -93,7 +104,7 @@ struct QuizReviewView: View {
                             .foregroundStyle(.secondary)
                     }
                     if requiresVersionBRemediation {
-                        Label("Review your correct and incorrect responses, then tap Done to continue to the required Version B options.", systemImage: "exclamationmark.triangle.fill")
+                        Label("Review your correct and incorrect responses, then continue to the required Version B options.", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.red)
                         if onDoneWithReview != nil {

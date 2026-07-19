@@ -632,13 +632,14 @@ struct MainMenuView: View {
                             attendee: attendee,
                             versionBQuiz: prompt.versionBQuiz,
                             finalResult: prompt.finalResult,
+                            inPersonRemediationCompleted: prompt.inPersonRemediationCompleted,
                             onCancel: { remediationPrompt = nil },
                             onRequestInstructorReview: {
                                 Task { await requestInPersonRemediation(prompt) }
                             },
                             onDeclineAndContinue: { signatureDataUrl, signedAt, attestationText in
                                 Task {
-                                    await declineInPersonRemediation(
+                                    await saveVersionBRemediationAttestation(
                                         prompt,
                                         signatureDataUrl: signatureDataUrl,
                                         signedAt: signedAt,
@@ -704,7 +705,11 @@ struct MainMenuView: View {
                                 progressStore.markQuizResult(markerId, result: "Version A review complete")
                             },
                             onVersionBStartRequested: { quiz, finalResult in
-                                remediationPrompt = RemediationPrompt(versionBQuiz: quiz, finalResult: finalResult)
+                                remediationPrompt = RemediationPrompt(
+                                    versionBQuiz: quiz,
+                                    finalResult: finalResult,
+                                    inPersonRemediationCompleted: inPersonRemediationCompleted(for: finalResult.quizId)
+                                )
                             }
                         )
                     }
@@ -1635,7 +1640,16 @@ struct MainMenuView: View {
         let finalResult = progressStore.progress.finalExamResult?.quizId == combinedQuizId
             ? progressStore.progress.finalExamResult!
             : finalExamResult(from: review, quiz: quiz, quizId: combinedQuizId)
-        remediationPrompt = RemediationPrompt(versionBQuiz: versionBQuiz, finalResult: finalResult)
+        remediationPrompt = RemediationPrompt(
+            versionBQuiz: versionBQuiz,
+            finalResult: finalResult,
+            inPersonRemediationCompleted: inPersonRemediationCompleted(for: finalResult.quizId)
+        )
+    }
+
+    private func inPersonRemediationCompleted(for finalQuizId: String) -> Bool {
+        let completed = Set(progressStore.progress.completedQuizIDs).union(completedQuizzes)
+        return completed.contains(QuizInfo.versionBRemediationCompletedMarkerId(for: finalQuizId))
     }
 
     private func finalExamResult(from review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo, quizId: String? = nil) -> ClassManagerAPIClient.FinalExamResult {
@@ -1681,26 +1695,45 @@ struct MainMenuView: View {
         }
     }
 
-    private func declineInPersonRemediation(
+    private func saveVersionBRemediationAttestation(
         _ prompt: RemediationPrompt,
         signatureDataUrl: String,
         signedAt: String,
         attestationText: String
     ) async {
         do {
-            _ = try await ClassManagerAPIClient.shared.declineRemediationReview(
-                attendee: attendee,
-                quizId: prompt.finalResult.quizId,
-                versionBQuizId: prompt.versionBQuiz.flexiQuizId,
-                scoreText: prompt.finalResult.scoreText,
-                attestationText: attestationText,
-                signatureDataUrl: signatureDataUrl,
-                signedAt: signedAt
-            )
+            if prompt.inPersonRemediationCompleted {
+                _ = try await ClassManagerAPIClient.shared.acknowledgeRemediationReview(
+                    attendee: attendee,
+                    quizId: prompt.finalResult.quizId,
+                    versionBQuizId: prompt.versionBQuiz.flexiQuizId,
+                    scoreText: prompt.finalResult.scoreText,
+                    attestationText: attestationText,
+                    signatureDataUrl: signatureDataUrl,
+                    signedAt: signedAt
+                )
+            } else {
+                _ = try await ClassManagerAPIClient.shared.declineRemediationReview(
+                    attendee: attendee,
+                    quizId: prompt.finalResult.quizId,
+                    versionBQuizId: prompt.versionBQuiz.flexiQuizId,
+                    scoreText: prompt.finalResult.scoreText,
+                    attestationText: attestationText,
+                    signatureDataUrl: signatureDataUrl,
+                    signedAt: signedAt
+                )
+            }
             await MainActor.run {
-                let markerId = QuizInfo.versionBRemediationDeclinedMarkerId(for: prompt.finalResult.quizId)
+                let markerId = prompt.inPersonRemediationCompleted
+                    ? QuizInfo.versionBRemediationCompletedMarkerId(for: prompt.finalResult.quizId)
+                    : QuizInfo.versionBRemediationDeclinedMarkerId(for: prompt.finalResult.quizId)
                 completedQuizzes.insert(markerId)
-                progressStore.markQuizResult(markerId, result: "In-person remediation declined")
+                progressStore.markQuizResult(
+                    markerId,
+                    result: prompt.inPersonRemediationCompleted
+                        ? "In-person remediation acknowledged"
+                        : "In-person remediation declined"
+                )
                 remediationPrompt = nil
                 selectedQuiz = prompt.versionBQuiz
             }
@@ -2053,12 +2086,14 @@ private struct RemediationPrompt: Identifiable {
     let id = UUID()
     let versionBQuiz: QuizInfo
     let finalResult: ClassManagerAPIClient.FinalExamResult
+    let inPersonRemediationCompleted: Bool
 }
 
 private struct VersionBRemediationSheet: View {
     let attendee: RosterAttendee
     let versionBQuiz: QuizInfo
     let finalResult: ClassManagerAPIClient.FinalExamResult
+    let inPersonRemediationCompleted: Bool
     let onCancel: () -> Void
     let onRequestInstructorReview: () -> Void
     let onDeclineAndContinue: (String, String, String) -> Void
@@ -2090,18 +2125,20 @@ private struct VersionBRemediationSheet: View {
                     Button {
                         showingSignature = true
                     } label: {
-                        Label("Take Version B Now", systemImage: "play.fill")
+                        Label(primaryButtonText, systemImage: "play.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
 
-                    Button {
-                        onRequestInstructorReview()
-                    } label: {
-                        Label("Request In-Person Review First", systemImage: "person.2.wave.2.fill")
-                            .frame(maxWidth: .infinity)
+                    if !inPersonRemediationCompleted {
+                        Button {
+                            onRequestInstructorReview()
+                        } label: {
+                            Label("Request In-Person Review First", systemImage: "person.2.wave.2.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
                 .padding()
             }
@@ -2128,7 +2165,7 @@ private struct VersionBRemediationSheet: View {
                         Spacer()
                     }
                     .padding()
-                    .navigationTitle("Decline Review")
+                    .navigationTitle("Remediation Attestation")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
@@ -2151,12 +2188,22 @@ private struct VersionBRemediationSheet: View {
         }
     }
 
+    private var primaryButtonText: String {
+        inPersonRemediationCompleted ? "Sign and Start Version B" : "Take Version B Now"
+    }
+
     private var messageText: String {
-        "Version B is required because Version A was below the passing standard. You may take Version B now after signing the self-review attestation, or you may request an in-person review session with the instructor before taking Version B. Version B requires a \(QuizInfo.versionBPassingPercent)% or better. If unsuccessful on Version B, you will need to register for a future offering of \(attendee.courseType) and will not receive credit for today's offering."
+        if inPersonRemediationCompleted {
+            return "Your instructor has marked in-person remediation complete. Before Version B opens, sign the acknowledgement below. Version B requires a \(QuizInfo.versionBPassingPercent)% or better. If unsuccessful on Version B, you will need to register for a future offering of \(attendee.courseType) and will not receive credit for today's offering."
+        }
+        return "Version B is required because Version A was below the passing standard. You may take Version B now after signing the self-review attestation, or you may request an in-person review session with the instructor before taking Version B. Version B requires a \(QuizInfo.versionBPassingPercent)% or better. If unsuccessful on Version B, you will need to register for a future offering of \(attendee.courseType) and will not receive credit for today's offering."
     }
 
     private var attestationText: String {
-        "\(attendee.fullName) was offered personalized in-person remediation before Version B for \(attendee.courseType) on \(attendee.courseDate ?? "today"). The student declined in-person remediation and elected to take the final exam attempt after self-review remediation only."
+        if inPersonRemediationCompleted {
+            return "\(attendee.fullName) received personalized in-person remediation before Version B for \(attendee.courseType) on \(attendee.courseDate ?? "today"). The student acknowledges that Version B is the final exam attempt for this course offering and that a score of \(QuizInfo.versionBPassingPercent)% or better is required to receive credit for today's offering."
+        }
+        return "\(attendee.fullName) was offered personalized in-person remediation before Version B for \(attendee.courseType) on \(attendee.courseDate ?? "today"). The student declined in-person remediation and elected to take the final exam attempt after self-review remediation only."
     }
 
     private func signatureDataUrl() -> String? {

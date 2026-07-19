@@ -424,6 +424,10 @@ export default {
         return await declineRemediationReview(request, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/quiz/remediation/acknowledge") {
+        return await acknowledgeRemediationReview(request, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/quiz/remediation/complete") {
         return await completeRemediationReview(request, env);
       }
@@ -4204,6 +4208,78 @@ async function declineRemediationReview(request: Request, env: Env): Promise<Res
     completedAt: signedAt
   });
   await audit(env, "quiz.remediation.declined", {
+    studentId,
+    classSessionId,
+    deviceId,
+    payload: { quizId, versionBQuizId, scoreText, courseTitle, courseDate, signedAt }
+  });
+  return json({ ok: true, id, signedAt });
+}
+
+async function acknowledgeRemediationReview(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const quizId = stringField(body, "quizId");
+  const versionBQuizId = stringField(body, "versionBQuizId");
+  const scoreText = stringField(body, "scoreText");
+  const courseTitle = stringField(body, "courseTitle");
+  const courseDate = stringField(body, "courseDate");
+  const attestationText = stringField(body, "attestationText");
+  const signatureDataUrl = stringField(body, "signatureDataUrl");
+  const signedAt = stringField(body, "signedAt") ?? new Date().toISOString();
+  const deviceId = stringField(body, "deviceId");
+  if (!studentId || !classSessionId || !quizId || !versionBQuizId || !attestationText || !signatureDataUrl) {
+    return json({ error: "missing_remediation_acknowledge_fields" }, 400);
+  }
+
+  const now = new Date().toISOString();
+  const id = `${classSessionId}:${studentId}:${quizId}:acknowledged`;
+  await env.DB.prepare(
+    `INSERT INTO remediation_attestations (
+      id, student_id, class_session_id, quiz_id, version_b_quiz_id, action,
+      score_text, course_title, course_date, attestation_text, signature_data_url,
+      signed_at, device_id, raw_json, created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, 'acknowledged_in_person_review', ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)
+    ON CONFLICT(id) DO UPDATE SET
+      version_b_quiz_id = excluded.version_b_quiz_id,
+      score_text = COALESCE(excluded.score_text, remediation_attestations.score_text),
+      course_title = COALESCE(excluded.course_title, remediation_attestations.course_title),
+      course_date = COALESCE(excluded.course_date, remediation_attestations.course_date),
+      attestation_text = excluded.attestation_text,
+      signature_data_url = excluded.signature_data_url,
+      signed_at = excluded.signed_at,
+      device_id = COALESCE(excluded.device_id, remediation_attestations.device_id),
+      raw_json = excluded.raw_json,
+      updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    studentId,
+    classSessionId,
+    quizId,
+    versionBQuizId,
+    scoreText ?? null,
+    courseTitle ?? null,
+    courseDate ?? null,
+    attestationText,
+    signatureDataUrl,
+    signedAt,
+    deviceId ?? null,
+    JSON.stringify({ ...body, signatureDataUrl: "[redacted-data-url]" }),
+    now
+  ).run();
+
+  await notifyInstructorDashboard(env, {
+    classSessionId,
+    studentId,
+    event: "remediation_review_acknowledged",
+    title: "Remediation acknowledged",
+    body: `${await studentDisplayName(env, studentId)} acknowledged in-person remediation and started Version B.`,
+    quizId,
+    scoreText,
+    completedAt: signedAt
+  });
+  await audit(env, "quiz.remediation.acknowledged", {
     studentId,
     classSessionId,
     deviceId,

@@ -297,6 +297,38 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func acknowledgeRemediationReview(
+        attendee: RosterAttendee,
+        quizId: String,
+        versionBQuizId: String,
+        scoreText: String?,
+        attestationText: String,
+        signatureDataUrl: String,
+        signedAt: String
+    ) async throws -> RemediationResponse {
+        let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? attendee.submissionId
+            : attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/quiz/remediation/acknowledge",
+            method: "POST",
+            body: RemediationDeclineRequest(
+                studentId: studentId,
+                classSessionId: classSessionId,
+                quizId: quizId,
+                versionBQuizId: versionBQuizId,
+                scoreText: scoreText,
+                courseTitle: attendee.courseType,
+                courseDate: attendee.courseDate,
+                attestationText: attestationText,
+                signatureDataUrl: signatureDataUrl,
+                signedAt: signedAt,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     func completeRemediationReview(
         studentId: String,
         classSessionId: String,
