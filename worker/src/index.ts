@@ -4022,7 +4022,7 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
         points: firstNumber(finalSources, ["points"]),
         availablePoints: firstNumber(finalSources, ["available_points", "availablePoints"])
       };
-      await saveFinalExamResult(env, {
+      const savedFinalResult = await saveFinalExamResult(env, {
         ...finalResult,
         studentId,
         classSessionId,
@@ -4042,12 +4042,14 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
         email,
         flexiquizUserId
       });
-      await sendDirectStudentFinalExamApns(env, {
-        deviceId,
-        studentId,
-        classSessionId,
-        result: finalResult
-      }).catch((error) => console.warn("final exam direct APNs failed", error));
+      if (savedFinalResult) {
+        await sendDirectStudentFinalExamApns(env, {
+          deviceId,
+          studentId,
+          classSessionId,
+          result: finalResult
+        }).catch((error) => console.warn("final exam direct APNs failed", error));
+      }
     }
     await touchDeviceContext(env, {
       deviceId,
@@ -5142,11 +5144,34 @@ async function saveFinalExamResult(
     flexiquizUserId?: string;
     raw: JsonRecord;
   }
-): Promise<void> {
+): Promise<boolean> {
   const id = input.responseId
     ? `${input.classSessionId}:${input.studentId}:${input.quizId}:${input.responseId}`
     : crypto.randomUUID();
   const now = new Date().toISOString();
+  if (input.responseId) {
+    const existing = await env.DB.prepare(
+      `SELECT score_text, result_text, passed, percentage_score, points, available_points, report_url, completed_at
+       FROM final_exam_results
+       WHERE student_id = ?1
+         AND class_session_id = ?2
+         AND quiz_id = ?3
+         AND response_id = ?4
+       LIMIT 1`
+    ).bind(input.studentId, input.classSessionId, input.quizId, input.responseId).first<JsonRecord>();
+    const unchanged = existing &&
+      stringField(existing, "score_text") === input.scoreText &&
+      stringField(existing, "result_text") === input.resultText &&
+      boolFromUnknown(existing.passed) === input.passed &&
+      numberFromUnknown(existing.percentage_score) === input.percentageScore &&
+      numberFromUnknown(existing.points) === input.points &&
+      numberFromUnknown(existing.available_points) === input.availablePoints &&
+      stringField(existing, "report_url") === input.reportUrl &&
+      stringField(existing, "completed_at") === input.completedAt;
+    if (unchanged) {
+      return false;
+    }
+  }
   await env.DB.prepare(
     `INSERT INTO final_exam_results (
       id, student_id, class_session_id, quiz_id, quiz_name, response_id,
@@ -5200,6 +5225,7 @@ async function saveFinalExamResult(
     resultText: input.resultText,
     completedAt: input.completedAt ?? now
   });
+  return true;
 }
 
 async function quizMetadata(url: URL, env: Env): Promise<Response> {
@@ -5267,6 +5293,9 @@ async function saveQuizAttempt(
   const attemptId = section
     ? `${input.review.responseId ?? input.review.quizId}:section:${input.questionStart}-${input.questionEnd}`
     : input.review.responseId ?? crypto.randomUUID();
+  const existingAttempt = await env.DB.prepare(
+    `SELECT id FROM quiz_attempts WHERE id = ?1 LIMIT 1`
+  ).bind(attemptId).first<JsonRecord>();
   await env.DB.prepare(
     `INSERT INTO quiz_attempts (
       id, student_id, class_session_id, flexiquiz_user_id, quiz_id, response_id,
@@ -5299,18 +5328,20 @@ async function saveQuizAttempt(
     now
   ).run();
 
-  await notifyInstructorDashboard(env, {
-    classSessionId: input.classSessionId,
-    studentId: input.studentId,
-    event: section ? "quiz_section_result" : "quiz_attempt",
-    title: "Quiz result ready",
-    body: `${await studentDisplayName(env, input.studentId)} ${quizDisplayNameForNotification(section?.quizId ?? quizId)}: ${scoreText ?? "submitted"}.`,
-    quizId,
-    responseId: input.review.responseId,
-    scoreText: scoreText ?? undefined,
-    resultText: resultText ?? undefined,
-    completedAt: section ? now : input.review.completedAt ?? now
-  });
+  if (!existingAttempt) {
+    await notifyInstructorDashboard(env, {
+      classSessionId: input.classSessionId,
+      studentId: input.studentId,
+      event: section ? "quiz_section_result" : "quiz_attempt",
+      title: "Quiz result ready",
+      body: `${await studentDisplayName(env, input.studentId)} ${quizDisplayNameForNotification(section?.quizId ?? quizId)}: ${scoreText ?? "submitted"}.`,
+      quizId,
+      responseId: input.review.responseId,
+      scoreText: scoreText ?? undefined,
+      resultText: resultText ?? undefined,
+      completedAt: section ? now : input.review.completedAt ?? now
+    });
+  }
 }
 
 function versionAReviewRatio(review: QuizReviewPayload): string | undefined {

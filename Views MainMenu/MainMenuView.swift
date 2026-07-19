@@ -55,6 +55,7 @@ struct MainMenuView: View {
     @State private var selectedReviewQuiz: QuizInfo? = nil
     @State private var completedQuizzes: Set<String> = []
     @State private var remediationPrompt: RemediationPrompt?
+    @State private var pendingRemediationPromptAfterReview: RemediationPrompt?
 
     // Currently selected PDF
     @State private var selectedMaterialURL: URL? = nil
@@ -658,6 +659,10 @@ struct MainMenuView: View {
                             },
                             onDone: {
                                 selectedReviewQuiz = nil
+                                if let pending = pendingRemediationPromptAfterReview {
+                                    pendingRemediationPromptAfterReview = nil
+                                    remediationPrompt = pending
+                                }
                             }
                         )
                     } else if let quiz = selectedQuiz {
@@ -1579,6 +1584,15 @@ struct MainMenuView: View {
                     markerId,
                     result: "Version A review complete"
                 )
+                if let versionBQuiz = getVersionBQuizForCourse() {
+                    let finalResult = progressStore.progress.finalExamResult?.quizId == quiz.flexiQuizId
+                        ? progressStore.progress.finalExamResult!
+                        : finalExamResult(from: review, quiz: quiz)
+                    pendingRemediationPromptAfterReview = RemediationPrompt(
+                        versionBQuiz: versionBQuiz,
+                        finalResult: finalResult
+                    )
+                }
                 Task { await progressStore.fetchLatestAndMerge() }
                 if getVersionBQuizForCourse() != nil {
                     toast = "Version A is below the \(QuizInfo.versionAPassingPercent)% passing standard. Review is complete; complete remediation with your instructor, then start Version B."
@@ -1604,6 +1618,22 @@ struct MainMenuView: View {
         let result = quizResultSummary(review, quiz: quiz)
         completedQuizzes.insert(quiz.id)
         progressStore.markQuizResult(quiz.id, result: result)
+    }
+
+    private func finalExamResult(from review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> ClassManagerAPIClient.FinalExamResult {
+        ClassManagerAPIClient.FinalExamResult(
+            quizId: quiz.flexiQuizId,
+            quizName: quiz.title,
+            responseId: review.responseId,
+            scoreText: review.scoreText,
+            resultText: review.resultText,
+            passed: review.passed,
+            completedAt: review.completedAt,
+            reportUrl: review.reportUrl,
+            percentageScore: nil,
+            points: nil,
+            availablePoints: nil
+        )
     }
 
     private func recordQuizCheckpoint(quiz: QuizInfo) {
