@@ -1212,38 +1212,29 @@ struct MainMenuView: View {
         let instructorEmail = primaryInstructor?.email ?? authenticatedInstructor?.email
         let courseName = cleanCourseName(attendee.courseType)
         let njCourseId = attendee.courseId
-        let classSessionId = classSessionIdForCurrentAttendee()
 
         add("courseType", courseName)
         add("q23_courseType", courseName)
         add("njCourse", njCourseId)
         add("q28_njCourse", njCourseId)
-        add("q28", njCourseId)
-        add("classSessionId", classSessionId)
-        add("classsessionid", classSessionId)
-        add("class_session_id", classSessionId)
-        add("q29_classSessionId", classSessionId)
         add("primaryInstructor", instructorName)
         add("q24_primaryInstructor", instructorName)
-        add("q24", instructorName)
         add("email", instructorEmail)
         add("q25_email", instructorEmail)
-        add("primaryInstructorEmail", instructorEmail)
-        add("q25_primaryInstructorEmail", instructorEmail)
-        add("q25", instructorEmail)
 
-        for (index, instructor) in activeInstructors.dropFirst().prefix(6).enumerated() {
-            let number = index + 1
+        let additionalInstructorFields = [
+            ("additionalInstructor", "q29_additionalInstructor", "additionalInstructor30", "q30_additionalInstructor30"),
+            ("additionalInstructor31", "q31_additionalInstructor31", "additionalInstructor32", "q32_additionalInstructor32"),
+            ("additionalInstructor33", "q33_additionalInstructor33", "additionalInstructor34", "q34_additionalInstructor34")
+        ]
+        for (index, instructor) in activeInstructors.dropFirst().prefix(additionalInstructorFields.count).enumerated() {
+            let fields = additionalInstructorFields[index]
             let name = instructor.fullName
             let email = instructor.email
-            add("additionalInstructor\(number)", name)
-            add("additionalInstructor\(number)Name", name)
-            add("additionalInstructor\(number)Email", email)
-            add("additional_instructor_\(number)", name)
-            add("additional_instructor_\(number)_name", name)
-            add("additional_instructor_\(number)_email", email)
-            add("q\(25 + number)_additionalInstructor\(number)", name)
-            add("q\(25 + number)_additionalInstructor\(number)Email", email)
+            add(fields.0, name)
+            add(fields.1, name)
+            add(fields.2, email)
+            add(fields.3, email)
         }
 
         comps.queryItems = items

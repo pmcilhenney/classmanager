@@ -344,6 +344,10 @@ export default {
         return await sessionLookup(request, env);
       }
 
+      if (request.method === "GET" && url.pathname.startsWith("/jotform/form/") && url.pathname.endsWith("/fields")) {
+        return await jotformFormFields(url, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/instructor/auth") {
         return await instructorAuth(request, env);
       }
@@ -524,6 +528,43 @@ async function sessionLookup(request: Request, env: Env): Promise<Response> {
     attendee,
     options: normalized.options
   });
+}
+
+async function jotformFormFields(url: URL, env: Env): Promise<Response> {
+  if (!env.JOTFORM_API_KEY) {
+    return json({ error: "jotform_not_configured" }, 503);
+  }
+
+  const match = url.pathname.match(/^\/jotform\/form\/([^/]+)\/fields$/);
+  const formId = match?.[1]?.trim();
+  if (!formId) {
+    return json({ error: "missing_form_id" }, 400);
+  }
+
+  const apiUrl = new URL(joinUrl(env.JOTFORM_BASE_URL, `/form/${encodeURIComponent(formId)}/questions`));
+  apiUrl.searchParams.set("apiKey", env.JOTFORM_API_KEY);
+  const response = await fetch(apiUrl, { headers: { accept: "application/json" } });
+  if (!response.ok) {
+    return json({ error: "jotform_questions_failed", status: response.status }, 502);
+  }
+
+  const payload = await response.json<JsonRecord>().catch(() => ({}));
+  const content = recordField(payload, "content") ?? {};
+  const fields = Object.entries(content)
+    .filter(([, value]) => isJsonRecord(value))
+    .map(([qid, value]) => {
+      const field = value as JsonRecord;
+      return {
+        qid,
+        name: stringField(field, "name") ?? null,
+        text: stringField(field, "text") ?? null,
+        type: stringField(field, "type") ?? null,
+        order: numberFromUnknown(field.order) ?? null
+      };
+    })
+    .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+
+  return json({ ok: true, formId, fields });
 }
 
 async function instructorAuth(request: Request, env: Env): Promise<Response> {
