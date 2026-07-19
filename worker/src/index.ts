@@ -2602,10 +2602,10 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
     return json({ error: "missing_cpr_upload_fields" }, 400);
   }
 
-  if (validation.status === "not_cpr_card") {
+  if (validation.status === "not_cpr_card" || validation.status === "unsupported_cpr_card") {
     return json({
       ok: false,
-      error: "not_cpr_card",
+      error: validation.status,
       expirationDate,
       validationStatus: validation.status,
       validationNotes: validation.notes
@@ -2923,7 +2923,15 @@ function validateCprCardUpload(expirationDate?: string, recognizedText?: string,
   const text = (recognizedText ?? "").toLowerCase();
   const approval = approvedCprCertificationMatch(text);
   const disqualifier = cprCardDisqualifier(text);
+  const unsupported = unsupportedCprCertificationReason(text);
   const nameMismatch = cprCardNameMismatch(text, attendee);
+  if (unsupported) {
+    return {
+      status: "unsupported_cpr_card",
+      notes: unsupported,
+      accepted: false
+    };
+  }
   if (!approval && text.trim().length > 20 && !cprTextLooksLikeCard(text)) {
     return {
       status: "not_cpr_card",
@@ -3104,6 +3112,20 @@ function cprCardDisqualifier(rawText: string): string | undefined {
   }
   if (/\bphotocopy\b|\bcopy\b/.test(text) && !/\becard\b/.test(text)) {
     return "NJ OEMS accepts valid CPR cards/eCards; this appears to reference a photocopy and needs instructor review.";
+  }
+  return undefined;
+}
+
+function unsupportedCprCertificationReason(rawText: string): string | undefined {
+  const text = normalizeCprText(rawText);
+  if (/\b(acls|advanced cardiovascular life support)\b/.test(text)) {
+    return "This appears to be an ACLS card. NJ OEMS requires an accepted CPR/BLS certification card for refresher attendance.";
+  }
+  if (/\b(pals|pediatric advanced life support)\b/.test(text)) {
+    return "This appears to be a PALS card. NJ OEMS requires an accepted CPR/BLS certification card for refresher attendance.";
+  }
+  if (/\badvanced life support\b/.test(text) && !/\b(basic life support|bls)\b/.test(text)) {
+    return "This appears to be an advanced life support card, not a CPR/BLS certification card accepted for refresher attendance.";
   }
   return undefined;
 }
