@@ -64,6 +64,10 @@ struct QuizReviewView: View {
         let correctQuestions = questions.filter { $0.isCorrect == true }
         let unscoredQuestions = questions.filter { $0.isCorrect == nil }
         let selectedQuestions = filteredQuestions(for: fullReviewFilter, incorrect: incorrectQuestions, correct: correctQuestions, unscored: unscoredQuestions)
+        let requiresVersionBRemediation = !isSectionReview
+            && review.passed == false
+            && !QuizInfo.isVersionBQuizId(review.quizId)
+            && !QuizInfo.isVersionBQuizId(quiz.flexiQuizId)
 
         return List {
             Section {
@@ -88,10 +92,19 @@ struct QuizReviewView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    if !isSectionReview, review.passed == false {
+                    if requiresVersionBRemediation {
                         Label("Review your correct and incorrect responses, then tap Done to continue to the required Version B options.", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.red)
+                        if onDoneWithReview != nil {
+                            Button {
+                                onDoneWithReview?(review)
+                            } label: {
+                                Label("Continue to Version B Options", systemImage: "arrow.right.circle.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
                     }
                 }
                 .padding(.vertical, 4)

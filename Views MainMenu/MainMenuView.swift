@@ -1609,29 +1609,38 @@ struct MainMenuView: View {
     }
 
     private func completeQuizReviewDone(quiz: QuizInfo, review: ClassManagerAPIClient.QuizReviewResponse) {
+        let combinedQuizId = QuizInfo.isCombinedVersionAQuizId(review.quizId) ? review.quizId : quiz.flexiQuizId
         selectedReviewQuiz = nil
-        guard QuizInfo.isCombinedVersionAQuizId(quiz.flexiQuizId), review.passed == false else {
+        guard review.passed == false,
+              !QuizInfo.isVersionBQuizId(review.quizId),
+              !QuizInfo.isVersionBQuizId(quiz.flexiQuizId) else {
             return
         }
 
-        let markerId = QuizInfo.versionAReviewMarkerId(for: quiz.flexiQuizId)
-        completedQuizzes.insert(markerId)
-        progressStore.markQuizResult(markerId, result: "Version A review complete")
+        let versionBQuiz = QuizInfo.isCombinedVersionAQuizId(combinedQuizId)
+            ? QuizInfo.versionBQuiz(forCombinedQuizId: combinedQuizId)
+            : getVersionBQuizForCourse()
 
-        guard let versionBQuiz = getVersionBQuizForCourse() else {
-            toast = "Version A review is complete. See your instructor for the next step."
+        if QuizInfo.isCombinedVersionAQuizId(combinedQuizId) {
+            let markerId = QuizInfo.versionAReviewMarkerId(for: combinedQuizId)
+            completedQuizzes.insert(markerId)
+            progressStore.markQuizResult(markerId, result: "Version A review complete")
+        }
+
+        guard let versionBQuiz else {
+            toast = "Version A review is complete, but Version B is not configured for this course."
             return
         }
 
-        let finalResult = progressStore.progress.finalExamResult?.quizId == quiz.flexiQuizId
+        let finalResult = progressStore.progress.finalExamResult?.quizId == combinedQuizId
             ? progressStore.progress.finalExamResult!
-            : finalExamResult(from: review, quiz: quiz)
+            : finalExamResult(from: review, quiz: quiz, quizId: combinedQuizId)
         remediationPrompt = RemediationPrompt(versionBQuiz: versionBQuiz, finalResult: finalResult)
     }
 
-    private func finalExamResult(from review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> ClassManagerAPIClient.FinalExamResult {
+    private func finalExamResult(from review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo, quizId: String? = nil) -> ClassManagerAPIClient.FinalExamResult {
         ClassManagerAPIClient.FinalExamResult(
-            quizId: quiz.flexiQuizId,
+            quizId: quizId ?? quiz.flexiQuizId,
             quizName: quiz.title,
             responseId: review.responseId,
             scoreText: review.scoreText,
