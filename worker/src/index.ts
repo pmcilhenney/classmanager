@@ -2602,6 +2602,16 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
     return json({ error: "missing_cpr_upload_fields" }, 400);
   }
 
+  if (validation.status === "not_cpr_card") {
+    return json({
+      ok: false,
+      error: "not_cpr_card",
+      expirationDate,
+      validationStatus: validation.status,
+      validationNotes: validation.notes
+    }, 400);
+  }
+
   const decoded = decodeDataUrl(dataUrl);
   if (!decoded) {
     return json({ error: "invalid_cpr_upload" }, 400);
@@ -2914,6 +2924,13 @@ function validateCprCardUpload(expirationDate?: string, recognizedText?: string,
   const approval = approvedCprCertificationMatch(text);
   const disqualifier = cprCardDisqualifier(text);
   const nameMismatch = cprCardNameMismatch(text, attendee);
+  if (!approval && text.trim().length > 20 && !cprTextLooksLikeCard(text)) {
+    return {
+      status: "not_cpr_card",
+      notes: "This upload does not appear to be a CPR certification card. Please upload a current CPR card.",
+      accepted: false
+    };
+  }
   if (nameMismatch) {
     return {
       status: "name_mismatch",
@@ -2980,11 +2997,32 @@ function cprCardNameMismatch(rawText: string, attendee?: JsonRecord): string | u
   if (text.includes(firstName) && text.includes(lastName)) {
     return undefined;
   }
-  return `The card text does not appear to match ${firstName} ${lastName}. Instructor review is required.`;
+  const displayName = [
+    properNameToken(stringField(attendee, "firstName") ?? stringField(attendee, "first_name") ?? ""),
+    properNameToken(stringField(attendee, "lastName") ?? stringField(attendee, "last_name") ?? "")
+  ].filter(Boolean).join(" ");
+  return `The card text does not appear to match ${displayName || "this student"}. Instructor review is required.`;
 }
 
 function normalizeCprNameToken(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/)[0] ?? "";
+}
+
+function properNameToken(value: string): string {
+  const token = value.trim().split(/\s+/)[0] ?? "";
+  if (!token) {
+    return "";
+  }
+  const rest = token.slice(1);
+  if (token === token.toLowerCase() || token === token.toUpperCase()) {
+    return token.charAt(0).toUpperCase() + rest.toLowerCase();
+  }
+  return token;
+}
+
+function cprTextLooksLikeCard(rawText: string): boolean {
+  const text = normalizeCprText(rawText);
+  return /\b(cpr|cardiopulmonary|basic life support|bls|aed|resuscitation|professional rescuer|healthcare provider|heart association|red cross|ecsi|ashi|hsi|national safety council|ems safety)\b/.test(text);
 }
 
 function approvedCprCertificationMatch(rawText: string): string | undefined {
