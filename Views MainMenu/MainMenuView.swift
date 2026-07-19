@@ -646,7 +646,12 @@ struct MainMenuView: View {
                             selectedQuiz: $selectedQuiz,
                             completedQuizzes: $completedQuizzes,
                             onBlocked: { msg in toast = msg },
-                            onReview: { quiz in selectedReviewQuiz = quiz }
+                            onReview: { quiz in selectedReviewQuiz = quiz },
+                            onVersionAReviewComplete: { quizId in
+                                let markerId = QuizInfo.versionAReviewMarkerId(for: quizId)
+                                completedQuizzes.insert(markerId)
+                                progressStore.markQuizResult(markerId, result: "Version A review complete")
+                            }
                         )
                     }
                 } else if showingPDF, let url = selectedMaterialURL {

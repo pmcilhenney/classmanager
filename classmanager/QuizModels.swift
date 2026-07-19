@@ -9,6 +9,24 @@ struct QuizInfo: Identifiable {
     static let refresherACombinedQuizId = "89db2c06-5052-4ff5-867b-95ef67fcfcd2"
     static let refresherBCombinedQuizId = "bcab075c-a56a-459c-b313-f7b3966d7bb4"
     static let refresherCCombinedQuizId = "7f21b940-8344-4614-a935-49f2ea4218c7"
+    static let refresherAQuizIds = [
+        "66564166-9de9-4b17-9c2d-6f76bc186970",
+        "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+        "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+        "16ca7d9a-d3a4-4a24-85fe-ccb49def519d"
+    ]
+    static let refresherBQuizIds = [
+        "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+        "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+        "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+        "757c48dc-6ab2-4aad-a262-30ed854157c9"
+    ]
+    static let refresherCQuizIds = [
+        "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+        "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+        "b7adaf94-a911-4dad-8152-a5853cb02e35",
+        "b938cd8b-913c-41bf-b247-1406b11115f2"
+    ]
     static let refresherAVersionBQuizId = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b"
     static let refresherBVersionBQuizId = "76483815-190a-4c67-89ff-2e69c74b0c2a"
     static let refresherCVersionBQuizId = "36088669-4530-48b8-ae82-1f549009d380"
@@ -47,6 +65,18 @@ struct QuizInfo: Identifiable {
         [refresherAVersionBQuizId, refresherBVersionBQuizId, refresherCVersionBQuizId].contains(quizId)
     }
 
+    static func isVersionAQuizId(_ quizId: String) -> Bool {
+        (refresherAQuizIds + refresherBQuizIds + refresherCQuizIds).contains(quizId)
+    }
+
+    static func versionAQuizIds(forCourseTitle courseTitle: String) -> [String] {
+        let normalized = courseTitle.lowercased()
+        if normalized.contains("refresher a") { return refresherAQuizIds }
+        if normalized.contains("refresher b") { return refresherBQuizIds }
+        if normalized.contains("refresher c") { return refresherCQuizIds }
+        return []
+    }
+
     static func passingPercent(for quizId: String) -> Int {
         isVersionBQuizId(quizId) ? versionBPassingPercent : versionAPassingPercent
     }
@@ -68,26 +98,20 @@ struct QuizInfo: Identifiable {
         }
     }
 
-    private static func combinedQuizzes(courseLetter: String, combinedQuizId: String, ranges: [ClosedRange<Int>]) -> [QuizInfo] {
-        let combinedURL = URL(string: "https://www.flexiquiz.com/SC/N/\(combinedQuizId)")!
-        return ranges.enumerated().map { index, range in
+    private static func versionAQuizzes(courseLetter: String, quizIds: [String]) -> [QuizInfo] {
+        quizIds.enumerated().map { index, quizId in
             QuizInfo(
-                id: "refresher-\(courseLetter.lowercased())-page-\(index + 1)",
-                flexiQuizId: combinedQuizId,
+                id: quizId,
+                flexiQuizId: quizId,
                 number: index + 1,
                 title: "Refresher \(courseLetter) Mini-Quiz #\(index + 1)",
-                url: combinedURL,
-                questionRange: range
+                url: URL(string: "https://www.flexiquiz.com/SC/N/\(quizId)")!
             )
         }
     }
 
     static func refresherAQuizzes() -> [QuizInfo] {
-        combinedQuizzes(
-            courseLetter: "A",
-            combinedQuizId: refresherACombinedQuizId,
-            ranges: [1...12, 13...25, 26...38, 39...50]
-        )
+        versionAQuizzes(courseLetter: "A", quizIds: refresherAQuizIds)
     }
 
     static func refresherAVersionBQuiz() -> QuizInfo {
@@ -105,18 +129,10 @@ struct QuizInfo: Identifiable {
     }
     
     static func refresherBQuizzes() -> [QuizInfo] {
-        combinedQuizzes(
-            courseLetter: "B",
-            combinedQuizId: refresherBCombinedQuizId,
-            ranges: [1...12, 13...25, 26...37, 38...50]
-        )
+        versionAQuizzes(courseLetter: "B", quizIds: refresherBQuizIds)
     }
     
     static func refresherCQuizzes() -> [QuizInfo] {
-        combinedQuizzes(
-            courseLetter: "C",
-            combinedQuizId: refresherCCombinedQuizId,
-            ranges: [1...13, 14...25, 26...38, 39...50]
-        )
+        versionAQuizzes(courseLetter: "C", quizIds: refresherCQuizIds)
     }
 }

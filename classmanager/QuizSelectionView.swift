@@ -14,6 +14,7 @@ struct QuizSelectionView: View {
     @Binding var completedQuizzes: Set<String>
     var onBlocked: (String) -> Void = { _ in }
     var onReview: (QuizInfo) -> Void = { _ in }
+    var onVersionAReviewComplete: (String) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,6 +40,9 @@ struct QuizSelectionView: View {
                         }
                         if isFailedVersionA(finalResult), let versionBQuiz, !versionBInProgress {
                             versionBRetestCard(versionBQuiz)
+                        }
+                        if QuizInfo.isCombinedVersionAQuizId(finalResult.quizId) {
+                            miniQuizCards
                         }
                     } else {
                         miniQuizCards
@@ -151,7 +155,12 @@ struct QuizSelectionView: View {
         let score = result.scoreText ?? result.percentageScore.map { "\(Int($0.rounded()))%" }
 
         return Button {
-            if let fullExam = fullExamReviewQuiz(from: result) {
+            if QuizInfo.isCombinedVersionAQuizId(result.quizId) {
+                onVersionAReviewComplete(result.quizId)
+                if passed == false {
+                    onBlocked("Review the individual mini-quiz results below with your instructor. Version B is now available after remediation.")
+                }
+            } else if let fullExam = fullExamReviewQuiz(from: result) {
                 onReview(fullExam)
             } else {
                 onBlocked("The final exam review is not ready yet.")

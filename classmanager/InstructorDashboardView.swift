@@ -771,18 +771,15 @@ struct InstructorDashboardView: View {
     }
 
     private func quizCompletionSummary(for student: ClassManagerAPIClient.DashboardStudent) -> (completed: Int, total: Int) {
-        let courseTitle = student.courseTitle.lowercased()
-        let expectedTotal: Int
-        if courseTitle.contains("refresher a") || courseTitle.contains("refresher b") || courseTitle.contains("refresher c") {
-            expectedTotal = 4
-        } else {
-            expectedTotal = 0
-        }
+        let versionAQuizIds = Set(QuizInfo.versionAQuizIds(forCourseTitle: student.courseTitle))
+        let expectedTotal = versionAQuizIds.isEmpty ? 0 : 4
 
         var completed = Set(quizResults(for: student).compactMap { result -> String? in
-            guard let quizId = result.quizId,
-                  quizId.contains("-page-") else { return nil }
-            return quizId
+            guard let quizId = result.quizId else { return nil }
+            if versionAQuizIds.contains(quizId) || quizId.contains("-page-") {
+                return quizId
+            }
+            return nil
         }).count
 
         if expectedTotal == 4,

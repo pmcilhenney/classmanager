@@ -105,11 +105,49 @@ type QuizReviewPayload = {
 const REFRESHER_A_COMBINED_QUIZ_ID = "89db2c06-5052-4ff5-867b-95ef67fcfcd2";
 const REFRESHER_B_COMBINED_QUIZ_ID = "bcab075c-a56a-459c-b313-f7b3966d7bb4";
 const REFRESHER_C_COMBINED_QUIZ_ID = "7f21b940-8344-4614-a935-49f2ea4218c7";
+const REFRESHER_A_VERSION_A_QUIZ_IDS = [
+  "66564166-9de9-4b17-9c2d-6f76bc186970",
+  "78df99bd-d81a-4f24-a855-81ea0a3a71ec",
+  "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7",
+  "16ca7d9a-d3a4-4a24-85fe-ccb49def519d"
+];
+const REFRESHER_B_VERSION_A_QUIZ_IDS = [
+  "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8",
+  "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5",
+  "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb",
+  "757c48dc-6ab2-4aad-a262-30ed854157c9"
+];
+const REFRESHER_C_VERSION_A_QUIZ_IDS = [
+  "ab8a5c9d-9e06-42c2-a866-e5759d8b2209",
+  "d76f4483-d8cc-4029-aea6-a2bebbb3d086",
+  "b7adaf94-a911-4dad-8152-a5853cb02e35",
+  "b938cd8b-913c-41bf-b247-1406b11115f2"
+];
 const REFRESHER_A_VERSION_B_QUIZ_ID = "a08bbc93-3c52-4ea9-9bbb-e9c2de39266b";
 const REFRESHER_B_VERSION_B_QUIZ_ID = "76483815-190a-4c67-89ff-2e69c74b0c2a";
 const REFRESHER_C_VERSION_B_QUIZ_ID = "36088669-4530-48b8-ae82-1f549009d380";
 const REFRESHER_VERSION_A_PASSING_SCORE = 70;
 const REFRESHER_VERSION_B_PASSING_SCORE = 75;
+const REFRESHER_VERSION_A_COURSES = [
+  {
+    letter: "A",
+    aggregateQuizId: REFRESHER_A_COMBINED_QUIZ_ID,
+    quizIds: REFRESHER_A_VERSION_A_QUIZ_IDS,
+    quizName: "Refresher A Version A"
+  },
+  {
+    letter: "B",
+    aggregateQuizId: REFRESHER_B_COMBINED_QUIZ_ID,
+    quizIds: REFRESHER_B_VERSION_A_QUIZ_IDS,
+    quizName: "Refresher B Version A"
+  },
+  {
+    letter: "C",
+    aggregateQuizId: REFRESHER_C_COMBINED_QUIZ_ID,
+    quizIds: REFRESHER_C_VERSION_A_QUIZ_IDS,
+    quizName: "Refresher C Version A"
+  }
+] as const;
 const REGISTRATION_FORM_ID = "251265925097060";
 const INSTRUCTOR_PAST_COURSE_DAYS = 45;
 const INSTRUCTOR_UPCOMING_COURSE_DAYS = 120;
@@ -3135,8 +3173,21 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
         questionStart,
         questionEnd
       }).catch((error) => console.warn("quiz attempt save failed", error));
+      const versionACourse = !questionStart && !questionEnd && completedReview
+        ? versionACourseForQuizId(quizId)
+        : undefined;
+      if (versionACourse && versionACourse.quizIds.includes(quizId)) {
+        await maybeSaveAggregatedVersionAFinal(env, {
+          course: versionACourse,
+          studentId,
+          classSessionId,
+          email,
+          flexiquizUserId,
+          deviceId
+        }).catch((error) => console.warn("version A aggregate save failed", error));
+      }
     }
-    if (!questionStart && !questionEnd && review.responseId && completedReview) {
+    if (!questionStart && !questionEnd && review.responseId && completedReview && !versionACourseForQuizId(quizId)?.quizIds.includes(quizId)) {
       const finalSources = [detail ?? {}, latest];
       const passingScore = minimumPassingScoreForQuiz(quizId, finalSources);
       const scoreText = review.scoreText ?? scoreTextFromSources(finalSources);
@@ -3224,16 +3275,46 @@ async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response>
       continue;
     }
 
-    await saveFinalExamResult(env, {
-      ...finalResult,
-      quizId,
-      responseId,
-      studentId,
-      classSessionId,
-      email,
-      flexiquizUserId,
-      raw: result
-    });
+    const versionACourse = versionACourseForQuizId(quizId);
+    let resultForPush: FinalExamResult | undefined;
+    if (versionACourse && versionACourse.quizIds.includes(quizId)) {
+      await saveQuizAttemptFromFinalResult(env, {
+        finalResult,
+        quizId,
+        responseId,
+        studentId,
+        classSessionId,
+        email,
+        flexiquizUserId
+      });
+      resultForPush = await maybeSaveAggregatedVersionAFinal(env, {
+        course: versionACourse,
+        studentId,
+        classSessionId,
+        email,
+        flexiquizUserId
+      });
+      if (!resultForPush) {
+        saved += 1;
+        continue;
+      }
+    } else {
+      await saveFinalExamResult(env, {
+        ...finalResult,
+        quizId,
+        responseId,
+        studentId,
+        classSessionId,
+        email,
+        flexiquizUserId,
+        raw: result
+      });
+      resultForPush = {
+        ...finalResult,
+        quizId,
+        responseId
+      };
+    }
     saved += 1;
 
     const token = stringField(context, "token");
@@ -3247,11 +3328,7 @@ async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response>
         studentId,
         classSessionId,
         instructorName: await instructorDisplayNameForClassSession(env, classSessionId),
-        result: {
-          ...finalResult,
-          quizId,
-          responseId
-        }
+        result: resultForPush
       });
       sent += 1;
       await env.DB.prepare(
@@ -3613,6 +3690,189 @@ function minimumPassingScoreForQuiz(quizId: string, sources: JsonRecord[]): numb
   return REFRESHER_VERSION_A_PASSING_SCORE;
 }
 
+type VersionACourse = typeof REFRESHER_VERSION_A_COURSES[number];
+
+function versionACourseForQuizId(quizId?: string): VersionACourse | undefined {
+  if (!quizId) {
+    return undefined;
+  }
+  return REFRESHER_VERSION_A_COURSES.find((course) =>
+    course.quizIds.includes(quizId) || course.aggregateQuizId === quizId
+  );
+}
+
+function versionAComponentIndex(course: VersionACourse, quizId: string): number | undefined {
+  const index = course.quizIds.indexOf(quizId);
+  return index >= 0 ? index : undefined;
+}
+
+function scorePartsFromText(text?: string): { points?: number; available?: number; percent?: number } {
+  if (!text) {
+    return {};
+  }
+  const ratio = text.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+  if (ratio) {
+    const points = Number.parseFloat(ratio[1]);
+    const available = Number.parseFloat(ratio[2]);
+    if (Number.isFinite(points) && Number.isFinite(available) && available > 0) {
+      return { points, available, percent: (points / available) * 100 };
+    }
+  }
+  const percent = text.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (percent) {
+    const value = Number.parseFloat(percent[1]);
+    if (Number.isFinite(value)) {
+      return { percent: value };
+    }
+  }
+  return {};
+}
+
+function scorePartsFromAttempt(attempt: JsonRecord): { points?: number; available?: number; percent?: number } {
+  const points = firstNumber([attempt], ["points"]);
+  const available = firstNumber([attempt], ["available_points", "availablePoints"]);
+  if (points !== undefined && available !== undefined && available > 0) {
+    return { points, available, percent: (points / available) * 100 };
+  }
+  return scorePartsFromText(stringField(attempt, "score_text"));
+}
+
+async function maybeSaveAggregatedVersionAFinal(
+  env: Env,
+  input: {
+    course: VersionACourse;
+    studentId: string;
+    classSessionId: string;
+    email?: string;
+    flexiquizUserId?: string;
+    deviceId?: string;
+  }
+): Promise<FinalExamResult | undefined> {
+  const placeholders = input.course.quizIds.map((_, index) => `?${index + 3}`).join(", ");
+  const rows = await env.DB.prepare(
+    `SELECT quiz_id, response_id, result_text, score_text, passed, completed_at, updated_at
+     FROM quiz_attempts
+     WHERE student_id = ?1
+       AND class_session_id = ?2
+       AND quiz_id IN (${placeholders})
+     ORDER BY COALESCE(completed_at, updated_at) DESC`
+  ).bind(input.studentId, input.classSessionId, ...input.course.quizIds).all<JsonRecord>();
+
+  const newestByQuiz = new Map<string, JsonRecord>();
+  for (const row of rows.results ?? []) {
+    const quizId = stringField(row, "quiz_id");
+    if (quizId && !newestByQuiz.has(quizId)) {
+      newestByQuiz.set(quizId, row);
+    }
+  }
+  if (newestByQuiz.size < input.course.quizIds.length) {
+    return undefined;
+  }
+
+  let totalPoints = 0;
+  let totalAvailable = 0;
+  let percentTotal = 0;
+  let percentCount = 0;
+  const components: JsonRecord[] = [];
+  for (const quizId of input.course.quizIds) {
+    const attempt = newestByQuiz.get(quizId);
+    if (!attempt) {
+      return undefined;
+    }
+    const parts = scorePartsFromAttempt(attempt);
+    if (parts.points !== undefined && parts.available !== undefined && parts.available > 0) {
+      totalPoints += parts.points;
+      totalAvailable += parts.available;
+    } else if (parts.percent !== undefined) {
+      percentTotal += parts.percent;
+      percentCount += 1;
+    }
+    components.push({
+      quiz_id: quizId,
+      quiz_number: (versionAComponentIndex(input.course, quizId) ?? 0) + 1,
+      response_id: stringField(attempt, "response_id") ?? null,
+      score_text: stringField(attempt, "score_text") ?? null,
+      result_text: stringField(attempt, "result_text") ?? null,
+      completed_at: stringField(attempt, "completed_at") ?? stringField(attempt, "updated_at") ?? null
+    });
+  }
+
+  const percentageScore = totalAvailable > 0
+    ? (totalPoints / totalAvailable) * 100
+    : percentCount > 0
+      ? percentTotal / percentCount
+      : undefined;
+  if (percentageScore === undefined) {
+    return undefined;
+  }
+
+  const passed = percentageScore >= REFRESHER_VERSION_A_PASSING_SCORE;
+  const scoreText = totalAvailable > 0
+    ? `${Math.round(totalPoints)}/${Math.round(totalAvailable)} (${Math.round(percentageScore)}%)`
+    : `${Math.round(percentageScore)}%`;
+  const latestCompleted = components
+    .map((component) => stringField(component, "completed_at"))
+    .filter((value): value is string => !!value)
+    .sort()
+    .pop();
+  const responseId = `version-a-aggregate:${input.classSessionId}:${input.studentId}:${input.course.letter}`;
+  const finalResult: FinalExamResult = {
+    quizId: input.course.aggregateQuizId,
+    quizName: input.course.quizName,
+    responseId,
+    scoreText,
+    resultText: passed ? "Pass" : "Fail",
+    passed,
+    completedAt: latestCompleted ?? new Date().toISOString(),
+    percentageScore,
+    points: totalAvailable > 0 ? totalPoints : undefined,
+    availablePoints: totalAvailable > 0 ? totalAvailable : undefined
+  };
+
+  const existing = await env.DB.prepare(
+    `SELECT score_text, result_text, passed, percentage_score, points, available_points
+     FROM final_exam_results
+     WHERE student_id = ?1
+       AND class_session_id = ?2
+       AND quiz_id = ?3
+       AND response_id = ?4
+     LIMIT 1`
+  ).bind(input.studentId, input.classSessionId, finalResult.quizId, finalResult.responseId ?? null).first<JsonRecord>();
+  const changed = !existing ||
+    stringField(existing, "score_text") !== finalResult.scoreText ||
+    stringField(existing, "result_text") !== finalResult.resultText ||
+    boolFromUnknown(existing.passed) !== finalResult.passed ||
+    numberFromUnknown(existing.percentage_score) !== finalResult.percentageScore ||
+    numberFromUnknown(existing.points) !== finalResult.points ||
+    numberFromUnknown(existing.available_points) !== finalResult.availablePoints;
+
+  if (changed) {
+    await saveFinalExamResult(env, {
+      ...finalResult,
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      email: input.email,
+      flexiquizUserId: input.flexiquizUserId,
+      raw: {
+        source: "version_a_aggregate",
+        passingScore: REFRESHER_VERSION_A_PASSING_SCORE,
+        components
+      }
+    });
+  }
+
+  if (changed && input.deviceId) {
+    await sendDirectStudentFinalExamApns(env, {
+      deviceId: input.deviceId,
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      result: finalResult
+    }).catch((error) => console.warn("version A aggregate direct APNs failed", error));
+  }
+
+  return finalResult;
+}
+
 async function saveFinalExamResult(
   env: Env,
   input: FinalExamResult & {
@@ -3789,6 +4049,65 @@ async function saveQuizAttempt(
   });
 }
 
+async function saveQuizAttemptFromFinalResult(
+  env: Env,
+  input: {
+    finalResult: FinalExamResult;
+    quizId: string;
+    responseId: string;
+    studentId: string;
+    classSessionId: string;
+    email?: string;
+    flexiquizUserId?: string;
+  }
+): Promise<void> {
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO quiz_attempts (
+      id, student_id, class_session_id, flexiquiz_user_id, quiz_id, response_id,
+      result_text, score_text, passed, review_url, review_released, completed_at,
+      created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12, ?12)
+    ON CONFLICT(id) DO UPDATE SET
+      flexiquiz_user_id = COALESCE(excluded.flexiquiz_user_id, quiz_attempts.flexiquiz_user_id),
+      quiz_id = excluded.quiz_id,
+      response_id = excluded.response_id,
+      result_text = COALESCE(excluded.result_text, quiz_attempts.result_text),
+      score_text = COALESCE(excluded.score_text, quiz_attempts.score_text),
+      passed = COALESCE(excluded.passed, quiz_attempts.passed),
+      review_url = COALESCE(excluded.review_url, quiz_attempts.review_url),
+      review_released = 1,
+      completed_at = COALESCE(excluded.completed_at, quiz_attempts.completed_at),
+      updated_at = excluded.updated_at`
+  ).bind(
+    input.responseId,
+    input.studentId,
+    input.classSessionId,
+    input.flexiquizUserId ?? null,
+    input.quizId,
+    input.responseId,
+    input.finalResult.resultText ?? null,
+    input.finalResult.scoreText ?? null,
+    input.finalResult.passed === undefined ? null : boolInt(input.finalResult.passed),
+    input.finalResult.reportUrl ?? null,
+    input.finalResult.completedAt ?? now,
+    now
+  ).run();
+
+  await notifyInstructorDashboard(env, {
+    classSessionId: input.classSessionId,
+    studentId: input.studentId,
+    event: "quiz_attempt",
+    title: "Quiz result ready",
+    body: `${await studentDisplayName(env, input.studentId)} ${quizDisplayNameForNotification(input.quizId)}: ${input.finalResult.scoreText ?? "submitted"}.`,
+    quizId: input.quizId,
+    responseId: input.responseId,
+    scoreText: input.finalResult.scoreText,
+    resultText: input.finalResult.resultText,
+    completedAt: input.finalResult.completedAt ?? now
+  });
+}
+
 function quizDisplayNameForNotification(quizId: string): string {
   switch (quizId) {
     case REFRESHER_A_COMBINED_QUIZ_ID: return "Refresher A final exam";
@@ -3801,14 +4120,26 @@ function quizDisplayNameForNotification(quizId: string): string {
     case "refresher-a-page-2": return "Refresher A Quiz 2";
     case "refresher-a-page-3": return "Refresher A Quiz 3";
     case "refresher-a-page-4": return "Refresher A Quiz 4";
+    case "66564166-9de9-4b17-9c2d-6f76bc186970": return "Refresher A Quiz 1";
+    case "78df99bd-d81a-4f24-a855-81ea0a3a71ec": return "Refresher A Quiz 2";
+    case "772e07cf-d20b-4c8e-a6a5-d2917f5aa5c7": return "Refresher A Quiz 3";
+    case "16ca7d9a-d3a4-4a24-85fe-ccb49def519d": return "Refresher A Quiz 4";
     case "refresher-b-page-1": return "Refresher B Quiz 1";
     case "refresher-b-page-2": return "Refresher B Quiz 2";
     case "refresher-b-page-3": return "Refresher B Quiz 3";
     case "refresher-b-page-4": return "Refresher B Quiz 4";
+    case "3eff7d7c-74d4-44d8-bb4f-b8561c0c62b8": return "Refresher B Quiz 1";
+    case "67ca0a1e-7c79-4ae7-aa55-418d10e9f3b5": return "Refresher B Quiz 2";
+    case "e5fdb765-119b-4f5e-905b-c9b7d27ed2bb": return "Refresher B Quiz 3";
+    case "757c48dc-6ab2-4aad-a262-30ed854157c9": return "Refresher B Quiz 4";
     case "refresher-c-page-1": return "Refresher C Quiz 1";
     case "refresher-c-page-2": return "Refresher C Quiz 2";
     case "refresher-c-page-3": return "Refresher C Quiz 3";
     case "refresher-c-page-4": return "Refresher C Quiz 4";
+    case "ab8a5c9d-9e06-42c2-a866-e5759d8b2209": return "Refresher C Quiz 1";
+    case "d76f4483-d8cc-4029-aea6-a2bebbb3d086": return "Refresher C Quiz 2";
+    case "b7adaf94-a911-4dad-8152-a5853cb02e35": return "Refresher C Quiz 3";
+    case "b938cd8b-913c-41bf-b247-1406b11115f2": return "Refresher C Quiz 4";
     default: return "Quiz";
   }
 }
