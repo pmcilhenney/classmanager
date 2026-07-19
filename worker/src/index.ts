@@ -2641,13 +2641,14 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
 
 function validateCprCardUpload(expirationDate?: string, recognizedText?: string): { status: string; notes: string } {
   const text = (recognizedText ?? "").toLowerCase();
-  const hasProvider = /\b(american heart association|aha|red cross|arc|healthcare provider|basic life support|bls|cpr|aed)\b/.test(text);
+  const approval = approvedCprCertificationMatch(text);
+  const disqualifier = cprCardDisqualifier(text);
   if (!expirationDate) {
     return {
-      status: hasProvider ? "needs_expiration" : "needs_review",
-      notes: hasProvider
-        ? "CPR/BLS wording was detected, but the expiration date could not be read automatically."
-        : "The app could not verify CPR/BLS provider wording or expiration automatically."
+      status: approval ? "needs_expiration" : "needs_review",
+      notes: approval
+        ? `${approval} appears to match NJ OEMS accepted CPR certification guidance, but the expiration date could not be read automatically.`
+        : "The app could not verify an NJ OEMS accepted CPR certification or expiration automatically."
     };
   }
 
@@ -2659,17 +2660,116 @@ function validateCprCardUpload(expirationDate?: string, recognizedText?: string)
     };
   }
 
-  if (!hasProvider) {
+  if (disqualifier) {
     return {
       status: "needs_review",
-      notes: "The expiration date was captured, but CPR/BLS provider wording could not be verified automatically."
+      notes: disqualifier
+    };
+  }
+
+  if (!approval) {
+    return {
+      status: "needs_review",
+      notes: "The expiration date was captured, but the card text did not clearly match an NJ OEMS accepted CPR certification."
     };
   }
 
   return {
     status: "valid",
-    notes: "CPR/BLS wording and a future expiration date were detected."
+    notes: `${approval} appears to match NJ OEMS accepted CPR certification guidance and has a future expiration date.`
   };
+}
+
+function approvedCprCertificationMatch(rawText: string): string | undefined {
+  const text = normalizeCprText(rawText);
+  const accepted = [
+    {
+      label: "AAOS/ACEP Emergency Care and Safety Institute Healthcare Provider",
+      agency: /\b(aaos|acep|emergency care and safety institute|ecsi)\b/,
+      level: /\bhealth ?care provider\b/
+    },
+    {
+      label: "American Aquatics and Safety Training CPR/AED",
+      agency: /\bamerican aquatics (and|&) safety training\b/,
+      level: /\bcpr\/?aed\b/
+    },
+    {
+      label: "American Heart Association Basic Life Support",
+      agency: /\b(american heart association|aha)\b/,
+      level: /\b(basic life support|bls)\b/
+    },
+    {
+      label: "American Red Cross Professional Rescuer",
+      agency: /\b(american red cross|red cross|arc)\b/,
+      level: /\bprofessional rescuer(s)?\b/
+    },
+    {
+      label: "American Red Cross Basic Life Support",
+      agency: /\b(american red cross|red cross|arc)\b/,
+      level: /\b(basic life support|bls)\b/
+    },
+    {
+      label: "American Red Cross CPR/AED for Professional Rescuers",
+      agency: /\b(american red cross|red cross|arc)\b/,
+      level: /\b(cpr\/?aed.*professional rescuer|cpro)\b/
+    },
+    {
+      label: "American Red Cross Lifeguarding/First Aid/CPR/AED",
+      agency: /\b(american red cross|red cross|arc)\b/,
+      level: /\blifeguarding\b.*\b(first aid|cpr\/?aed|cpr|aed)\b|\b(first aid|cpr\/?aed|cpr|aed)\b.*\blifeguarding\b/
+    },
+    {
+      label: "American Safety & Health Institute Professional Rescuer",
+      agency: /\b(american safety (and|&) health institute|ashi|hsi)\b/,
+      level: /\bprofessional rescuer(s)?\b/
+    },
+    {
+      label: "American Safety & Health Institute Basic Life Support",
+      agency: /\b(american safety (and|&) health institute|ashi|hsi)\b/,
+      level: /\b(basic life support|bls)\b/
+    },
+    {
+      label: "EMS Safety BLS for Healthcare Providers Professional",
+      agency: /\bems safety\b/,
+      level: /\b(bls|basic life support)\b.*\b(health ?care provider|professional)\b|\b(health ?care provider|professional)\b.*\b(bls|basic life support)\b/
+    },
+    {
+      label: "Military Training Network Professional Rescuer",
+      agency: /\bmilitary training network\b/,
+      level: /\bprofessional rescuer(s)?\b/
+    },
+    {
+      label: "National Safety Council Basic Life Support for Health Care & Professional Rescuers",
+      agency: /\b(national safety council|nsc)\b/,
+      level: /\b(basic life support|bls)\b.*\b(health ?care|professional rescuer)\b|\b(health ?care|professional rescuer)\b.*\b(basic life support|bls)\b/
+    }
+  ];
+
+  const matched = accepted.find((rule) => rule.agency.test(text) && rule.level.test(text));
+  return matched?.label;
+}
+
+function cprCardDisqualifier(rawText: string): string | undefined {
+  const text = normalizeCprText(rawText);
+  if (/\bonline only\b|\bstrictly online\b|\bonline course\b/.test(text) && !/\bskills? verification\b|\binstructor led\b|\bhands on\b/.test(text)) {
+    return "NJ OEMS does not recognize CPR training programs taught strictly online; this card needs instructor review.";
+  }
+  if (/\bparticipation letter\b|\bletter of participation\b|\bcertificate of participation\b/.test(text)) {
+    return "NJ OEMS does not accept letters or certificates of participation as CPR certification.";
+  }
+  if (/\bphotocopy\b|\bcopy\b/.test(text) && !/\becard\b/.test(text)) {
+    return "NJ OEMS accepts valid CPR cards/eCards; this appears to reference a photocopy and needs instructor review.";
+  }
+  return undefined;
+}
+
+function normalizeCprText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 async function postAcademyRmsAttendance(
