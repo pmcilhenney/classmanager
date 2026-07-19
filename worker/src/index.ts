@@ -87,6 +87,7 @@ type QuizReviewQuestion = {
   isCorrect?: boolean;
   feedback?: string;
   points?: string;
+  section?: string;
 };
 
 type QuizReviewPayload = {
@@ -398,6 +399,14 @@ export default {
 
       if (request.method === "GET" && url.pathname.startsWith("/quiz/review/")) {
         return await quizReview(url, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/quiz/remediation/request") {
+        return await requestRemediationReview(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/quiz/remediation/decline") {
+        return await declineRemediationReview(request, env);
       }
 
       if (request.method === "POST" && url.pathname === "/rms/flexiquiz-result") {
@@ -910,6 +919,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
        COALESCE(scs.last_name, s.last_name) AS last_name,
        COALESCE(scs.email, s.email) AS email,
        COALESCE(scs.oems_id, s.oems_id) AS oems_id,
+       scs.submission_id AS source_submission_id,
        COALESCE(scs.course_title, cs.course_title) AS course_title,
        COALESCE(scs.course_date, cs.course_date) AS course_date,
        COALESCE(scs.course_id, cs.course_id) AS course_id,
@@ -926,6 +936,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
        sp.did_open_skills, sp.did_open_quiz, sp.check_in_at, sp.check_out_at,
        sp.updated_at AS progress_updated_at,
        s.first_name, s.last_name, s.email, s.oems_id,
+       cs.source_submission_id,
        cs.course_title, cs.course_date, cs.course_id,
        0 AS expected
      FROM student_progress sp
@@ -977,6 +988,14 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
      ORDER BY uploaded_at DESC
      LIMIT 250`
   ).bind(classSessionId).all<JsonRecord>();
+  const remediations = await env.DB.prepare(
+    `SELECT id, student_id, class_session_id, quiz_id, version_b_quiz_id,
+            action, score_text, course_title, course_date, signed_at, created_at, updated_at
+     FROM remediation_attestations
+     WHERE class_session_id = ?1
+     ORDER BY created_at DESC
+     LIMIT 250`
+  ).bind(classSessionId).all<JsonRecord>();
   const attendance = instructorPersonId
     ? await instructorAttendanceForCourse(env, instructorPersonId, classSessionId)
     : undefined;
@@ -991,7 +1010,8 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
     quizResults: (attempts.results ?? []).map(dashboardQuizResult),
     finalResults: (finals.results ?? []).map(dashboardFinalResult),
     skillsVerifications: (skills.results ?? []).map(dashboardSkillsVerification),
-    cprCards: (cprCards.results ?? []).map((row) => dashboardCprCard(row, url.origin))
+    cprCards: (cprCards.results ?? []).map((row) => dashboardCprCard(row, url.origin)),
+    remediationAttestations: (remediations.results ?? []).map(dashboardRemediationAttestation)
   });
 }
 
@@ -1794,6 +1814,7 @@ function dashboardStudent(row: JsonRecord): JsonRecord {
     lastName: stringField(row, "last_name") ?? "",
     email: stringField(row, "email"),
     oemsId: stringField(row, "oems_id"),
+    sourceSubmissionId: stringField(row, "source_submission_id"),
     courseTitle: stringField(row, "course_title") ?? "Class Session",
     courseDate: stringField(row, "course_date"),
     courseId: stringField(row, "course_id"),
@@ -1867,6 +1888,23 @@ function dashboardCprCard(row: JsonRecord, origin: string): JsonRecord {
     imageUrl: studentId && classSessionId
       ? `${origin}/cpr-card/image?studentId=${encodeURIComponent(studentId)}&classSessionId=${encodeURIComponent(classSessionId)}`
       : undefined
+  };
+}
+
+function dashboardRemediationAttestation(row: JsonRecord): JsonRecord {
+  return {
+    id: stringField(row, "id"),
+    studentId: stringField(row, "student_id"),
+    classSessionId: stringField(row, "class_session_id"),
+    quizId: stringField(row, "quiz_id"),
+    versionBQuizId: stringField(row, "version_b_quiz_id"),
+    action: stringField(row, "action"),
+    scoreText: stringField(row, "score_text"),
+    courseTitle: stringField(row, "course_title"),
+    courseDate: stringField(row, "course_date"),
+    signedAt: stringField(row, "signed_at"),
+    createdAt: stringField(row, "created_at"),
+    updatedAt: stringField(row, "updated_at")
   };
 }
 
@@ -3728,6 +3766,39 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
     return json({ error: "flexiquiz_user_not_found" }, 404);
   }
 
+  const aggregateCourse = versionACourseForQuizId(quizId);
+  if (aggregateCourse?.aggregateQuizId === quizId && !questionStart && !questionEnd) {
+    const aggregateReview = await aggregateVersionAReview(env, {
+      course: aggregateCourse,
+      email,
+      flexiquizUserId,
+      studentId,
+      classSessionId,
+      debug
+    });
+    if (!aggregateReview) {
+      return json({ error: "aggregate_review_not_ready" }, 404);
+    }
+    if (studentId && classSessionId) {
+      await audit(env, "quiz.review.requested", {
+        studentId,
+        classSessionId,
+        deviceId,
+        payload: {
+          quizId,
+          flexiquizUserName,
+          responseId: aggregateReview.responseId ?? null,
+          scoreText: aggregateReview.scoreText ?? null,
+          passed: aggregateReview.passed ?? null,
+          questionCount: aggregateReview.questions.length,
+          aggregate: true,
+          warnings: aggregateReview.warnings
+        }
+      });
+    }
+    return json(aggregateReview);
+  }
+
   const responses = await flexiListResponses(env, flexiquizUserId, quizId);
   const latest = includeInProgress
     ? responses[0]
@@ -3922,6 +3993,139 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   return json(review);
 }
 
+async function requestRemediationReview(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const quizId = stringField(body, "quizId");
+  const versionBQuizId = stringField(body, "versionBQuizId");
+  const scoreText = stringField(body, "scoreText");
+  const courseTitle = stringField(body, "courseTitle");
+  const courseDate = stringField(body, "courseDate");
+  const deviceId = stringField(body, "deviceId");
+  if (!studentId || !classSessionId || !quizId) {
+    return json({ error: "missing_remediation_request_fields" }, 400);
+  }
+
+  const now = new Date().toISOString();
+  const id = `${classSessionId}:${studentId}:${quizId}:requested`;
+  await env.DB.prepare(
+    `INSERT INTO remediation_attestations (
+      id, student_id, class_session_id, quiz_id, version_b_quiz_id, action,
+      score_text, course_title, course_date, device_id, raw_json, created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, 'requested_in_person_review', ?6, ?7, ?8, ?9, ?10, ?11, ?11)
+    ON CONFLICT(id) DO UPDATE SET
+      score_text = COALESCE(excluded.score_text, remediation_attestations.score_text),
+      course_title = COALESCE(excluded.course_title, remediation_attestations.course_title),
+      course_date = COALESCE(excluded.course_date, remediation_attestations.course_date),
+      device_id = COALESCE(excluded.device_id, remediation_attestations.device_id),
+      raw_json = excluded.raw_json,
+      updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    studentId,
+    classSessionId,
+    quizId,
+    versionBQuizId ?? null,
+    scoreText ?? null,
+    courseTitle ?? null,
+    courseDate ?? null,
+    deviceId ?? null,
+    JSON.stringify(body),
+    now
+  ).run();
+
+  await notifyInstructorDashboard(env, {
+    classSessionId,
+    studentId,
+    event: "remediation_review_requested",
+    title: "Remediation review requested",
+    body: `${await studentDisplayName(env, studentId)} requested in-person review before Version B.`,
+    quizId,
+    scoreText,
+    completedAt: now
+  });
+  await audit(env, "quiz.remediation.requested", {
+    studentId,
+    classSessionId,
+    deviceId,
+    payload: { quizId, versionBQuizId, scoreText, courseTitle, courseDate }
+  });
+  return json({ ok: true, id, createdAt: now });
+}
+
+async function declineRemediationReview(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const quizId = stringField(body, "quizId");
+  const versionBQuizId = stringField(body, "versionBQuizId");
+  const scoreText = stringField(body, "scoreText");
+  const courseTitle = stringField(body, "courseTitle");
+  const courseDate = stringField(body, "courseDate");
+  const attestationText = stringField(body, "attestationText");
+  const signatureDataUrl = stringField(body, "signatureDataUrl");
+  const signedAt = stringField(body, "signedAt") ?? new Date().toISOString();
+  const deviceId = stringField(body, "deviceId");
+  if (!studentId || !classSessionId || !quizId || !versionBQuizId || !attestationText || !signatureDataUrl) {
+    return json({ error: "missing_remediation_decline_fields" }, 400);
+  }
+
+  const now = new Date().toISOString();
+  const id = `${classSessionId}:${studentId}:${quizId}:declined`;
+  await env.DB.prepare(
+    `INSERT INTO remediation_attestations (
+      id, student_id, class_session_id, quiz_id, version_b_quiz_id, action,
+      score_text, course_title, course_date, attestation_text, signature_data_url,
+      signed_at, device_id, raw_json, created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, 'declined_in_person_review', ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)
+    ON CONFLICT(id) DO UPDATE SET
+      version_b_quiz_id = excluded.version_b_quiz_id,
+      score_text = COALESCE(excluded.score_text, remediation_attestations.score_text),
+      course_title = COALESCE(excluded.course_title, remediation_attestations.course_title),
+      course_date = COALESCE(excluded.course_date, remediation_attestations.course_date),
+      attestation_text = excluded.attestation_text,
+      signature_data_url = excluded.signature_data_url,
+      signed_at = excluded.signed_at,
+      device_id = COALESCE(excluded.device_id, remediation_attestations.device_id),
+      raw_json = excluded.raw_json,
+      updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    studentId,
+    classSessionId,
+    quizId,
+    versionBQuizId,
+    scoreText ?? null,
+    courseTitle ?? null,
+    courseDate ?? null,
+    attestationText,
+    signatureDataUrl,
+    signedAt,
+    deviceId ?? null,
+    JSON.stringify({ ...body, signatureDataUrl: "[redacted-data-url]" }),
+    now
+  ).run();
+
+  await notifyInstructorDashboard(env, {
+    classSessionId,
+    studentId,
+    event: "remediation_review_declined",
+    title: "Remediation declined",
+    body: `${await studentDisplayName(env, studentId)} declined in-person review before Version B.`,
+    quizId,
+    scoreText,
+    completedAt: signedAt
+  });
+  await audit(env, "quiz.remediation.declined", {
+    studentId,
+    classSessionId,
+    deviceId,
+    payload: { quizId, versionBQuizId, scoreText, courseTitle, courseDate, signedAt }
+  });
+  return json({ ok: true, id, signedAt });
+}
+
 async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response> {
   if (!rmsCallbackAuthorized(request, env)) {
     return json({ error: "unauthorized" }, 401);
@@ -4032,6 +4236,157 @@ async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response>
   });
 
   return json({ ok: true, matched: contexts.length, saved, sent, failed });
+}
+
+async function aggregateVersionAReview(
+  env: Env,
+  input: {
+    course: VersionACourse;
+    email: string;
+    flexiquizUserId: string;
+    studentId?: string;
+    classSessionId?: string;
+    debug?: boolean;
+  }
+): Promise<QuizReviewPayload | undefined> {
+  const warnings: string[] = ["version_a_aggregate_review"];
+  const reviews: QuizReviewPayload[] = [];
+  for (const quizId of input.course.quizIds) {
+    const review = await loadSingleQuizReviewForUser(env, {
+      quizId,
+      email: input.email,
+      flexiquizUserId: input.flexiquizUserId,
+      debug: input.debug
+    });
+    if (!review || review.questions.length === 0) {
+      warnings.push(`missing_component_${quizId}`);
+      return undefined;
+    }
+    reviews.push(review);
+  }
+
+  let nextNumber = 1;
+  const questions = reviews.flatMap((review, componentIndex) =>
+    review.questions.map((question) => ({
+      ...question,
+      id: [review.quizId, question.id ?? question.number].filter(Boolean).join(":"),
+      number: nextNumber++,
+      section: `Mini-Quiz #${componentIndex + 1}`
+    } as QuizReviewQuestion))
+  );
+  const answered = questions.filter((question) =>
+    (question.studentAnswer ?? "").trim().length > 0 ||
+    question.isCorrect === true ||
+    question.isCorrect === false
+  );
+  const correct = answered.filter((question) => question.isCorrect === true).length;
+  const percentage = answered.length > 0 ? (correct / answered.length) * 100 : undefined;
+  const passed = percentage === undefined ? undefined : percentage >= REFRESHER_VERSION_A_PASSING_SCORE;
+  const latestCompleted = reviews
+    .map((review) => review.completedAt)
+    .filter((value): value is string => !!value)
+    .sort()
+    .pop();
+
+  return {
+    ok: true,
+    quizId: input.course.aggregateQuizId,
+    responseId: input.classSessionId && input.studentId
+      ? `version-a-aggregate:${input.classSessionId}:${input.studentId}:${input.course.letter}`
+      : `version-a-aggregate:${input.course.letter}`,
+    resultText: passed === undefined ? undefined : passed ? "Pass" : "Fail",
+    scoreText: percentage === undefined ? undefined : `${correct}/${answered.length} (${Math.round(percentage)}%)`,
+    passed,
+    completedAt: latestCompleted,
+    reportUrl: undefined,
+    questions,
+    warnings: [...warnings, ...reviews.flatMap((review) => review.warnings)]
+  };
+}
+
+async function loadSingleQuizReviewForUser(
+  env: Env,
+  input: {
+    quizId: string;
+    email: string;
+    flexiquizUserId: string;
+    debug?: boolean;
+  }
+): Promise<QuizReviewPayload | undefined> {
+  const responses = await flexiListResponses(env, input.flexiquizUserId, input.quizId);
+  const latest = responses.find((item) => responseLooksCompleted(item)) ?? responses[0];
+  if (!latest || !responseLooksCompleted(latest)) {
+    return undefined;
+  }
+
+  const responseId = responseIdFrom(latest);
+  const warnings: string[] = [];
+  let detail: JsonRecord | undefined;
+  let responseQuestions: JsonRecord[] = [];
+  if (responseId) {
+    responseQuestions = await flexiResponseQuestions(env, input.quizId, responseId).catch((error) => {
+      console.warn("FlexiQuiz aggregate response questions lookup failed", error);
+      warnings.push("response_questions_unavailable");
+      return [];
+    });
+    if (responseQuestions.length > 0) {
+      warnings.push("response_questions_loaded");
+    }
+    detail = await flexiResponseDetail(env, input.flexiquizUserId, input.quizId, responseId);
+    if (!detail) {
+      warnings.push("response_detail_unavailable");
+    }
+  } else {
+    warnings.push("response_id_unavailable");
+  }
+
+  const reportUrl = firstText([detail, latest], [
+    "response_report_url",
+    "responseReportUrl",
+    "report_url",
+    "review_url",
+    "reviewUrl"
+  ]);
+  const reportHtml = reportUrl
+    ? await fetchTextLimited(reportUrl, 250_000).catch(() => undefined)
+    : undefined;
+  if (reportUrl && !reportHtml) {
+    warnings.push("response_report_unavailable");
+  }
+
+  let review = normalizeQuizReview({
+    quizId: input.quizId,
+    latest,
+    detail,
+    questionRecords: responseQuestions,
+    reportHtml,
+    fallbackResponseId: responseId,
+    fallbackReportUrl: reportUrl,
+    warnings
+  });
+
+  try {
+    const rmsReview = await fetchRmsQuizReview(env, {
+      responseId: review.responseId ?? responseId,
+      quizId: input.quizId,
+      email: input.email,
+      flexiquizUserId: input.flexiquizUserId,
+      debug: !!input.debug
+    });
+    if (rmsReview) {
+      const rmsWarning = firstText([rmsReview], ["__rmsLookupWarning"]);
+      if (rmsWarning) {
+        review.warnings.push(rmsWarning);
+      } else {
+        review = mergeRmsQuizReview(review, rmsReview);
+      }
+    }
+  } catch (error) {
+    console.warn("RMS aggregate quiz review merge failed", error);
+    review.warnings.push("rms_review_unavailable");
+  }
+
+  return applyQuestionRationales(review);
 }
 
 async function sendDirectStudentFinalExamApns(

@@ -20,6 +20,7 @@ struct InstructorDashboardView: View {
     @State private var repeatSkillsCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var cprOverrideCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var cprPreview: InstructorCprPreviewURL?
+    @State private var instructorReview: InstructorStudentQuizReview?
     @State private var resetCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var resetConfirmationText = ""
     @State private var showingResetText = false
@@ -150,6 +151,15 @@ struct InstructorDashboardView: View {
                 InstructorCprCardPreview(url: item.url) {
                     cprPreview = nil
                 }
+            }
+            .sheet(item: $instructorReview) { item in
+                QuizReviewView(
+                    config: config,
+                    attendee: item.attendee,
+                    quiz: item.quiz,
+                    onLoaded: nil,
+                    onDone: { instructorReview = nil }
+                )
             }
             .confirmationDialog(
                 "Reset this student's ClassManager progress?",
@@ -393,6 +403,7 @@ struct InstructorDashboardView: View {
         let final = currentFinalResult(for: student)
         let versionB = versionBStatus(for: student)
         let passedExam = hasPassedFinalExam(student)
+        let remediation = remediationStatus(for: student)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 if quizSummary.total > 0 {
@@ -417,6 +428,9 @@ struct InstructorDashboardView: View {
                 }
                 if let versionB {
                     statusChip(versionB.text, color: versionB.color)
+                }
+                if let remediation {
+                    statusChip(remediation.text, color: remediation.color, systemImage: remediation.icon)
                 }
             }
         }
@@ -462,22 +476,32 @@ struct InstructorDashboardView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(attempts) { result in
-                            HStack(spacing: 12) {
-                                Image(systemName: "doc.text")
-                                    .foregroundStyle(.blue)
-                                    .frame(width: 24)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(commonQuizName(result.quizId))
-                                    if let completedAt = result.completedAt ?? result.updatedAt {
-                                        Text(formatEasternTime(completedAt))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
+                            Button {
+                                if let quiz = reviewQuiz(for: result, student: student) {
+                                    instructorReview = quiz
                                 }
-                                Spacer()
-                                Text(scoreText(result.scoreText, result.resultText))
-                                    .font(.subheadline.weight(.semibold))
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "doc.text")
+                                        .foregroundStyle(.blue)
+                                        .frame(width: 24)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(commonQuizName(result.quizId))
+                                        if let completedAt = result.completedAt ?? result.updatedAt {
+                                            Text(formatEasternTime(completedAt))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    Text(scoreText(result.scoreText, result.resultText))
+                                        .font(.subheadline.weight(.semibold))
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -489,23 +513,50 @@ struct InstructorDashboardView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(results) { result in
-                            HStack(spacing: 12) {
-                                Image(systemName: result.passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
-                                    .foregroundStyle(result.passed == false ? .red : .green)
-                                    .frame(width: 24)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(result.quizName ?? commonQuizName(result.quizId))
-                                    if let completedAt = result.completedAt ?? result.updatedAt {
-                                        Text(formatEasternTime(completedAt))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
+                            Button {
+                                if let quiz = reviewQuiz(for: result, student: student) {
+                                    instructorReview = quiz
                                 }
-                                Spacer()
-                                Text(scoreText(result.scoreText, result.resultText))
-                                    .font(.headline)
-                                    .foregroundStyle(result.passed == false ? .red : .green)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: result.passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
+                                        .foregroundStyle(result.passed == false ? .red : .green)
+                                        .frame(width: 24)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(result.quizName ?? commonQuizName(result.quizId))
+                                        if let completedAt = result.completedAt ?? result.updatedAt {
+                                            Text(formatEasternTime(completedAt))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    Text(scoreText(result.scoreText, result.resultText))
+                                        .font(.headline)
+                                        .foregroundStyle(result.passed == false ? .red : .green)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                if let remediation = remediationAttestation(for: student) {
+                    Section("Remediation") {
+                        Label(remediationDetailText(remediation), systemImage: remediation.action == "requested_in_person_review" ? "person.2.wave.2.fill" : "signature")
+                            .foregroundStyle(remediation.action == "requested_in_person_review" ? .orange : .secondary)
+                        if let score = remediation.scoreText {
+                            Text("Version A score: \(score)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let timestamp = remediation.signedAt ?? remediation.createdAt {
+                            Text(formatEasternTime(timestamp))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -884,6 +935,82 @@ struct InstructorDashboardView: View {
         }
     }
 
+    private func remediationAttestation(for student: ClassManagerAPIClient.DashboardStudent) -> ClassManagerAPIClient.DashboardRemediationAttestation? {
+        (dashboard?.remediationAttestations ?? []).first {
+            $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
+        }
+    }
+
+    private func remediationStatus(for student: ClassManagerAPIClient.DashboardStudent) -> (text: String, color: Color, icon: String)? {
+        guard let row = remediationAttestation(for: student) else { return nil }
+        if row.action == "requested_in_person_review" {
+            return ("Review requested", .orange, "person.2.wave.2.fill")
+        }
+        if row.action == "declined_in_person_review" {
+            return ("Review declined", .secondary, "signature")
+        }
+        return nil
+    }
+
+    private func remediationDetailText(_ row: ClassManagerAPIClient.DashboardRemediationAttestation) -> String {
+        switch row.action {
+        case "requested_in_person_review":
+            return "Student requested in-person remediation before Version B."
+        case "declined_in_person_review":
+            return "Student declined in-person remediation and signed the self-review attestation before Version B."
+        default:
+            return row.action?.replacingOccurrences(of: "_", with: " ").capitalized ?? "Remediation status recorded"
+        }
+    }
+
+    private func reviewQuiz(for result: ClassManagerAPIClient.DashboardQuizResult, student: ClassManagerAPIClient.DashboardStudent) -> InstructorStudentQuizReview? {
+        guard let quizId = result.quizId,
+              let url = URL(string: "https://www.flexiquiz.com/SC/N/\(quizId)") else { return nil }
+        return InstructorStudentQuizReview(
+            attendee: attendee(from: student),
+            quiz: QuizInfo(
+                id: quizId,
+                flexiQuizId: quizId,
+                number: 0,
+                title: commonQuizName(quizId),
+                url: url
+            )
+        )
+    }
+
+    private func reviewQuiz(for result: ClassManagerAPIClient.DashboardFinalResult, student: ClassManagerAPIClient.DashboardStudent) -> InstructorStudentQuizReview? {
+        guard let quizId = result.quizId,
+              let url = URL(string: "https://www.flexiquiz.com/SC/N/\(quizId)") else { return nil }
+        return InstructorStudentQuizReview(
+            attendee: attendee(from: student),
+            quiz: QuizInfo(
+                id: "instructor-full-review-\(quizId)-\(student.studentId)",
+                flexiQuizId: quizId,
+                number: 0,
+                title: result.quizName ?? commonQuizName(quizId),
+                url: url
+            )
+        )
+    }
+
+    private func attendee(from student: ClassManagerAPIClient.DashboardStudent) -> RosterAttendee {
+        RosterAttendee(
+            submissionId: student.sourceSubmissionId ?? student.studentId,
+            firstName: student.firstName,
+            lastName: student.lastName,
+            email: student.email ?? "",
+            oemsId: student.oemsId ?? student.studentId,
+            courseType: student.courseTitle,
+            courseDate: student.courseDate,
+            courseId: student.courseId,
+            ceuValue: nil,
+            productCategories: nil,
+            dob: nil,
+            courseImageURL: nil,
+            courseLocation: activeCourse?.location
+        )
+    }
+
     private func cprAccepted(_ card: ClassManagerAPIClient.DashboardCprCard) -> Bool {
         card.validationStatus == "valid" || card.validationStatus == "approved_by_instructor"
     }
@@ -1243,6 +1370,12 @@ private struct InstructorSignatureCanvas: UIViewRepresentable {
 private struct InstructorCprPreviewURL: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
+}
+
+private struct InstructorStudentQuizReview: Identifiable {
+    let id = UUID()
+    let attendee: RosterAttendee
+    let quiz: QuizInfo
 }
 
 private struct InstructorCprCardPreview: View {

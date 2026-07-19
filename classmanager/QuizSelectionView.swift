@@ -16,6 +16,7 @@ struct QuizSelectionView: View {
     var onBlocked: (String) -> Void = { _ in }
     var onReview: (QuizInfo) -> Void = { _ in }
     var onVersionAReviewComplete: (String) -> Void = { _ in }
+    var onVersionBStartRequested: (QuizInfo, ClassManagerAPIClient.FinalExamResult) -> Void = { _, _ in }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -156,12 +157,7 @@ struct QuizSelectionView: View {
         let score = result.scoreText ?? result.percentageScore.map { "\(Int($0.rounded()))%" }
 
         return Button {
-            if QuizInfo.isCombinedVersionAQuizId(result.quizId) {
-                onVersionAReviewComplete(result.quizId)
-                if passed == false {
-                    onBlocked("Review the individual mini-quiz results below with your instructor. Version B is now available after remediation.")
-                }
-            } else if let fullExam = fullExamReviewQuiz(from: result) {
+            if let fullExam = fullExamReviewQuiz(from: result) {
                 onReview(fullExam)
             } else {
                 onBlocked("The final exam review is not ready yet.")
@@ -237,7 +233,11 @@ struct QuizSelectionView: View {
                 if completed {
                     onReview(quiz)
                 } else {
-                    selectedQuiz = quiz
+                    if let finalResult = progressStore.progress.finalExamResult {
+                        onVersionBStartRequested(quiz, finalResult)
+                    } else {
+                        selectedQuiz = quiz
+                    }
                 }
             } label: {
                 Label(completed ? "Review Version B" : (unlocked ? "Start Version B" : "Review Version A First"),

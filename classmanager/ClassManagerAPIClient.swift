@@ -239,6 +239,64 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func requestRemediationReview(
+        attendee: RosterAttendee,
+        quizId: String,
+        versionBQuizId: String,
+        scoreText: String?
+    ) async throws -> RemediationResponse {
+        let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? attendee.submissionId
+            : attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/quiz/remediation/request",
+            method: "POST",
+            body: RemediationRequest(
+                studentId: studentId,
+                classSessionId: classSessionId,
+                quizId: quizId,
+                versionBQuizId: versionBQuizId,
+                scoreText: scoreText,
+                courseTitle: attendee.courseType,
+                courseDate: attendee.courseDate,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
+    func declineRemediationReview(
+        attendee: RosterAttendee,
+        quizId: String,
+        versionBQuizId: String,
+        scoreText: String?,
+        attestationText: String,
+        signatureDataUrl: String,
+        signedAt: String
+    ) async throws -> RemediationResponse {
+        let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? attendee.submissionId
+            : attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/quiz/remediation/decline",
+            method: "POST",
+            body: RemediationDeclineRequest(
+                studentId: studentId,
+                classSessionId: classSessionId,
+                quizId: quizId,
+                versionBQuizId: versionBQuizId,
+                scoreText: scoreText,
+                courseTitle: attendee.courseType,
+                courseDate: attendee.courseDate,
+                attestationText: attestationText,
+                signatureDataUrl: signatureDataUrl,
+                signedAt: signedAt,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     @discardableResult
     func submitAttendance(
         formId: String,
@@ -573,6 +631,7 @@ extension ClassManagerAPIClient {
         let finalResults: [DashboardFinalResult]
         let skillsVerifications: [DashboardSkillsVerification]
         let cprCards: [DashboardCprCard]?
+        let remediationAttestations: [DashboardRemediationAttestation]?
     }
 
     struct DashboardStudent: Decodable, Identifiable, Hashable {
@@ -582,6 +641,7 @@ extension ClassManagerAPIClient {
         let lastName: String
         let email: String?
         let oemsId: String?
+        let sourceSubmissionId: String?
         let courseTitle: String
         let courseDate: String?
         let courseId: String?
@@ -654,6 +714,23 @@ extension ClassManagerAPIClient {
         let imageUrl: String?
 
         var stableId: String { [id, studentId, classSessionId, uploadedAt].compactMap { $0 }.joined(separator: ":") }
+    }
+
+    struct DashboardRemediationAttestation: Decodable, Identifiable, Hashable {
+        let id: String?
+        let studentId: String?
+        let classSessionId: String?
+        let quizId: String?
+        let versionBQuizId: String?
+        let action: String?
+        let scoreText: String?
+        let courseTitle: String?
+        let courseDate: String?
+        let signedAt: String?
+        let createdAt: String?
+        let updatedAt: String?
+
+        var stableId: String { [id, studentId, classSessionId, action, createdAt].compactMap { $0 }.joined(separator: ":") }
     }
 
     struct CPRCardOverrideRequest: Encodable {
@@ -815,6 +892,7 @@ extension ClassManagerAPIClient {
     struct QuizReviewQuestion: Decodable, Identifiable {
         let questionId: String?
         let number: Int
+        let section: String?
         let prompt: String
         let choices: [String]?
         let studentAnswer: String?
@@ -830,6 +908,7 @@ extension ClassManagerAPIClient {
         enum CodingKeys: String, CodingKey {
             case questionId = "id"
             case number
+            case section
             case prompt
             case choices
             case studentAnswer
@@ -838,6 +917,38 @@ extension ClassManagerAPIClient {
             case feedback
             case points
         }
+    }
+
+    struct RemediationRequest: Encodable {
+        let studentId: String
+        let classSessionId: String
+        let quizId: String
+        let versionBQuizId: String
+        let scoreText: String?
+        let courseTitle: String
+        let courseDate: String?
+        let deviceId: String?
+    }
+
+    struct RemediationDeclineRequest: Encodable {
+        let studentId: String
+        let classSessionId: String
+        let quizId: String
+        let versionBQuizId: String
+        let scoreText: String?
+        let courseTitle: String
+        let courseDate: String?
+        let attestationText: String
+        let signatureDataUrl: String
+        let signedAt: String
+        let deviceId: String?
+    }
+
+    struct RemediationResponse: Decodable {
+        let ok: Bool
+        let id: String
+        let createdAt: String?
+        let signedAt: String?
     }
 
     struct ProgressEnvelope: Decodable {

@@ -358,7 +358,7 @@ private struct QuestionReviewRow: View {
                     .font(.title3)
                     .frame(width: 24)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Question \(question.number)")
+                    Text([question.section, "Question \(question.number)"].compactMap { $0 }.joined(separator: " • "))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text(question.prompt)

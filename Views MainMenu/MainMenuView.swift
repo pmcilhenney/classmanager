@@ -54,6 +54,7 @@ struct MainMenuView: View {
     @State private var selectedQuiz: QuizInfo? = nil
     @State private var selectedReviewQuiz: QuizInfo? = nil
     @State private var completedQuizzes: Set<String> = []
+    @State private var remediationPrompt: RemediationPrompt?
 
     // Currently selected PDF
     @State private var selectedMaterialURL: URL? = nil
@@ -250,6 +251,27 @@ struct MainMenuView: View {
                     showingCPRUpload = false
                     Task { await loadCprCardStatus() }
                     toast = "CPR card uploaded."
+                }
+            )
+        }
+        .sheet(item: $remediationPrompt) { prompt in
+            VersionBRemediationSheet(
+                attendee: attendee,
+                versionBQuiz: prompt.versionBQuiz,
+                finalResult: prompt.finalResult,
+                onCancel: { remediationPrompt = nil },
+                onRequestInstructorReview: {
+                    Task { await requestInPersonRemediation(prompt) }
+                },
+                onDeclineAndContinue: { signatureDataUrl, signedAt, attestationText in
+                    Task {
+                        await declineInPersonRemediation(
+                            prompt,
+                            signatureDataUrl: signatureDataUrl,
+                            signedAt: signedAt,
+                            attestationText: attestationText
+                        )
+                    }
                 }
             )
         }
@@ -678,6 +700,9 @@ struct MainMenuView: View {
                                 let markerId = QuizInfo.versionAReviewMarkerId(for: quizId)
                                 completedQuizzes.insert(markerId)
                                 progressStore.markQuizResult(markerId, result: "Version A review complete")
+                            },
+                            onVersionBStartRequested: { quiz, finalResult in
+                                remediationPrompt = RemediationPrompt(versionBQuiz: quiz, finalResult: finalResult)
                             }
                         )
                     }
@@ -1586,6 +1611,52 @@ struct MainMenuView: View {
         progressStore.markQuizResult(quiz.id, result: "Section submitted")
     }
 
+    private func requestInPersonRemediation(_ prompt: RemediationPrompt) async {
+        do {
+            _ = try await ClassManagerAPIClient.shared.requestRemediationReview(
+                attendee: attendee,
+                quizId: prompt.finalResult.quizId,
+                versionBQuizId: prompt.versionBQuiz.flexiQuizId,
+                scoreText: prompt.finalResult.scoreText
+            )
+            await MainActor.run {
+                remediationPrompt = nil
+                toast = "Your instructor has been notified for an in-person review before Version B."
+            }
+        } catch {
+            await MainActor.run {
+                toast = "Could not notify the instructor. Please tell your instructor you need remediation before Version B."
+            }
+        }
+    }
+
+    private func declineInPersonRemediation(
+        _ prompt: RemediationPrompt,
+        signatureDataUrl: String,
+        signedAt: String,
+        attestationText: String
+    ) async {
+        do {
+            _ = try await ClassManagerAPIClient.shared.declineRemediationReview(
+                attendee: attendee,
+                quizId: prompt.finalResult.quizId,
+                versionBQuizId: prompt.versionBQuiz.flexiQuizId,
+                scoreText: prompt.finalResult.scoreText,
+                attestationText: attestationText,
+                signatureDataUrl: signatureDataUrl,
+                signedAt: signedAt
+            )
+            await MainActor.run {
+                remediationPrompt = nil
+                selectedQuiz = prompt.versionBQuiz
+            }
+        } catch {
+            await MainActor.run {
+                toast = "Could not save the remediation attestation. Please try again before starting Version B."
+            }
+        }
+    }
+
     private func markAllTrackedQuizzesComplete() {
         for quizId in trackedQuizIds {
             completedQuizzes.insert(quizId)
@@ -1922,6 +1993,131 @@ struct MainMenuView: View {
 // MARK: - Extensions and Helper Views at File Scope
 private struct AttendanceCaptureAction: Identifiable {
     let id: String
+}
+
+private struct RemediationPrompt: Identifiable {
+    let id = UUID()
+    let versionBQuiz: QuizInfo
+    let finalResult: ClassManagerAPIClient.FinalExamResult
+}
+
+private struct VersionBRemediationSheet: View {
+    let attendee: RosterAttendee
+    let versionBQuiz: QuizInfo
+    let finalResult: ClassManagerAPIClient.FinalExamResult
+    let onCancel: () -> Void
+    let onRequestInstructorReview: () -> Void
+    let onDeclineAndContinue: (String, String, String) -> Void
+
+    @State private var showingSignature = false
+    @State private var drawing = PKDrawing()
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Label("Version A review complete", systemImage: "doc.text.magnifyingglass")
+                        .font(.headline)
+                        .foregroundStyle(.orange)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Before Version B")
+                            .font(.title2.weight(.semibold))
+                        Text(messageText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let score = finalResult.scoreText {
+                        Label("Version A score: \(score)", systemImage: "percent")
+                            .font(.subheadline.weight(.semibold))
+                    }
+
+                    Button {
+                        onRequestInstructorReview()
+                    } label: {
+                        Label("Request In-Person Review", systemImage: "person.2.wave.2.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        showingSignature = true
+                    } label: {
+                        Label("Decline Review and Continue", systemImage: "signature")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding()
+            }
+            .navigationTitle("Remediation")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+            }
+            .sheet(isPresented: $showingSignature) {
+                NavigationStack {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text(attestationText)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                        Text("Student Signature")
+                            .font(.headline)
+                        SignatureCanvas(drawing: $drawing)
+                            .frame(height: 210)
+                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+
+                        Spacer()
+                    }
+                    .padding()
+                    .navigationTitle("Decline Review")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Back") {
+                                showingSignature = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Start Version B") {
+                                guard let signature = signatureDataUrl() else { return }
+                                onDeclineAndContinue(signature, isoNow(), attestationText)
+                            }
+                            .fontWeight(.semibold)
+                            .disabled(drawing.bounds.isEmpty)
+                        }
+                    }
+                }
+                .presentationDetents([.large])
+            }
+        }
+    }
+
+    private var messageText: String {
+        "You may complete an in-person review with the instructor before taking Version B. Version B requires a \(QuizInfo.versionBPassingPercent)% or better. If you are unsuccessful on Version B, you will need to register for a future offering of \(attendee.courseType) and will not receive credit for today's offering."
+    }
+
+    private var attestationText: String {
+        "\(attendee.fullName) was offered personalized in-person remediation before Version B for \(attendee.courseType) on \(attendee.courseDate ?? "today"). The student declined in-person remediation and elected to take the final exam attempt after self-review remediation only."
+    }
+
+    private func signatureDataUrl() -> String? {
+        guard !drawing.bounds.isEmpty else { return nil }
+        let bounds = drawing.bounds.insetBy(dx: -12, dy: -12)
+        let image = drawing.image(from: bounds, scale: UIScreen.main.scale)
+        guard let data = image.pngData() else { return nil }
+        return "data:image/png;base64,\(data.base64EncodedString())"
+    }
+
+    private func isoNow() -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: Date())
+    }
 }
 
 private struct CPRCardUploadSheet: View {
