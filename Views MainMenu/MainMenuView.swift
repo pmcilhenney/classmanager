@@ -430,7 +430,8 @@ struct MainMenuView: View {
                 actionButton(
                     title: "CPR Card",
                     systemImage: cprCardStatus?.hasCprCard == true ? "checkmark.seal.fill" : "cross.case",
-                    done: cprCardStatus?.hasCprCard == true
+                    done: cprCardStatus?.hasCprCard == true,
+                    disablesWhenDone: false
                 ) {
                     showingCPRUpload = true
                 }
@@ -1561,11 +1562,31 @@ struct MainMenuView: View {
             return "Section submitted"
         }
 
+        if QuizInfo.isVersionAQuizId(quiz.flexiQuizId),
+           let scoreText = review.scoreText,
+           let ratio = ratioScoreText(scoreText) {
+            return ratio
+        }
+
         let summary = [status, review.scoreText]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " ")
         return summary.isEmpty ? "Completed" : summary
+    }
+
+    private func ratioScoreText(_ value: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)\s*/\s*(\d+(?:\.\d+)?)"#) else { return nil }
+        let range = NSRange(value.startIndex..<value.endIndex, in: value)
+        guard let match = regex.firstMatch(in: value, range: range),
+              let pointsRange = Range(match.range(at: 1), in: value),
+              let availableRange = Range(match.range(at: 2), in: value) else {
+            return nil
+        }
+        let points = Double(value[pointsRange]) ?? 0
+        let available = Double(value[availableRange]) ?? 0
+        guard available > 0 else { return nil }
+        return "\(Int(points.rounded()))/\(Int(available.rounded()))"
     }
 
     private func answeredQuestionCount(_ review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> Int {
@@ -1683,12 +1704,13 @@ struct MainMenuView: View {
         done: Bool = false,
         locked: Bool = false,
         disabled: Bool = false,
+        disablesWhenDone: Bool = true,
         lockedMessage: String? = nil,
         action: @escaping () -> Void
     ) -> AnyView {
         if done {
             return AnyView(
-                Button(action: {}) {
+                Button(action: action) {
                     HStack {
                         if let s = systemImage { Image(systemName: s).font(.system(size: 18)).foregroundColor(.accentColor) }
                         Text(title)
@@ -1713,7 +1735,7 @@ struct MainMenuView: View {
                     .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.plain)
-                .disabled(true)
+                .disabled(disablesWhenDone)
             )
         } else if locked {
             return AnyView(

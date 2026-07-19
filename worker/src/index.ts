@@ -1907,7 +1907,7 @@ async function resolveUndatedRegistrationOptions(
   return {
     ...normalized,
     attendee,
-    options: matching
+    options: [matching[0]]
   };
 }
 
@@ -4384,6 +4384,7 @@ async function saveQuizAttempt(
     return;
   }
   const quizId = section?.quizId ?? input.review.quizId;
+  const scoreText = section?.scoreText ?? versionAReviewRatio(input.review) ?? input.review.scoreText ?? null;
   const attemptId = section
     ? `${input.review.responseId ?? input.review.quizId}:section:${input.questionStart}-${input.questionEnd}`
     : input.review.responseId ?? crypto.randomUUID();
@@ -4412,7 +4413,7 @@ async function saveQuizAttempt(
     quizId,
     input.review.responseId ?? null,
     section?.resultText ?? input.review.resultText ?? null,
-    section?.scoreText ?? input.review.scoreText ?? null,
+    scoreText,
     section ? null : input.review.passed === undefined ? null : boolInt(input.review.passed),
     input.review.reportUrl ?? null,
     section ? now : input.review.completedAt ?? now,
@@ -4424,13 +4425,29 @@ async function saveQuizAttempt(
     studentId: input.studentId,
     event: section ? "quiz_section_result" : "quiz_attempt",
     title: "Quiz result ready",
-    body: `${await studentDisplayName(env, input.studentId)} ${quizDisplayNameForNotification(section?.quizId ?? quizId)}: ${section?.scoreText ?? input.review.scoreText ?? "submitted"}.`,
+    body: `${await studentDisplayName(env, input.studentId)} ${quizDisplayNameForNotification(section?.quizId ?? quizId)}: ${scoreText ?? "submitted"}.`,
     quizId,
     responseId: input.review.responseId,
-    scoreText: section?.scoreText ?? input.review.scoreText,
+    scoreText: scoreText ?? undefined,
     resultText: section?.resultText ?? input.review.resultText,
     completedAt: section ? now : input.review.completedAt ?? now
   });
+}
+
+function versionAReviewRatio(review: QuizReviewPayload): string | undefined {
+  if (!isVersionAComponentQuizId(review.quizId) || review.questions.length === 0) {
+    return undefined;
+  }
+  const answered = review.questions.filter((question) =>
+    (question.studentAnswer ?? "").trim().length > 0 ||
+    question.isCorrect === true ||
+    question.isCorrect === false
+  );
+  if (answered.length === 0) {
+    return undefined;
+  }
+  const correct = answered.filter((question) => question.isCorrect === true).length;
+  return `${correct}/${answered.length}`;
 }
 
 async function saveQuizAttemptFromFinalResult(
@@ -4446,6 +4463,9 @@ async function saveQuizAttemptFromFinalResult(
   }
 ): Promise<void> {
   const now = new Date().toISOString();
+  const scoreText = isVersionAComponentQuizId(input.quizId)
+    ? (scoreTextFromPoints(input.finalResult.points, input.finalResult.availablePoints) ?? ratioScoreText(input.finalResult.scoreText) ?? input.finalResult.scoreText)
+    : input.finalResult.scoreText;
   await env.DB.prepare(
     `INSERT INTO quiz_attempts (
       id, student_id, class_session_id, flexiquiz_user_id, quiz_id, response_id,
@@ -4471,7 +4491,7 @@ async function saveQuizAttemptFromFinalResult(
     input.quizId,
     input.responseId,
     input.finalResult.resultText ?? null,
-    input.finalResult.scoreText ?? null,
+    scoreText ?? null,
     input.finalResult.passed === undefined ? null : boolInt(input.finalResult.passed),
     input.finalResult.reportUrl ?? null,
     input.finalResult.completedAt ?? now,
@@ -4483,10 +4503,10 @@ async function saveQuizAttemptFromFinalResult(
     studentId: input.studentId,
     event: "quiz_attempt",
     title: "Quiz result ready",
-    body: `${await studentDisplayName(env, input.studentId)} ${quizDisplayNameForNotification(input.quizId)}: ${input.finalResult.scoreText ?? "submitted"}.`,
+    body: `${await studentDisplayName(env, input.studentId)} ${quizDisplayNameForNotification(input.quizId)}: ${scoreText ?? "submitted"}.`,
     quizId: input.quizId,
     responseId: input.responseId,
-    scoreText: input.finalResult.scoreText,
+    scoreText,
     resultText: input.finalResult.resultText,
     completedAt: input.finalResult.completedAt ?? now
   });
@@ -6036,11 +6056,45 @@ function passStatusFromScore(text?: string, minimumPassingScore = 70): boolean |
 }
 
 function quizResultSummary(attempt: JsonRecord): string {
+  const quizId = stringField(attempt, "quiz_id") ?? "";
   const score = stringField(attempt, "score_text");
+  if (isVersionAComponentQuizId(quizId)) {
+    const ratio = ratioScoreText(score);
+    if (ratio) {
+      return ratio;
+    }
+    if (score) {
+      return score.replace(/\b(pass(?:ed)?|fail(?:ed)?)\b/gi, "").trim() || "Completed";
+    }
+  }
   const result = stringField(attempt, "result_text");
   const passed = boolFromUnknown(attempt.passed) ?? passStatusFromText(result ?? score) ?? passStatusFromScore(score);
   const status = passed === true ? "Passed" : passed === false ? "Failed" : result;
   return [status, score].filter(Boolean).join(" ").trim() || "Completed";
+}
+
+function isVersionAComponentQuizId(quizId: string): boolean {
+  return REFRESHER_VERSION_A_COURSES.some((course) => course.quizIds.includes(quizId));
+}
+
+function ratioScoreText(value?: string): string | undefined {
+  const match = value?.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+  if (!match) {
+    return undefined;
+  }
+  const points = Number.parseFloat(match[1]);
+  const available = Number.parseFloat(match[2]);
+  if (!Number.isFinite(points) || !Number.isFinite(available) || available <= 0) {
+    return undefined;
+  }
+  return `${Math.round(points)}/${Math.round(available)}`;
+}
+
+function scoreTextFromPoints(points?: number, available?: number): string | undefined {
+  if (points === undefined || available === undefined || available <= 0) {
+    return undefined;
+  }
+  return `${Math.round(points)}/${Math.round(available)}`;
 }
 
 function correctnessFromText(text?: string): boolean | undefined {
