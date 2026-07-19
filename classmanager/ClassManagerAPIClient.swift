@@ -288,6 +288,20 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func confirmCprCard(attendee: RosterAttendee) async throws -> CPRCardConfirmResponse {
+        let studentId = Self.studentId(for: attendee)
+        let classSessionId = Self.classSessionId(for: attendee.courseDate ?? attendee.submissionId)
+        return try await send(
+            path: "/cpr-card/confirm",
+            method: "POST",
+            body: CPRCardConfirmRequest(
+                studentId: studentId,
+                classSessionId: classSessionId,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     @discardableResult
     func saveProgress(
         _ progress: CKProgress,
@@ -690,6 +704,20 @@ extension ClassManagerAPIClient {
         let id: String
         let r2Key: String
         let uploadedAt: String
+        let expirationDate: String?
+        let validationStatus: String?
+        let validationNotes: String?
+    }
+
+    struct CPRCardConfirmRequest: Encodable {
+        let studentId: String
+        let classSessionId: String
+        let deviceId: String?
+    }
+
+    struct CPRCardConfirmResponse: Decodable {
+        let ok: Bool
+        let confirmedAt: String
         let expirationDate: String?
         let validationStatus: String?
         let validationNotes: String?

@@ -384,6 +384,10 @@ export default {
         return await uploadCprCard(request, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/cpr-card/confirm") {
+        return await confirmCprCard(request, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/quiz/assign") {
         return await assignQuiz(request, env);
       }
@@ -2636,7 +2640,103 @@ async function uploadCprCard(request: Request, env: Env): Promise<Response> {
     payload: { r2Key: key, fileName, mimeType: safeMimeType, expirationDate, validation }
   });
 
+  await notifyInstructorCprCard(env, {
+    studentId,
+    classSessionId,
+    event: "cpr_card_uploaded",
+    action: "uploaded",
+    expirationDate,
+    validationStatus: validation.status,
+    validationNotes: validation.notes
+  });
+
   return json({ ok: true, id, r2Key: key, uploadedAt: now, expirationDate, validationStatus: validation.status, validationNotes: validation.notes });
+}
+
+async function confirmCprCard(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const deviceId = stringField(body, "deviceId");
+  if (!studentId || !classSessionId) {
+    return json({ error: "missing_cpr_confirm_fields" }, 400);
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT id, expiration_date, validation_status, validation_notes
+     FROM cpr_card_uploads
+     WHERE student_id = ?1
+       AND (
+         class_session_id = ?2
+         OR expiration_date IS NULL
+         OR expiration_date = ''
+         OR date(expiration_date) >= date('now')
+       )
+     ORDER BY CASE WHEN class_session_id = ?2 THEN 0 ELSE 1 END,
+              CASE WHEN expiration_date IS NOT NULL AND expiration_date != '' THEN 0 ELSE 1 END,
+              expiration_date DESC,
+              uploaded_at DESC
+     LIMIT 1`
+  ).bind(studentId, classSessionId).first<JsonRecord>();
+  if (!row) {
+    return json({ error: "cpr_card_not_found" }, 404);
+  }
+
+  const now = new Date().toISOString();
+  await audit(env, "cpr_card.confirm", {
+    studentId,
+    classSessionId,
+    deviceId,
+    payload: {
+      cprCardId: stringField(row, "id"),
+      expirationDate: stringField(row, "expiration_date") ?? null,
+      validationStatus: stringField(row, "validation_status") ?? null
+    }
+  });
+
+  await notifyInstructorCprCard(env, {
+    studentId,
+    classSessionId,
+    event: "cpr_card_confirmed",
+    action: "confirmed",
+    expirationDate: stringField(row, "expiration_date"),
+    validationStatus: stringField(row, "validation_status"),
+    validationNotes: stringField(row, "validation_notes")
+  });
+
+  return json({
+    ok: true,
+    confirmedAt: now,
+    expirationDate: stringField(row, "expiration_date"),
+    validationStatus: stringField(row, "validation_status"),
+    validationNotes: stringField(row, "validation_notes")
+  });
+}
+
+async function notifyInstructorCprCard(
+  env: Env,
+  input: {
+    studentId: string;
+    classSessionId: string;
+    event: string;
+    action: string;
+    expirationDate?: string;
+    validationStatus?: string;
+    validationNotes?: string;
+  }
+): Promise<void> {
+  const name = await studentDisplayName(env, input.studentId);
+  const status = input.validationStatus ? ` (${input.validationStatus.replace(/_/g, " ")})` : "";
+  const expiration = input.expirationDate ? ` Expires ${input.expirationDate}.` : "";
+  await notifyInstructorDashboard(env, {
+    classSessionId: input.classSessionId,
+    studentId: input.studentId,
+    event: input.event,
+    title: input.action === "confirmed" ? "CPR card confirmed" : "CPR card uploaded",
+    body: `${name} ${input.action} CPR card status${status}.${expiration}`,
+    resultText: input.validationNotes,
+    completedAt: new Date().toISOString()
+  });
 }
 
 function validateCprCardUpload(expirationDate?: string, recognizedText?: string): { status: string; notes: string } {

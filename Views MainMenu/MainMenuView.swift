@@ -1858,7 +1858,7 @@ private struct CPRCardUploadSheet: View {
                     if let existingUpload, !isUpdatingExisting {
                         existingCardSummary(existingUpload)
                         Button {
-                            onUploaded()
+                            Task { await confirmCurrentCard() }
                         } label: {
                             Label("This Is Still Current", systemImage: "checkmark.seal.fill")
                                 .frame(maxWidth: .infinity)
@@ -2000,6 +2000,21 @@ private struct CPRCardUploadSheet: View {
             await prepareUpload(data: data, fileName: mimeType == "image/png" ? "cpr-card.png" : "cpr-card.jpg", mimeType: mimeType)
         } catch {
             await MainActor.run { errorMessage = "Could not read the selected photo." }
+        }
+    }
+
+    private func confirmCurrentCard() async {
+        await MainActor.run {
+            isUploading = true
+            errorMessage = nil
+        }
+        defer { Task { @MainActor in isUploading = false } }
+
+        do {
+            _ = try await ClassManagerAPIClient.shared.confirmCprCard(attendee: attendee)
+            await MainActor.run { onUploaded() }
+        } catch {
+            await MainActor.run { errorMessage = "Could not confirm CPR card status. Please try again." }
         }
     }
 
