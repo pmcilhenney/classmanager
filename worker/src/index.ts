@@ -2924,6 +2924,7 @@ function validateCprCardUpload(expirationDate?: string, recognizedText?: string,
   const approval = approvedCprCertificationMatch(text);
   const disqualifier = cprCardDisqualifier(text);
   const unsupported = unsupportedCprCertificationReason(text);
+  const wrongCredential = wrongCprCredentialReason(text);
   const nameMismatch = cprCardNameMismatch(text, attendee);
   if (unsupported) {
     return {
@@ -2932,10 +2933,17 @@ function validateCprCardUpload(expirationDate?: string, recognizedText?: string,
       accepted: false
     };
   }
+  if (wrongCredential) {
+    return {
+      status: "not_cpr_card",
+      notes: wrongCredential,
+      accepted: false
+    };
+  }
   if (!approval && text.trim().length > 20 && !cprTextLooksLikeCard(text)) {
     return {
       status: "not_cpr_card",
-      notes: "This upload does not appear to be a CPR certification card. Please upload a current CPR card.",
+      notes: "This upload does not appear to be a CPR/BLS certification card. Please upload a current CPR/BLS card.",
       accepted: false
     };
   }
@@ -3126,6 +3134,23 @@ function unsupportedCprCertificationReason(rawText: string): string | undefined 
   }
   if (/\badvanced life support\b/.test(text) && !/\b(basic life support|bls)\b/.test(text)) {
     return "This appears to be an advanced life support card, not a CPR/BLS certification card accepted for refresher attendance.";
+  }
+  return undefined;
+}
+
+function wrongCprCredentialReason(rawText: string): string | undefined {
+  const text = normalizeCprText(rawText);
+  if (cprTextLooksLikeCard(text)) {
+    return undefined;
+  }
+  if (/\b(micp|mobile intensive care paramedic|mobile intensive care)\b/.test(text)) {
+    return "This appears to be an NJ MICP credential, not a CPR/BLS certification card. Please upload a current CPR/BLS card.";
+  }
+  if (/\b(paramedic|emt|emergency medical technician)\b/.test(text) && /\b(certification|certificate|license|licensure|credential|registry)\b/.test(text)) {
+    return "This appears to be an EMS credential, not a CPR/BLS certification card. Please upload a current CPR/BLS card.";
+  }
+  if (/\b(driver'?s license|nursing license|registered nurse|medical license|physician assistant|physician|medical command)\b/.test(text)) {
+    return "This upload appears to be a professional or identity credential, not a CPR/BLS certification card. Please upload a current CPR/BLS card.";
   }
   return undefined;
 }
