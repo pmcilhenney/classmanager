@@ -6,6 +6,7 @@ struct QuizReviewView: View {
     let quiz: QuizInfo
     var onLoaded: ((ClassManagerAPIClient.QuizReviewResponse) -> Void)?
     var onDone: (() -> Void)?
+    var onDoneWithReview: ((ClassManagerAPIClient.QuizReviewResponse) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var review: ClassManagerAPIClient.QuizReviewResponse?
@@ -40,7 +41,9 @@ struct QuizReviewView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        if let onDone {
+                        if let review, let onDoneWithReview {
+                            onDoneWithReview(review)
+                        } else if let onDone {
                             onDone()
                         } else {
                             dismiss()

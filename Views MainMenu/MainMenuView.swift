@@ -55,7 +55,6 @@ struct MainMenuView: View {
     @State private var selectedReviewQuiz: QuizInfo? = nil
     @State private var completedQuizzes: Set<String> = []
     @State private var remediationPrompt: RemediationPrompt?
-    @State private var pendingRemediationPromptAfterReview: RemediationPrompt?
 
     // Currently selected PDF
     @State private var selectedMaterialURL: URL? = nil
@@ -659,12 +658,9 @@ struct MainMenuView: View {
                             },
                             onDone: {
                                 selectedReviewQuiz = nil
-                                if let pending = pendingRemediationPromptAfterReview {
-                                    pendingRemediationPromptAfterReview = nil
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                        remediationPrompt = pending
-                                    }
-                                }
+                            },
+                            onDoneWithReview: { review in
+                                completeQuizReviewDone(quiz: quiz, review: review)
                             }
                         )
                     } else if let quiz = selectedQuiz {
@@ -1586,15 +1582,6 @@ struct MainMenuView: View {
                     markerId,
                     result: "Version A review complete"
                 )
-                if let versionBQuiz = getVersionBQuizForCourse() {
-                    let finalResult = progressStore.progress.finalExamResult?.quizId == quiz.flexiQuizId
-                        ? progressStore.progress.finalExamResult!
-                        : finalExamResult(from: review, quiz: quiz)
-                    pendingRemediationPromptAfterReview = RemediationPrompt(
-                        versionBQuiz: versionBQuiz,
-                        finalResult: finalResult
-                    )
-                }
                 Task { await progressStore.fetchLatestAndMerge() }
                 if getVersionBQuizForCourse() != nil {
                     toast = "Version A is below the \(QuizInfo.versionAPassingPercent)% passing standard. Review is complete; complete remediation with your instructor, then start Version B."
@@ -1620,6 +1607,30 @@ struct MainMenuView: View {
         let result = quizResultSummary(review, quiz: quiz)
         completedQuizzes.insert(quiz.id)
         progressStore.markQuizResult(quiz.id, result: result)
+    }
+
+    private func completeQuizReviewDone(quiz: QuizInfo, review: ClassManagerAPIClient.QuizReviewResponse) {
+        selectedReviewQuiz = nil
+        guard QuizInfo.isCombinedVersionAQuizId(quiz.flexiQuizId), review.passed == false else {
+            return
+        }
+
+        let markerId = QuizInfo.versionAReviewMarkerId(for: quiz.flexiQuizId)
+        completedQuizzes.insert(markerId)
+        progressStore.markQuizResult(markerId, result: "Version A review complete")
+
+        guard let versionBQuiz = getVersionBQuizForCourse() else {
+            toast = "Version A review is complete. See your instructor for the next step."
+            return
+        }
+
+        let finalResult = progressStore.progress.finalExamResult?.quizId == quiz.flexiQuizId
+            ? progressStore.progress.finalExamResult!
+            : finalExamResult(from: review, quiz: quiz)
+        let prompt = RemediationPrompt(versionBQuiz: versionBQuiz, finalResult: finalResult)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            remediationPrompt = prompt
+        }
     }
 
     private func finalExamResult(from review: ClassManagerAPIClient.QuizReviewResponse, quiz: QuizInfo) -> ClassManagerAPIClient.FinalExamResult {
