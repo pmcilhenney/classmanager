@@ -466,6 +466,18 @@ struct InstructorPhoneView: View {
     }
 
     private func displayResult(_ result: String, for quiz: QuizInfo) -> String {
+        if QuizInfo.isVersionAQuizId(quiz.flexiQuizId) {
+            if let ratio = ratioScoreText(result) {
+                return ratio
+            }
+            if result.range(of: #"\d+(?:\.\d+)?\s*%"#, options: .regularExpression) != nil {
+                return "Completed"
+            }
+            let cleaned = result
+                .replacingOccurrences(of: #"(?i)\b(pass(?:ed)?|fail(?:ed)?)\b"#, with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return cleaned.isEmpty ? "Completed" : cleaned
+        }
         guard quiz.questionRange != nil else { return result }
         let lower = result.lowercased()
         if lower.contains("pass") || lower.contains("fail") {
@@ -529,6 +541,20 @@ struct InstructorPhoneView: View {
             questions = review.questions
         }
         return questions.filter { ($0.studentAnswer ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }.count
+    }
+
+    private func ratioScoreText(_ value: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)\s*/\s*(\d+(?:\.\d+)?)"#) else { return nil }
+        let range = NSRange(value.startIndex..<value.endIndex, in: value)
+        guard let match = regex.firstMatch(in: value, range: range),
+              let pointsRange = Range(match.range(at: 1), in: value),
+              let availableRange = Range(match.range(at: 2), in: value) else {
+            return nil
+        }
+        let points = Double(value[pointsRange]) ?? 0
+        let available = Double(value[availableRange]) ?? 0
+        guard available > 0 else { return nil }
+        return "\(Int(points.rounded()))/\(Int(available.rounded()))"
     }
 
     private func cleanCourseName(_ value: String) -> String {

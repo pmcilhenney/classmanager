@@ -375,6 +375,9 @@ struct QuizSelectionView: View {
             if let ratio = ratioScoreText(result) {
                 return ratio
             }
+            if result.range(of: #"\d+(?:\.\d+)?\s*%"#, options: .regularExpression) != nil {
+                return "Completed"
+            }
             let cleaned = result
                 .replacingOccurrences(of: #"(?i)\b(pass(?:ed)?|fail(?:ed)?)\b"#, with: "", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)

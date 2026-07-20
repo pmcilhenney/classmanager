@@ -73,7 +73,7 @@ struct QuizReviewView: View {
 
     private func reviewContent(_ review: ClassManagerAPIClient.QuizReviewResponse) -> some View {
         let questions = questionsForCurrentQuiz(review)
-        let isSectionReview = quiz.questionRange != nil
+        let isSectionReview = quiz.questionRange != nil || QuizInfo.isVersionAQuizId(quiz.flexiQuizId)
         let incorrectQuestions = questions.filter { $0.isCorrect == false }
         let correctQuestions = questions.filter { $0.isCorrect == true }
         let unscoredQuestions = questions.filter { $0.isCorrect == nil }
