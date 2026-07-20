@@ -54,7 +54,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: 10 feet. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: For an adult patient, a fall from which height is considered significant."
+          "feedback": "Correct answer: 10 feet. In adult trauma triage, a fall from 10 feet or more is a significant mechanism because it can transmit enough energy to cause head, spine, chest, abdominal, or pelvic injury even when obvious external findings are limited."
         },
         {
           "page": 1,
@@ -97,7 +97,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: The type of surface struck. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: When evaluating the severity of a fall, the EMT should take the height of the fall and _______________ into consideration."
+          "feedback": "Correct answer: The type of surface struck. Fall height alone does not describe the whole injury pattern; landing on concrete, furniture, stairs, or another hard surface increases energy transfer and should raise suspicion for serious trauma."
         },
         {
           "page": 1,
@@ -140,7 +140,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Skull Fracture. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: Battle Signs & Raccoon Eyes are late signs of what injury."
+          "feedback": "Correct answer: Skull Fracture. Bruising behind the ears and around the eyes can appear late with a basilar skull fracture. Treat this as a serious head injury, protect the spine as indicated, avoid unnecessary nasal instrumentation, and transport promptly."
         },
         {
           "page": 1,
@@ -183,7 +183,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Speed of the vehicle at impact. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: A patient has been critically hurt in a nighttime motor vehicle collision."
+          "feedback": "Correct answer: Speed of the vehicle at impact. Kinetic energy rises sharply as speed increases, so the 70 mph impact is the major driver of injury severity even when seat belts and airbags reduce some injury risk."
         },
         {
           "page": 1,
@@ -226,7 +226,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Priority 1 - Severe. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: Your patient just fell off the second-story roof while hanging holiday lights, and is presenting with confusion and the following vital signs: HR: ... (Priority 1 - Severe)."
+          "feedback": "Correct answer: Priority 1 - Severe. Confusion, hypotension, tachycardia, hypoxia, and a second-story fall indicate possible shock and serious multisystem trauma. This patient needs rapid trauma-center transport and aggressive support of airway, breathing, circulation, and bleeding control."
         },
         {
           "page": 1,
@@ -269,7 +269,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Laying on his chest. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: A patient in the prone position would be found."
+          "feedback": "Correct answer: Laying on his chest. Prone means face-down or chest-down. Knowing position terms matters because it affects airway access, spinal precautions, assessment, and how the team plans a safe patient move."
         },
         {
           "page": 1,
@@ -312,7 +312,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: The way the traumatic injuries occur. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: The Mechanism of Injury is."
+          "feedback": "Correct answer: The way the traumatic injuries occur. Mechanism of injury describes how forces were applied to the body. A strong mechanism helps the EMT anticipate hidden injuries before they become obvious on exam."
         },
         {
           "page": 1,
@@ -355,7 +355,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Rigid. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: Evidence of internal bleeding includes an abdomen that is hot, bruised, tender, and."
+          "feedback": "Correct answer: Rigid. A hot, bruised, tender, rigid abdomen after trauma suggests internal bleeding or peritoneal irritation. Treat it as a serious finding, monitor for shock, and prioritize rapid transport."
         },
         {
           "page": 1,
@@ -398,7 +398,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Instability and crepitus to the left lateral chest wall. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: Which injury is most serious, warranting immediate and rapid transport to the local trauma center."
+          "feedback": "Correct answer: Instability and crepitus to the left lateral chest wall. Chest-wall instability and crepitus suggest significant thoracic trauma such as flail segment or rib fractures with risk of poor ventilation and internal injury, making rapid trauma-center transport appropriate."
         },
         {
           "page": 1,
@@ -441,7 +441,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Index of Suspicion. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: An EMT's awareness and concern for potentially serious underlying or unseen injuries is."
+          "feedback": "Correct answer: Index of Suspicion. Index of suspicion is the EMT's concern for hidden injury based on mechanism, findings, and patient factors. A high index keeps reassessment and transport decisions appropriately cautious."
         },
         {
           "page": 1,
@@ -484,7 +484,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Humerus. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: What is the long bone of the upper portion of the arm."
+          "feedback": "Correct answer: Humerus. The humerus is the long bone of the upper arm between the shoulder and elbow. Correct anatomy helps describe injuries clearly and guides assessment of distal pulse, motor function, and sensation."
         },
         {
           "page": 1,
@@ -527,7 +527,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: The patient facing forward, with arms at sides. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: The proper anatomical position includes."
+          "feedback": "Correct answer: The patient facing forward, with arms at sides. Anatomical position uses the patient standing upright, facing forward, arms at the sides with palms forward; it standardizes directional terms so providers communicate locations accurately."
         },
         {
           "page": 1,
@@ -570,7 +570,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: In the crease between the abdomen and the groin. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: In which of the following locations is the femoral pulse palpated."
+          "feedback": "Correct answer: In the crease between the abdomen and the groin. The femoral pulse is palpated in the groin crease. It is a central pulse and can be useful when radial pulses are weak or absent in shock."
         },
         {
           "page": 1,
@@ -613,7 +613,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: 4. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: Best practices for applying restraints is to have a minimum of ______ personnel present."
+          "feedback": "Correct answer: 4. Restraint application should use enough trained personnel to control each limb and protect the airway without causing injury. Four providers improves safety for the patient and the crew."
         },
         {
           "page": 1,
@@ -656,7 +656,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Medical patients that are also combative. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: Mechanical Restraints are indicated for."
+          "feedback": "Correct answer: Medical patients that are also combative. Restraints are used only when a patient presents a danger to self or others and less restrictive measures are not enough; the underlying medical cause still needs assessment and treatment."
         },
         {
           "page": 1,
@@ -699,7 +699,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Should be kept in the neutral position. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: When removing a child from a car seat, the child's head."
+          "feedback": "Correct answer: Should be kept in the neutral position. Pediatric spinal alignment can be altered by the head and car seat position. Keeping the head neutral helps protect the airway and reduces unnecessary spinal movement during removal."
         },
         {
           "page": 1,
@@ -742,7 +742,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: 90. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: According to CDC guidelines, a systolic blood pressure (BP) of less than ________ indicates a patient should be transported to a trauma center."
+          "feedback": "Correct answer: 90. A systolic pressure below 90 mmHg after trauma suggests shock and poor perfusion. That finding should prompt trauma-center consideration, rapid transport, and ongoing reassessment."
         },
         {
           "page": 1,
@@ -785,7 +785,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: fracture.. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: An unrestrained 48-year-old male who was the front seat passenger in a high-speed car crash struck his face on the dash."
+          "feedback": "Correct answer: fracture. Abnormal movement of the maxilla after facial impact suggests a facial or maxillary fracture. Be alert for airway compromise, bleeding, and associated head or cervical spine injury."
         },
         {
           "page": 1,
@@ -828,7 +828,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Increased blood pressure, decreased pulse. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: As pressure within the cranium increases, which of the following is the result."
+          "feedback": "Correct answer: Increased blood pressure, decreased pulse. Rising intracranial pressure can produce hypertension with bradycardia, a late and ominous pattern. Recognizing this trend supports rapid transport and careful ventilation/oxygenation."
         },
         {
           "page": 1,
@@ -871,7 +871,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: crepitus.. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: The sound or feeling of the ends of broken bones rubbing together is called."
+          "feedback": "Correct answer: crepitus. Crepitus is the grating sensation or sound from fractured bone ends or air in tissue. Document it, avoid unnecessary manipulation, and reassess distal circulation, motor function, and sensation."
         },
         {
           "page": 1,
@@ -914,7 +914,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Comparing the injured side to the uninjured side. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: Which of the following is appropriate in the examination of a painful, swollen extremity of a conscious patient."
+          "feedback": "Correct answer: Comparing the injured side to the uninjured side. Comparing both sides helps identify deformity, swelling, circulation changes, and functional loss while keeping the exam organized and patient-centered."
         },
         {
           "page": 1,
@@ -957,7 +957,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Puncture. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: Which type of wound has a small opening into the skin, but may be quite deep, and is often caused by instruments such as nails, ice picks, or pencils."
+          "feedback": "Correct answer: Puncture. Puncture wounds may have small skin openings but deep tissue tracks, creating risk for hidden bleeding, contamination, retained objects, and injury to underlying structures."
         },
         {
           "page": 1,
@@ -1000,7 +1000,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Eye opening, motor response, and verbal response. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: You are en route to the trauma center with a patient who was injured when he was thrown from a horse."
+          "feedback": "Correct answer: Eye opening, motor response, and verbal response. The Glasgow Coma Scale tracks neurologic status using eye, verbal, and motor responses. Trending these findings helps detect deterioration during trauma transport."
         },
         {
           "page": 1,
@@ -1043,7 +1043,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Divert to the trauma center because the patient is becoming symptomatic.. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: You are transporting a stable patient who was involved in a minor fall from a ladder at a height of about 10 feet to a local community hospital."
+          "feedback": "Correct answer: Divert to the trauma center because the patient is becoming symptomatic. Worsening confusion, irregular respirations, bradycardia with hypertension, and prior loss of consciousness suggest deteriorating head injury, so the transport plan should change toward definitive trauma care."
         },
         {
           "page": 1,
@@ -1086,7 +1086,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: ears. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: Your patient is a 14-year-old male who was run over by a tractor and is now unresponsive."
+          "feedback": "Correct answer: ears. Clear drainage from the ears after significant head trauma can indicate cerebrospinal fluid leakage from a skull fracture. Do not pack the ear; protect the patient and transport promptly."
         },
         {
           "page": 1,
@@ -1129,7 +1129,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: administer oxygen, and transport immediately.. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: A 9-year-old female was struck by a car while she was riding her bicycle."
+          "feedback": "Correct answer: administer oxygen, and transport immediately. Pale cool skin, abdominal pain after bicycle impact, and extremity injury suggest possible internal bleeding and shock. Provide spinal precautions as indicated, oxygen, and rapid transport."
         },
         {
           "page": 1,
@@ -1172,7 +1172,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: A 61-year-old male who became dizzy and fell down five stairs, and who has a laceration to the head and open fracture of the left lower leg. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: After assessing these patients, which would the EMT identify as suffering from multisystem trauma."
+          "feedback": "Correct answer: A 61-year-old male who became dizzy and fell down five stairs, and who has a laceration to the head and open fracture of the left lower leg. Injuries involving more than one body system or region indicate multisystem trauma and raise the risk for shock and rapid deterioration."
         },
         {
           "page": 1,
@@ -1215,7 +1215,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Organ into body collision. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: An unrestrained driver of a car that has struck a tree at 45 mph has suffered a contusion to his heart."
+          "feedback": "Correct answer: Organ into body collision. In the third collision, internal organs continue moving and strike body structures after the vehicle and body stop. Cardiac contusion after a high-speed frontal impact fits that organ collision pattern."
         },
         {
           "page": 1,
@@ -1258,7 +1258,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Instability and crepitus to the left lateral chest wall. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: Which injury is most serious, warranting immediate and rapid transport to the local trauma center."
+          "feedback": "Correct answer: Instability and crepitus to the left lateral chest wall. Chest-wall instability with crepitus signals potentially serious thoracic trauma and impaired ventilation risk. It should outweigh less life-threatening isolated injuries in transport priority."
         },
         {
           "page": 1,
@@ -1301,7 +1301,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: will decrease the driver's reaction time.. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: If you properly assess and stabilize a patient at the scene, driving to the hospital with excessive speed."
+          "feedback": "Correct answer: will decrease the driver's reaction time. Excessive speed after stabilization adds risk without improving patient care. Safe, efficient transport protects the patient, crew, and public while preserving the driver's ability to react."
         },
         {
           "page": 1,
@@ -1344,7 +1344,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: The patient may have a flail chest.. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: You're an off-duty EMT who encounters a patient sitting behind the wheel of a vehicle that ran off an isolated county road."
+          "feedback": "Correct answer: The patient may have a flail chest. Paradoxical chest-wall motion after steering-wheel impact is a key sign of flail chest. That information helps dispatch and responding crews anticipate respiratory compromise and trauma-center need."
         },
         {
           "page": 1,
@@ -1387,7 +1387,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Check pulse, movement, and sensation distal to the injury before and after splinting.. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: Your patient is an 11-year-old male who has a swollen, painful, and angulated right lower arm after falling from his bicycle onto his hands."
+          "feedback": "Correct answer: Check pulse, movement, and sensation distal to the injury before and after splinting. Distal neurovascular checks before and after immobilization document baseline status and identify whether splinting worsened circulation or nerve function."
         },
         {
           "page": 1,
@@ -1430,7 +1430,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Arterial bleed. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: You respond to a 32-year-old male who fell 20 feet off a ladder."
+          "feedback": "Correct answer: Arterial bleed. Profuse arterial bleeding is an immediate life threat and should be controlled before less urgent fractures. Hemorrhage control is a core priority in trauma care."
         },
         {
           "page": 1,
@@ -1473,7 +1473,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Provide manual cervical spine motion restriction. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: A young man was riding a motorcycle when he was hit head on by a car and thrown from the bike."
+          "feedback": "Correct answer: Provide manual cervical spine motion restriction. A motorcycle ejection with unresponsiveness and deformities is a high-risk mechanism. Manual cervical spine motion restriction should be established immediately while airway and breathing are addressed."
         },
         {
           "page": 1,
@@ -1516,7 +1516,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Perform a jaw-thrust maneuver. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: An unresponsive 10-year-old male was struck by a car while riding his bike."
+          "feedback": "Correct answer: Perform a jaw-thrust maneuver. With suspected spinal injury and snoring respirations, open the airway using a jaw-thrust to relieve obstruction while minimizing cervical spine movement."
         },
         {
           "page": 1,
@@ -1559,7 +1559,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Any hospital with surgical facilities. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: What type of trauma triage criteria regarding transport would a finger amputation receive."
+          "feedback": "Correct answer: Any hospital with surgical facilities. An isolated finger amputation generally needs surgical capability and preservation of the part, but it does not automatically require a trauma center unless other criteria are present."
         },
         {
           "page": 1,
@@ -1602,7 +1602,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Immediate surgical capabilities. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: When deciding where to transport a patient who is in hypovolemic shock or who has the potential for developing hypovolemic shock, which of ... (Immediate surgical capabilities)."
+          "feedback": "Correct answer: Immediate surgical capabilities. Hypovolemic shock from trauma often requires operative hemorrhage control. The receiving hospital must be able to provide rapid surgical intervention, not just observation."
         },
         {
           "page": 1,
@@ -1645,7 +1645,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Neutral, in-line \"eyes forward\" position. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: Which of the following describes the proper position of the patient's head for spinal restriction."
+          "feedback": "Correct answer: Neutral, in-line \"eyes forward\" position. Spinal motion restriction aims to maintain neutral in-line alignment, reducing flexion, extension, rotation, and lateral movement during care and transport."
         },
         {
           "page": 1,
@@ -1688,7 +1688,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Spurting under pressure. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: Which of the following is a characteristic of arterial bleeding."
+          "feedback": "Correct answer: Spurting under pressure. Arterial bleeding is often bright red and spurts with the pulse because it is under pressure. It can cause rapid blood loss and requires prompt control."
         },
         {
           "page": 1,
@@ -1731,7 +1731,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Direct pressure, high-concentration oxygen, and splinting the leg. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: Your patient is a 33-year-old man who has a gunshot wound to his right leg and has active, steady, dark red bleeding."
+          "feedback": "Correct answer: Direct pressure, high-concentration oxygen, and splinting the leg. Control active bleeding first, support oxygenation/perfusion, then splint to reduce pain and movement that can worsen bleeding or tissue injury."
         },
         {
           "page": 1,
@@ -1774,7 +1774,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Elevate the arm and prepare to apply a tourniquet or consider administering a hemostatic agent.. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: Your patient is a 12-year-old boy who ran his arm through a glass window and has an 8-inch laceration on his anterior forearm."
+          "feedback": "Correct answer: Elevate the arm and prepare to apply a tourniquet or consider administering a hemostatic agent. Bleeding that soaks through a pressure dressing needs escalation. Follow local protocol with additional pressure, elevation when appropriate, hemostatic dressing, or tourniquet for uncontrolled extremity bleeding."
         },
         {
           "page": 1,
@@ -1817,7 +1817,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: To prevent and manage hypoperfusion. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: Which of the following is the primary reason for controlling external bleeding."
+          "feedback": "Correct answer: To prevent and manage hypoperfusion. External bleeding is controlled to preserve circulating blood volume and prevent shock. Early hemorrhage control is one of the fastest ways an EMT can improve trauma outcome."
         },
         {
           "page": 1,
@@ -1860,7 +1860,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Liver. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: Which of the following is a vascular organ in the abdomen that can produce blood loss quickly enough to result in life-threatening hemorrhage ... (Liver)."
+          "feedback": "Correct answer: Liver. The liver is highly vascular and can bleed heavily after blunt abdominal trauma. Right upper quadrant injury and signs of shock should raise concern for serious internal hemorrhage."
         },
         {
           "page": 1,
@@ -1903,7 +1903,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Direct pressure. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: Bleeding from soft-tissue injuries should initially be controlled with which one of the following techniques."
+          "feedback": "Correct answer: Direct pressure. Direct pressure is the initial technique for most soft-tissue bleeding because it is fast, effective, and can be applied immediately while the rest of care is organized."
         },
         {
           "page": 1,
@@ -1946,7 +1946,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Administer positive pressure ventilation. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: You are participating in a training exercise for an attack with a weapon of mass destruction involving the release of a nerve agent."
+          "feedback": "Correct answer: Administer positive pressure ventilation. In a nerve-agent scenario, slow respirations with wheezing and poor perfusion indicate ventilatory failure. Support ventilation immediately while following hazmat/antidote and decontamination protocols."
         },
         {
           "page": 1,
@@ -1989,7 +1989,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Check for a radial pulse. This is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt. Objective link: You have responded to a bar for a fight involving approximately 8 to 10 patrons."
+          "feedback": "Correct answer: Check for a radial pulse. START triage follows respirations, perfusion, then mental status. After confirming respirations are within range, the next RPM step is perfusion by radial pulse or capillary refill per protocol."
         },
         {
           "page": 1,
@@ -2032,7 +2032,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: look for secondary devices.. The other options may be plausible distractors, but they do not best match the clinical priority or definition being tested. Objective link: You responded to an explosion at an outside concert venue and were assigned to triage. While triaging patients, you should."
+          "feedback": "Correct answer: look for secondary devices. Explosions can be followed by secondary devices intended to injure responders. Scene safety remains active during triage and must be reassessed continuously."
         },
         {
           "page": 1,
@@ -2075,7 +2075,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Respiration, perfusion, and mental status. On retest, focus on identifying the key assessment finding and matching it to the safest field action. Objective link: Simple Triage and Rapid Treatment (START) is a system that relies on some simple commands and what three physiologic parameters."
+          "feedback": "Correct answer: Respiration, perfusion, and mental status. START triage rapidly sorts patients by breathing, circulation/perfusion, and ability to follow commands so limited resources go first to patients most likely to benefit."
         },
         {
           "page": 1,
@@ -2118,7 +2118,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Announce that everyone who can get up and walk needs to go to the parking lot of a nearby building.. The rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety. Objective link: You are beginning triage at the scene of a mass-casualty incident in which a commuter train has derailed."
+          "feedback": "Correct answer: Announce that everyone who can get up and walk needs to go to the parking lot of a nearby building. START begins by directing walking wounded to a safe collection area, immediately identifying the green group and freeing responders to assess non-walking patients."
         },
         {
           "page": 1,
@@ -2161,7 +2161,7 @@
           "correctAnswers": [
             "A"
           ],
-          "feedback": "Correct answer: Green. This item reinforces the same competency from Version A while requiring the student to reason through a new stem. Objective link: You are on scene of a synagogue that was the site of several explosions."
+          "feedback": "Correct answer: Green. In START, patients who can walk after the command are initially tagged green/minor. They still need reassessment, but they are lower priority than immediate or delayed patients."
         }
       ]
     }
