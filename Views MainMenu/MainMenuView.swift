@@ -826,7 +826,7 @@ struct MainMenuView: View {
                 VStack(spacing: 12) {
                     ForEach(finalExamReviewTargets) { quiz in
                         Button {
-                            selectedReviewQuiz = quiz
+                            openFinalExamReview(quiz)
                         } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "doc.text.magnifyingglass")
@@ -1735,6 +1735,17 @@ struct MainMenuView: View {
         }
     }
 
+    private func openFinalExamReview(_ quiz: QuizInfo) {
+        showSkills = false
+        showingElectiveForm = false
+        showingMaterials = false
+        showingPDF = false
+        showingElectiveQuiz = false
+        selectedQuiz = nil
+        selectedReviewQuiz = quiz
+        showingQuizzes = true
+    }
+
     private func routeNotificationIfNeeded(_ route: ClassManagerNotificationRoute?) {
         guard let route, route.isFresh, route.matches(attendee: attendee) else { return }
         if route.isStudentCprRoute {
@@ -1750,14 +1761,7 @@ struct MainMenuView: View {
             openQuizzes()
             return
         }
-        showSkills = false
-        showingElectiveForm = false
-        showingMaterials = false
-        showingPDF = false
-        showingElectiveQuiz = false
-        selectedQuiz = nil
-        selectedReviewQuiz = quiz
-        showingQuizzes = true
+        openFinalExamReview(quiz)
     }
 
     private func quizForNotificationRoute(_ route: ClassManagerNotificationRoute) -> QuizInfo? {
