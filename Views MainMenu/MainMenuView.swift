@@ -1725,6 +1725,7 @@ struct MainMenuView: View {
         if let courseId = attendee.courseId {
             add("courseId", courseId)
             add("njCourse", courseId)
+            add("njcourse", courseId)
         }
         let studentId = attendee.oemsId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? attendee.submissionId
@@ -1734,11 +1735,18 @@ struct MainMenuView: View {
             .replacingOccurrences(of: "/", with: "-")
         add("classSessionId", classSessionId)
         add("classManagerStudentId", studentId)
+        add("classmanagerstudentid", studentId)
+        add("q75_njcourse", attendee.courseId)
+        add("q76_classsessionid", classSessionId)
+        add("q77_classmanagerstudentid", studentId)
         add("typeA90", attendee.courseId)
         add("q90_typeA90", attendee.courseId)
+        add("q91_njcourse", attendee.courseId)
         add("q91_classsessionid", classSessionId)
         add("classsessionid", classSessionId)
         add("q92_classManagerStudentId", studentId)
+        add("q92_classsessionid", classSessionId)
+        add("q93_classmanagerstudentid", studentId)
         add("theseComments", aiComment)
         if let courseDate = attendee.courseDate {
             let df = DateFormatter()
