@@ -237,9 +237,9 @@ struct MainMenuView: View {
                 attendee: attendee,
                 inOut: action.id,
                 onCancel: { attendanceCaptureAction = nil },
-                onSubmit: { attestation in
+                onSubmit: { attestation, locationRequestId in
                     attendanceCaptureAction = nil
-                    submitNativeAttendance(inOut: action.id, attestation: attestation)
+                    submitNativeAttendance(inOut: action.id, attestation: attestation, locationRequestId: locationRequestId)
                 }
             )
         }
@@ -1289,7 +1289,11 @@ struct MainMenuView: View {
         attendanceCaptureAction = inOut
     }
 
-    private func submitNativeAttendance(inOut: String, attestation: ClassManagerAPIClient.AttendanceAttestation) {
+    private func submitNativeAttendance(
+        inOut: String,
+        attestation: ClassManagerAPIClient.AttendanceAttestation,
+        locationRequestId: UUID?
+    ) {
         let isElective = attendee.productCategories?.contains("2002") ?? false
         let formId = isElective ? electiveFormId : refresherCheckInOutFormId
 
@@ -1301,12 +1305,21 @@ struct MainMenuView: View {
         Task { @MainActor in
             defer { busy = false }
             do {
-                _ = try await ClassManagerAPIClient.shared.submitAttendance(
+                let response = try await ClassManagerAPIClient.shared.submitAttendance(
                     formId: formId,
                     inOut: inOut,
                     attendee: attendee,
                     fields: fields,
                     attestation: attestation
+                )
+                scheduleAttendanceLocationBackfill(
+                    locationRequestId: locationRequestId,
+                    rmsAttestationId: response.rmsAttestationId,
+                    studentId: ClassManagerAPIClient.studentId(for: attendee),
+                    classSessionId: ClassManagerAPIClient.classSessionId(for: attendee.courseDate ?? attendee.submissionId),
+                    actorId: nil,
+                    signedAt: attestation.signedAt,
+                    existingLocation: attestation.location
                 )
 
                 showingElectiveForm = false
@@ -1327,7 +1340,51 @@ struct MainMenuView: View {
 
                 toast = "\(inOut) posted successfully."
             } catch {
+                AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
                 toast = "Failed to post \(inOut). Please try again."
+            }
+        }
+    }
+
+    private func scheduleAttendanceLocationBackfill(
+        locationRequestId: UUID?,
+        rmsAttestationId: String?,
+        studentId: String?,
+        classSessionId: String?,
+        actorId: String?,
+        signedAt: String,
+        existingLocation: ClassManagerAPIClient.AttendanceLocation?
+    ) {
+        guard existingLocation == nil else {
+            AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
+            return
+        }
+        guard let locationRequestId, let rmsAttestationId else {
+            AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
+            return
+        }
+
+        AttendanceLocationBackfillCoordinator.shared.observe(locationRequestId) { snapshot in
+            guard let snapshot else {
+                AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
+                return
+            }
+            let location = ClassManagerAPIClient.AttendanceLocation(
+                latitude: snapshot.latitude,
+                longitude: snapshot.longitude,
+                horizontalAccuracy: snapshot.horizontalAccuracy,
+                address: snapshot.address
+            )
+            Task {
+                _ = try? await ClassManagerAPIClient.shared.updateAttendanceLocation(
+                    attestationId: rmsAttestationId,
+                    studentId: studentId,
+                    classSessionId: classSessionId,
+                    actorId: actorId,
+                    signedAt: signedAt,
+                    location: location
+                )
+                AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
             }
         }
     }
@@ -3065,13 +3122,13 @@ private struct AttendanceCaptureSheet: View {
     let attendee: RosterAttendee
     let inOut: String
     let onCancel: () -> Void
-    let onSubmit: (ClassManagerAPIClient.AttendanceAttestation) -> Void
+    let onSubmit: (ClassManagerAPIClient.AttendanceAttestation, UUID?) -> Void
 
     @State private var drawing = PKDrawing()
     @State private var location: AttendanceLocationSnapshot?
     @State private var locationStatus = "Getting location..."
     @State private var isLocating = true
-    @State private var locationProvider = LocationAddressProvider()
+    @State private var locationRequestId: UUID?
 
     var body: some View {
         NavigationStack {
@@ -3133,9 +3190,9 @@ private struct AttendanceCaptureSheet: View {
     }
 
     private func loadLocation() {
-        guard isLocating else { return }
+        guard locationRequestId == nil else { return }
         isLocating = true
-        locationProvider.getCurrentLocation { snapshot in
+        locationRequestId = AttendanceLocationBackfillCoordinator.shared.begin { snapshot in
             DispatchQueue.main.async {
                 self.location = snapshot
                 self.isLocating = false
@@ -3173,7 +3230,8 @@ private struct AttendanceCaptureSheet: View {
                 signedAt: signedAt,
                 attestationText: attestationText,
                 location: locationPayload
-            )
+            ),
+            locationRequestId
         )
     }
 

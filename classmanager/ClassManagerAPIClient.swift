@@ -411,6 +411,30 @@ final class ClassManagerAPIClient {
         )
     }
 
+    @discardableResult
+    func updateAttendanceLocation(
+        attestationId: String,
+        studentId: String?,
+        classSessionId: String?,
+        actorId: String?,
+        signedAt: String,
+        location: AttendanceLocation
+    ) async throws -> AttendanceLocationUpdateResponse {
+        try await send(
+            path: "/attendance/location",
+            method: "PATCH",
+            body: AttendanceLocationUpdateRequest(
+                attestationId: attestationId,
+                studentId: studentId,
+                classSessionId: classSessionId,
+                actorId: actorId,
+                signedAt: signedAt,
+                location: location,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     func fetchProgress(studentId: String, classSessionId: String) async throws -> RemoteProgress? {
         let response: ProgressEnvelope = try await send(
             path: "/progress/\(Self.pathEncode(classSessionId))/\(Self.pathEncode(studentId))",
@@ -679,6 +703,7 @@ extension ClassManagerAPIClient {
     struct InstructorAttendanceSubmitResponse: Decodable {
         let ok: Bool
         let attendance: InstructorAttendance
+        let rmsAttestationId: String?
         let updatedAt: String
         let warnings: [String]?
     }
@@ -908,6 +933,7 @@ extension ClassManagerAPIClient {
         let formId: String
         let inOut: String
         let submissionId: String?
+        let rmsAttestationId: String?
         let updatedAt: String
     }
 
@@ -1149,6 +1175,21 @@ extension ClassManagerAPIClient {
         let signedAt: String
         let attestationText: String
         let location: AttendanceLocation?
+    }
+
+    struct AttendanceLocationUpdateRequest: Encodable {
+        let attestationId: String
+        let studentId: String?
+        let classSessionId: String?
+        let actorId: String?
+        let signedAt: String
+        let location: AttendanceLocation
+        let deviceId: String?
+    }
+
+    struct AttendanceLocationUpdateResponse: Decodable {
+        let ok: Bool
+        let updatedAt: String?
     }
 
     struct ProgressPatchRequest: Encodable {

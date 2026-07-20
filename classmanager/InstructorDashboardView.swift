@@ -140,9 +140,9 @@ struct InstructorDashboardView: View {
                         course: course,
                         inOut: action.inOut,
                         onCancel: { attendanceAction = nil },
-                        onSubmit: { attestation in
+                        onSubmit: { attestation, locationRequestId in
                             attendanceAction = nil
-                            Task { await submitAttendance(inOut: action.inOut, attestation: attestation) }
+                            Task { await submitAttendance(inOut: action.inOut, attestation: attestation, locationRequestId: locationRequestId) }
                         }
                     )
                 }
@@ -720,9 +720,14 @@ struct InstructorDashboardView: View {
         }
     }
 
-    private func submitAttendance(inOut: String, attestation: ClassManagerAPIClient.AttendanceAttestation) async {
+    private func submitAttendance(
+        inOut: String,
+        attestation: ClassManagerAPIClient.AttendanceAttestation,
+        locationRequestId: UUID?
+    ) async {
         guard let course = activeCourse else {
             await MainActor.run { notice = "Select a course before checking in." }
+            AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
             return
         }
 
@@ -736,13 +741,66 @@ struct InstructorDashboardView: View {
                 course: course,
                 attestation: attestation
             )
+            scheduleAttendanceLocationBackfill(
+                locationRequestId: locationRequestId,
+                rmsAttestationId: response.rmsAttestationId,
+                studentId: nil,
+                classSessionId: course.classSessionId,
+                actorId: instructor.personId,
+                signedAt: attestation.signedAt,
+                existingLocation: attestation.location
+            )
             await MainActor.run {
                 attendance = response.attendance
                 notice = inOut == "Check-Out" ? "Instructor checkout complete." : nil
             }
             await refresh()
         } catch {
+            AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
             await MainActor.run { notice = "Could not submit instructor attendance." }
+        }
+    }
+
+    private func scheduleAttendanceLocationBackfill(
+        locationRequestId: UUID?,
+        rmsAttestationId: String?,
+        studentId: String?,
+        classSessionId: String?,
+        actorId: String?,
+        signedAt: String,
+        existingLocation: ClassManagerAPIClient.AttendanceLocation?
+    ) {
+        guard existingLocation == nil else {
+            AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
+            return
+        }
+        guard let locationRequestId, let rmsAttestationId else {
+            AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
+            return
+        }
+
+        AttendanceLocationBackfillCoordinator.shared.observe(locationRequestId) { snapshot in
+            guard let snapshot else {
+                AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
+                return
+            }
+            let location = ClassManagerAPIClient.AttendanceLocation(
+                latitude: snapshot.latitude,
+                longitude: snapshot.longitude,
+                horizontalAccuracy: snapshot.horizontalAccuracy,
+                address: snapshot.address
+            )
+            Task {
+                _ = try? await ClassManagerAPIClient.shared.updateAttendanceLocation(
+                    attestationId: rmsAttestationId,
+                    studentId: studentId,
+                    classSessionId: classSessionId,
+                    actorId: actorId,
+                    signedAt: signedAt,
+                    location: location
+                )
+                AttendanceLocationBackfillCoordinator.shared.finish(locationRequestId)
+            }
         }
     }
 
@@ -1267,13 +1325,13 @@ private struct InstructorAttendanceCaptureSheet: View {
     let course: ClassManagerAPIClient.InstructorCourse
     let inOut: String
     let onCancel: () -> Void
-    let onSubmit: (ClassManagerAPIClient.AttendanceAttestation) -> Void
+    let onSubmit: (ClassManagerAPIClient.AttendanceAttestation, UUID?) -> Void
 
     @State private var drawing = PKDrawing()
     @State private var location: AttendanceLocationSnapshot?
     @State private var locationStatus = "Getting location..."
     @State private var isLocating = true
-    @State private var locationProvider = LocationAddressProvider()
+    @State private var locationRequestId: UUID?
 
     var body: some View {
         NavigationStack {
@@ -1340,9 +1398,9 @@ private struct InstructorAttendanceCaptureSheet: View {
     }
 
     private func loadLocation() {
-        guard isLocating else { return }
+        guard locationRequestId == nil else { return }
         isLocating = true
-        locationProvider.getCurrentLocation { snapshot in
+        locationRequestId = AttendanceLocationBackfillCoordinator.shared.begin { snapshot in
             DispatchQueue.main.async {
                 self.location = snapshot
                 self.isLocating = false
@@ -1380,7 +1438,8 @@ private struct InstructorAttendanceCaptureSheet: View {
                 signedAt: signedAt,
                 attestationText: attestationText,
                 location: locationPayload
-            )
+            ),
+            locationRequestId
         )
     }
 }

@@ -365,6 +365,10 @@ export default {
         return await instructorAttendanceSubmit(request, env);
       }
 
+      if (request.method === "PATCH" && url.pathname === "/attendance/location") {
+        return await attendanceLocationUpdate(request, env);
+      }
+
       if (request.method === "GET" && url.pathname === "/instructor/active") {
         return await activeInstructor(url, env);
       }
@@ -884,6 +888,73 @@ async function instructorAttendanceSubmit(request: Request, env: Env): Promise<R
     warnings,
     updatedAt: now
   });
+}
+
+async function attendanceLocationUpdate(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const attestationId = stringField(body, "attestationId") ?? stringField(body, "attestation_id");
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const actorId = stringField(body, "actorId");
+  const deviceId = stringField(body, "deviceId");
+  const signedAt = stringField(body, "signedAt");
+  const location = recordField(body, "location");
+
+  if (!attestationId || !location) {
+    return json({ error: "missing_attendance_location_fields" }, 400);
+  }
+  if (!env.ACADEMY_RMS_BASE_URL || !env.ACADEMY_RMS_ATTENDANCE_SECRET) {
+    return json({ error: "rms_attendance_not_configured" }, 503);
+  }
+
+  const endpoint = joinUrl(env.ACADEMY_RMS_BASE_URL, "/api/webhooks/classmanager-attendance/location");
+  const response = await fetch(endpoint, {
+    method: "PATCH",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "x-classmanager-secret": env.ACADEMY_RMS_ATTENDANCE_SECRET
+    },
+    body: JSON.stringify({
+      attestationId,
+      attestation_id: attestationId,
+      studentId,
+      classSessionId,
+      actorId,
+      signedAt,
+      location,
+      deviceId,
+      resolvedAt: new Date().toISOString()
+    })
+  });
+  const parsed = await response.json<JsonRecord>().catch(() => ({} as JsonRecord));
+  if (!response.ok || parsed.ok === false) {
+    await audit(env, "attendance.location_failed", {
+      studentId,
+      classSessionId,
+      actorId,
+      deviceId,
+      payload: {
+        attestationId,
+        status: response.status,
+        error: stringField(parsed, "error") ?? null
+      }
+    });
+    return json({ error: "rms_location_update_failed", status: response.status }, 502);
+  }
+
+  await audit(env, "attendance.location_updated", {
+    studentId,
+    classSessionId,
+    actorId,
+    deviceId,
+    payload: {
+      attestationId,
+      signedAt: signedAt ?? null
+    }
+  });
+
+  return json({ ok: true, updatedAt: new Date().toISOString() });
 }
 
 async function rmsInstructorAttendance(request: Request, env: Env): Promise<Response> {
