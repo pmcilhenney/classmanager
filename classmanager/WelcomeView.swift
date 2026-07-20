@@ -66,6 +66,7 @@ struct WelcomeView: View {
     @State private var instructorSession: ClassManagerAPIClient.InstructorScanResponse?
     @State private var errorText: String?
     @State private var busy = false
+    @State private var todaysCourse: ClassManagerAPIClient.InstructorCourse?
 
     // Session selection
     @State private var showSessionPicker = false
@@ -137,6 +138,8 @@ struct WelcomeView: View {
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.secondary)
 
+                        launchStatusChips
+
                         Button {
                             scanning = true
                         } label: {
@@ -199,6 +202,7 @@ struct WelcomeView: View {
                 .onAppear {
                     Task {
                         await eventsManager.loadUpcomingEvents(limit: 5)
+                        await loadTodaysCourse()
                     }
                 }
                 .onChange(of: eventsManager.events.map { $0.id }) { _ in
@@ -258,6 +262,64 @@ struct WelcomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .classManagerNotificationTapped)) { notification in
             guard let route = ClassManagerNotificationRoute(userInfo: notification.userInfo ?? [:]) else { return }
             handleTappedNotification(route)
+        }
+    }
+
+    private var launchStatusChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                launchChip(
+                    text: appVersionText,
+                    systemImage: "info.circle.fill",
+                    color: .blue
+                )
+                if let todaysCourse {
+                    launchChip(
+                        text: todayCourseText(todaysCourse),
+                        systemImage: "calendar.badge.clock",
+                        color: .green
+                    )
+                }
+            }
+            .padding(.horizontal)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func launchChip(text: String, systemImage: String, color: Color) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+            .foregroundStyle(color)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(color.opacity(0.12), in: Capsule())
+    }
+
+    private var appVersionText: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.5"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "3.5"
+        return "Version \(version) (Build \(build))"
+    }
+
+    private func todayCourseText(_ course: ClassManagerAPIClient.InstructorCourse) -> String {
+        let displayDate = course.displayDate?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let date = displayDate?.isEmpty == false ? (displayDate ?? course.date) : course.date
+        return "Today: \(date) - \(course.title)"
+    }
+
+    private func loadTodaysCourse() async {
+        do {
+            let dashboard = try await ClassManagerAPIClient.shared.fetchInstructorDashboard(limit: 25)
+            let course = (dashboard.courses ?? [])
+                .first(where: { $0.isToday }) ?? (dashboard.course?.isToday == true ? dashboard.course : nil)
+            await MainActor.run {
+                todaysCourse = course
+            }
+        } catch {
+            await MainActor.run {
+                todaysCourse = nil
+            }
         }
     }
 
