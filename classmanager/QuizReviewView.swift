@@ -7,6 +7,7 @@ struct QuizReviewView: View {
     var onLoaded: ((ClassManagerAPIClient.QuizReviewResponse) -> Void)?
     var onDone: (() -> Void)?
     var onDoneWithReview: ((ClassManagerAPIClient.QuizReviewResponse) -> Void)? = nil
+    var versionBOptionsLocked: Bool = false
 
     @Environment(\.dismiss) private var dismiss
     @State private var review: ClassManagerAPIClient.QuizReviewResponse?
@@ -61,7 +62,7 @@ struct QuizReviewView: View {
 
     private var loadedReviewRequiresVersionBRemediation: Bool {
         guard let review else { return false }
-        return requiresVersionBRemediation(review)
+        return requiresVersionBRemediation(review) && !versionBOptionsLocked
     }
 
     private func requiresVersionBRemediation(_ review: ClassManagerAPIClient.QuizReviewResponse) -> Bool {
@@ -103,7 +104,11 @@ struct QuizReviewView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    if requiresVersionBRemediation {
+                    if requiresVersionBRemediation && versionBOptionsLocked {
+                        Label("Version B has already been submitted. No additional retest attempt is available for this course offering.", systemImage: "lock.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.red)
+                    } else if requiresVersionBRemediation {
                         Label("Review your correct and incorrect responses, then continue to the required Version B options.", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.red)

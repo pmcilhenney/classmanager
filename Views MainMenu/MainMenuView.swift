@@ -665,7 +665,8 @@ struct MainMenuView: View {
                             },
                             onDoneWithReview: { review in
                                 completeQuizReviewDone(quiz: quiz, review: review)
-                            }
+                            },
+                            versionBOptionsLocked: hasVersionBFinalResult
                         )
                     } else if let quiz = selectedQuiz {
                         QuizWorkspaceView(
@@ -1910,6 +1911,11 @@ struct MainMenuView: View {
         guard review.passed == false,
               !QuizInfo.isVersionBQuizId(review.quizId),
               !QuizInfo.isVersionBQuizId(quiz.flexiQuizId) else {
+            return
+        }
+
+        guard !hasVersionBFinalResult else {
+            toast = "Version B has already been submitted. No additional retest attempt is available."
             return
         }
 
