@@ -138,8 +138,6 @@ struct WelcomeView: View {
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.secondary)
 
-                        launchStatusChips
-
                         Button {
                             scanning = true
                         } label: {
@@ -158,6 +156,8 @@ struct WelcomeView: View {
                             .foregroundColor(.white)
                         }
                         .padding(.top, 8)
+
+                        todayStatusChip
                         
                         // MARK: - Upcoming Events Section
                         if !eventsManager.events.isEmpty {
@@ -199,6 +199,11 @@ struct WelcomeView: View {
                     .padding(.bottom, 40)
                 }
                 .overlay { if busy { LoadingSpinnerView() } }
+                .overlay(alignment: .bottomTrailing) {
+                    versionStatusChip
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 12)
+                }
                 .onAppear {
                     Task {
                         await eventsManager.loadUpcomingEvents(limit: 5)
@@ -265,25 +270,21 @@ struct WelcomeView: View {
         }
     }
 
-    private var launchStatusChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                launchChip(
-                    text: appVersionText,
-                    systemImage: "info.circle.fill",
-                    color: .blue
-                )
-                if let todaysCourse {
-                    launchChip(
-                        text: todayCourseText(todaysCourse),
-                        systemImage: "calendar.badge.clock",
-                        color: .green
-                    )
-                }
-            }
-            .padding(.horizontal)
-        }
+    private var todayStatusChip: some View {
+        launchChip(
+            text: todaysCourse.map(todayCourseText) ?? todayDateText,
+            systemImage: todaysCourse == nil ? "calendar" : "calendar.badge.clock",
+            color: todaysCourse == nil ? .gray : .green
+        )
         .frame(maxWidth: .infinity)
+    }
+
+    private var versionStatusChip: some View {
+        launchChip(
+            text: appVersionText,
+            systemImage: "info.circle.fill",
+            color: .blue
+        )
     }
 
     private func launchChip(text: String, systemImage: String, color: Color) -> some View {
@@ -300,6 +301,15 @@ struct WelcomeView: View {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "3.5"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "3.5"
         return "Version \(version) (Build \(build))"
+    }
+
+    private var todayDateText: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: Date())
     }
 
     private func todayCourseText(_ course: ClassManagerAPIClient.InstructorCourse) -> String {
