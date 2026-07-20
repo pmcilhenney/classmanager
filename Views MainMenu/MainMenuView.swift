@@ -337,7 +337,7 @@ struct MainMenuView: View {
 
     private var hasCompletedVersionAFullExam: Bool {
         guard let finalQuizId = progressStore.progress.finalExamResult?.quizId,
-              let combinedQuizId = getQuizzesForCourse().first?.flexiQuizId else {
+              let combinedQuizId = combinedVersionAQuizIdForCourse() else {
             return false
         }
         return finalQuizId == combinedQuizId || QuizInfo.isVersionBQuizId(finalQuizId)
@@ -693,8 +693,6 @@ struct MainMenuView: View {
                             },
                             onBack: { selectedQuiz = nil }
                         )
-                    } else if examWorkflowComplete {
-                        examCompletionTakeover
                     } else if let prompt = remediationPrompt {
                         VersionBRemediationSheet(
                             attendee: attendee,
@@ -716,6 +714,8 @@ struct MainMenuView: View {
                                 }
                             }
                         )
+                    } else if examWorkflowComplete {
+                        examCompletionTakeover
                     } else {
                         QuizSelectionView(
                             progressStore: progressStore,
@@ -2137,7 +2137,7 @@ struct MainMenuView: View {
     }
 
     private func getVersionBQuizForCourse() -> QuizInfo? {
-        guard let combinedQuizId = getQuizzesForCourse().first?.flexiQuizId else { return nil }
+        guard let combinedQuizId = combinedVersionAQuizIdForCourse() else { return nil }
         return QuizInfo.versionBQuiz(forCombinedQuizId: combinedQuizId)
     }
 
