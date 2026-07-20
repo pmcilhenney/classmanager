@@ -1343,6 +1343,11 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   const attendance = instructorPersonId
     ? await instructorAttendanceForCourse(env, instructorPersonId, classSessionId)
     : undefined;
+  const allowedFinalQuizIds = await finalExamQuizIdsForClassSession(env, classSessionId);
+  const finalRows = (finals.results ?? []).filter((row) => {
+    const quizId = stringField(row, "quiz_id") ?? "";
+    return !allowedFinalQuizIds || allowedFinalQuizIds.has(quizId);
+  });
 
   return json({
     ok: true,
@@ -1352,7 +1357,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
     attendance: attendance ?? null,
     students: (rows.results ?? []).map(dashboardStudent),
     quizResults: (attempts.results ?? []).map(dashboardQuizResult),
-    finalResults: (finals.results ?? []).map(dashboardFinalResult),
+    finalResults: finalRows.map(dashboardFinalResult),
     skillsVerifications: (skills.results ?? []).map(dashboardSkillsVerification),
     cprCards: (cprCards.results ?? []).map((row) => dashboardCprCard(row, url.origin)),
     remediationAttestations: (remediations.results ?? []).map(dashboardRemediationAttestation)
@@ -2572,15 +2577,20 @@ async function latestFinalExamResult(
   studentId: string,
   classSessionId: string
 ): Promise<FinalExamResult | undefined> {
-  const row = await env.DB.prepare(
+  const allowedQuizIds = await finalExamQuizIdsForClassSession(env, classSessionId);
+  const rows = await env.DB.prepare(
     `SELECT quiz_id, quiz_name, response_id, score_text, result_text, passed,
             percentage_score, points, available_points, report_url, completed_at
      FROM final_exam_results
      WHERE student_id = ?1 AND class_session_id = ?2
      ORDER BY COALESCE(completed_at, updated_at) DESC
-     LIMIT 1`
-  ).bind(studentId, classSessionId).first<JsonRecord>();
+     LIMIT 20`
+  ).bind(studentId, classSessionId).all<JsonRecord>();
 
+  const row = (rows.results ?? []).find((candidate) => {
+    const quizId = stringField(candidate, "quiz_id") ?? "";
+    return !allowedQuizIds || allowedQuizIds.has(quizId);
+  });
   if (!row) {
     return undefined;
   }
@@ -2598,6 +2608,54 @@ async function latestFinalExamResult(
     points: numberFromUnknown(row.points),
     availablePoints: numberFromUnknown(row.available_points)
   };
+}
+
+async function finalExamQuizIdsForClassSession(env: Env, classSessionId: string): Promise<Set<string> | undefined> {
+  const course = await refresherCourseForClassSession(env, classSessionId);
+  if (!course) {
+    return undefined;
+  }
+  return new Set([course.aggregateQuizId, versionBQuizIdForCourseLetter(course.letter)]);
+}
+
+async function quizMatchesClassSession(env: Env, classSessionId: string, quizId: string): Promise<boolean> {
+  const course = await refresherCourseForClassSession(env, classSessionId);
+  if (!course) {
+    return true;
+  }
+  return course.aggregateQuizId === quizId ||
+    course.quizIds.includes(quizId) ||
+    versionBQuizIdForCourseLetter(course.letter) === quizId;
+}
+
+async function refresherCourseForClassSession(env: Env, classSessionId: string): Promise<VersionACourse | undefined> {
+  const row = await env.DB.prepare(
+    `SELECT course_title
+     FROM scheduled_courses
+     WHERE class_session_id = ?1
+     ORDER BY updated_at DESC
+     LIMIT 1`
+  ).bind(classSessionId).first<JsonRecord>();
+  const title = (stringField(row ?? {}, "course_title") ?? "").toLowerCase();
+  if (title.includes("refresher a")) {
+    return REFRESHER_VERSION_A_COURSES.find((course) => course.letter === "A");
+  }
+  if (title.includes("refresher b")) {
+    return REFRESHER_VERSION_A_COURSES.find((course) => course.letter === "B");
+  }
+  if (title.includes("refresher c")) {
+    return REFRESHER_VERSION_A_COURSES.find((course) => course.letter === "C");
+  }
+  return undefined;
+}
+
+function versionBQuizIdForCourseLetter(letter: string): string {
+  switch (letter.toUpperCase()) {
+    case "A": return REFRESHER_A_VERSION_B_QUIZ_ID;
+    case "B": return REFRESHER_B_VERSION_B_QUIZ_ID;
+    case "C": return REFRESHER_C_VERSION_B_QUIZ_ID;
+    default: return "";
+  }
 }
 
 async function patchProgress(request: Request, url: URL, env: Env): Promise<Response> {
@@ -4722,6 +4780,9 @@ async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response>
     const studentId = stringField(context, "student_id");
     const classSessionId = stringField(context, "class_session_id");
     if (!studentId || !classSessionId) {
+      continue;
+    }
+    if (!(await quizMatchesClassSession(env, classSessionId, quizId))) {
       continue;
     }
 

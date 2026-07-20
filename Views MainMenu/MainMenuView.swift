@@ -622,7 +622,6 @@ struct MainMenuView: View {
                 }
                 Menu {
                     Button(action: {
-                        resetForNewScan()
                         showingQRScanner = true
                     }) {
                         Label("Scan New Student QR Code", systemImage: "qrcode.viewfinder")
@@ -1088,9 +1087,15 @@ struct MainMenuView: View {
         showingPDF = false
         selectedQuiz = nil
         selectedReviewQuiz = nil
+        completedQuizzes = []
+        remediationPrompt = nil
         selectedMaterialURL = nil
         electiveFormURL = nil
         electiveFormTitle = ""
+        checkoutSurveySubmissionId = nil
+        attendanceCaptureAction = nil
+        showingCPRUpload = false
+        cprCardStatus = nil
         skillsURL = nil
         electiveQuizLinks = []
         electiveSkillsLink = nil
@@ -1106,6 +1111,9 @@ struct MainMenuView: View {
         instructorIdInput = ""
         authenticatedInstructor = nil
         instructorAuthError = nil
+        quizResultToast = nil
+        pendingReviewId = nil
+        progressStore.resetSession()
         materialsManager.clearCache()
     }
 
@@ -1120,24 +1128,20 @@ struct MainMenuView: View {
             let newAttendee = lookup.attendee
             await MainActor.run {
                 ClassManagerLaunchSession.markScan()
-                self.attendee = newAttendee
                 resetForNewScan()
-                Task { @MainActor in
-                    await progressStore.load(oemsId: newAttendee.oemsId, courseDate: newAttendee.courseDate ?? "")
-                    // Ensure we also fetch the latest server record and merge immediately so
-                    // server-side changes (for example, a remote update) are reflected
-                    // as soon as a QR scan loads a new attendee.
-                    await progressStore.fetchLatestAndMerge()
-                    // Also merge any CK-backed completions into the visible set immediately
-                    let courseQuizIDs = Set(getQuizzesForCourse().map { $0.id })
-                    let ckIDs = Set(progressStore.progress.completedQuizIDs).intersection(courseQuizIDs)
-                    completedQuizzes.formUnion(ckIDs)
-
-                    electiveQuizLinks = []
-                    electiveSkillsLink = nil
-                }
+            }
+            await progressStore.load(oemsId: newAttendee.oemsId, courseDate: newAttendee.courseDate ?? "")
+            await progressStore.fetchLatestAndMerge()
+            await MainActor.run {
+                self.attendee = newAttendee
+                let courseQuizIDs = Set(getQuizzesForCourse().map { $0.id })
+                let ckIDs = Set(progressStore.progress.completedQuizIDs).intersection(courseQuizIDs)
+                completedQuizzes = ckIDs
+                electiveQuizLinks = []
+                electiveSkillsLink = nil
                 toast = "Loaded new student: \(newAttendee.firstName) \(newAttendee.lastName)"
             }
+            Task { await loadCprCardStatus() }
         } catch {
             await MainActor.run { toast = "Could not load registration data. Please try again." }
         }

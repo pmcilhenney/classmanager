@@ -104,6 +104,16 @@ final class CKProgressStore: ObservableObject {
 
     // MARK: - Public API
 
+    @MainActor
+    func resetSession() {
+        oemsId = ""
+        courseDate = nil
+        progress = CKProgress()
+        currentRecord = nil
+        currentRecordID = nil
+        iCloudOK = false
+    }
+
     /// Load (or create shell) progress for this attendee/date. Safe to call repeatedly.
     @MainActor
     func load(oemsId: String, courseDate: String?) async {
@@ -124,7 +134,9 @@ final class CKProgressStore: ObservableObject {
 
         // Show local immediately if present
         if let local = loadLocal() {
-            self.progress = local
+            var localWithoutFinal = local
+            localWithoutFinal.finalExamResult = nil
+            self.progress = localWithoutFinal
         }
 
         await fetchLatestFromWorker()
@@ -321,9 +333,7 @@ final class CKProgressStore: ObservableObject {
             for (quizId, result) in remote.quizResults {
                 merged.quizResults[quizId] = result
             }
-            if let finalExamResult = remote.finalExamResult {
-                merged.finalExamResult = finalExamResult
-            }
+            merged.finalExamResult = remote.finalExamResult
             if let remoteUpdatedAt = remote.updatedAt {
                 merged.updatedAt = max(merged.updatedAt, remoteUpdatedAt)
             }
