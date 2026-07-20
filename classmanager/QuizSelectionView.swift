@@ -264,12 +264,14 @@ struct QuizSelectionView: View {
     private func versionBResultsPendingCard(_ quiz: QuizInfo) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
-                LoadingSpinnerView()
-                    .frame(width: 32, height: 32)
+                Image(systemName: "pencil.and.list.clipboard")
+                    .font(.title2)
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 32)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Version B Results")
+                    Text("Version B In Progress")
                         .font(.headline)
-                    Text("Checking FlexiQuiz for the completed retest.")
+                    Text("Resume the retest if it was opened but not submitted. Check for results only after submitting Version B.")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
@@ -277,13 +279,22 @@ struct QuizSelectionView: View {
             }
 
             Button {
-                onReview(quiz)
+                selectedQuiz = quiz
             } label: {
-                Label("Check Now", systemImage: "arrow.clockwise")
+                Label("Resume Version B", systemImage: "play.fill")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .buttonStyle(.borderedProminent)
+
+            Button {
+                onReview(quiz)
+            } label: {
+                Label("Check for Submitted Results", systemImage: "arrow.clockwise")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .buttonStyle(.bordered)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
