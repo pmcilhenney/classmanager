@@ -6242,12 +6242,14 @@ function normalizeQuizReview(input: {
     input.warnings.push("question_detail_unavailable");
   }
 
-  const resultText = firstText(sources, ["result_text", "resultText", "result", "grade", "pass_fail", "outcome", "status"]);
-  const scoreText = scoreTextFromSources(sources);
+  const latestSources = [input.latest, recordField(input.latest, "content")].filter(isJsonRecord);
+  const orderedScoreSources = [...latestSources, ...sources];
+  const resultText = firstText(orderedScoreSources, ["result_text", "resultText", "result", "grade", "pass_fail", "outcome", "status"]);
+  const scoreText = scoreTextFromSources(orderedScoreSources);
   const passingScore = minimumPassingScoreForQuiz(input.quizId, sources);
-  const percentageScore = firstNumber(sources, ["percentage_score", "percentageScore", "percentage", "percent"]);
+  const percentageScore = percentageScoreFromSources(orderedScoreSources);
   const passed = (percentageScore !== undefined ? percentageScore >= passingScore : undefined) ??
-    boolFromUnknown(firstValue(sources, ["passed", "pass", "is_passed", "isPassed", "success"])) ??
+    boolFromUnknown(firstValue(orderedScoreSources, ["passed", "pass", "is_passed", "isPassed", "success"])) ??
     passStatusFromText(resultText ?? scoreText) ??
     passStatusFromScore(scoreText, passingScore);
 
@@ -6258,7 +6260,7 @@ function normalizeQuizReview(input: {
     resultText,
     scoreText,
     passed,
-    completedAt: firstText(sources, ["completed_at", "completedAt", "date_completed", "submitted_at", "submit_date", "finished_at"]),
+    completedAt: firstText(orderedScoreSources, ["completed_at", "completedAt", "date_completed", "submitted_at", "submit_date", "date_submitted", "finished_at"]),
     reportUrl: input.fallbackReportUrl,
     questions: questions.length > 0 ? questions : htmlQuestions,
     warnings: input.warnings
@@ -6408,16 +6410,45 @@ function scoreTextFromSources(sources: JsonRecord[]): string | undefined {
   if (direct) {
     return direct;
   }
-  const points = firstNumber(sources, ["points"]);
-  const available = firstNumber(sources, ["available_points", "availablePoints"]);
-  if (points !== undefined && available !== undefined && available > 0) {
-    return `${Math.round((points / available) * 100)}% (${points}/${available})`;
+  for (const source of sources) {
+    const points = firstNumber([source], ["points"]);
+    const available = firstNumber([source], ["available_points", "availablePoints"]);
+    if (points !== undefined && available !== undefined && available > 0) {
+      return `${Math.round((points / available) * 100)}% (${points}/${available})`;
+    }
   }
-  const percentage = firstNumber(sources, ["percentage_score", "percentageScore", "percentage", "percent"]);
-  if (percentage !== undefined) {
-    return `${Math.round(percentage)}%`;
+  for (const source of sources) {
+    const available = firstNumber([source], ["available_points", "availablePoints"]);
+    if (available !== undefined && available <= 0) {
+      continue;
+    }
+    const percentage = firstNumber([source], ["percentage_score", "percentageScore", "percentage", "percent"]);
+    if (percentage !== undefined) {
+      return `${Math.round(percentage)}%`;
+    }
   }
   return firstText(sources, ["grade"]);
+}
+
+function percentageScoreFromSources(sources: JsonRecord[]): number | undefined {
+  for (const source of sources) {
+    const points = firstNumber([source], ["points"]);
+    const available = firstNumber([source], ["available_points", "availablePoints"]);
+    if (points !== undefined && available !== undefined && available > 0) {
+      return Math.round((points / available) * 100);
+    }
+  }
+  for (const source of sources) {
+    const available = firstNumber([source], ["available_points", "availablePoints"]);
+    if (available !== undefined && available <= 0) {
+      continue;
+    }
+    const percentage = firstNumber([source], ["percentage_score", "percentageScore", "percentage", "percent"]);
+    if (percentage !== undefined) {
+      return percentage;
+    }
+  }
+  return undefined;
 }
 
 function responseLooksCompleted(response: JsonRecord): boolean {
