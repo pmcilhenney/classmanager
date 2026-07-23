@@ -6023,6 +6023,8 @@ async function fetchRmsQuizReview(
   if (!env.ACADEMY_RMS_BASE_URL || !env.ACADEMY_RMS_ATTENDANCE_SECRET) {
     return input.debug ? { __rmsLookupWarning: "rms_review_not_configured" } : undefined;
   }
+  const rmsBaseUrl = env.ACADEMY_RMS_BASE_URL;
+  const rmsSecret = env.ACADEMY_RMS_ATTENDANCE_SECRET;
   const params = new URLSearchParams();
   if (input.responseId) params.set("response_id", input.responseId);
   if (input.quizId) params.set("quiz_id", input.quizId);
@@ -6033,31 +6035,49 @@ async function fetchRmsQuizReview(
     return undefined;
   }
 
-  const endpoint = `${joinUrl(env.ACADEMY_RMS_BASE_URL, "/api/classmanager/flexiquiz-review")}?${params.toString()}`;
-  const res = await fetch(endpoint, {
-    headers: {
-      "accept": "application/json",
-      "x-classmanager-secret": env.ACADEMY_RMS_ATTENDANCE_SECRET
+  const lookup = async (lookupParams: URLSearchParams): Promise<JsonRecord | undefined> => {
+    const endpoint = `${joinUrl(rmsBaseUrl, "/api/classmanager/flexiquiz-review")}?${lookupParams.toString()}`;
+    const res = await fetch(endpoint, {
+      headers: {
+        "accept": "application/json",
+        "x-classmanager-secret": rmsSecret
+      }
+    });
+    const text = await res.text();
+    if (res.status === 404) {
+      return { __rmsLookupWarning: "rms_review_not_ready" };
     }
-  });
-  const text = await res.text();
-  if (res.status === 404) {
-    return { __rmsLookupWarning: "rms_review_not_ready" };
+    if (!res.ok) {
+      console.warn("RMS quiz review lookup failed", { status: res.status, body: text.slice(0, 500) });
+      return { __rmsLookupWarning: `rms_review_status_${res.status}` };
+    }
+    let payload: unknown;
+    try {
+      payload = JSON.parse(text) as unknown;
+    } catch (error) {
+      console.warn("RMS quiz review returned non-JSON response", { body: text.slice(0, 500), error });
+      const contentType = res.headers.get("content-type") ?? "unknown";
+      const bodyPrefix = cleanText(text.slice(0, 80)).replace(/[^a-zA-Z0-9._:/ -]/g, "").slice(0, 60).replace(/\s+/g, "-");
+      return input.debug ? { __rmsLookupWarning: `rms_review_non_json_${res.status}_${contentType}_${bodyPrefix}` } : undefined;
+    }
+    return isJsonRecord(payload) ? payload : undefined;
+  };
+
+  const primary = await lookup(params);
+  if (
+    stringField(primary ?? {}, "__rmsLookupWarning") === "rms_review_not_ready" &&
+    input.responseId &&
+    input.quizId &&
+    (input.email || input.flexiquizUserId)
+  ) {
+    const fallbackParams = new URLSearchParams(params);
+    fallbackParams.delete("response_id");
+    const fallback = await lookup(fallbackParams);
+    if (fallback && !stringField(fallback, "__rmsLookupWarning")) {
+      return fallback;
+    }
   }
-  if (!res.ok) {
-    console.warn("RMS quiz review lookup failed", { status: res.status, body: text.slice(0, 500) });
-    return { __rmsLookupWarning: `rms_review_status_${res.status}` };
-  }
-  let payload: unknown;
-  try {
-    payload = JSON.parse(text) as unknown;
-  } catch (error) {
-    console.warn("RMS quiz review returned non-JSON response", { body: text.slice(0, 500), error });
-    const contentType = res.headers.get("content-type") ?? "unknown";
-    const bodyPrefix = cleanText(text.slice(0, 80)).replace(/[^a-zA-Z0-9._:/ -]/g, "").slice(0, 60).replace(/\s+/g, "-");
-    return input.debug ? { __rmsLookupWarning: `rms_review_non_json_${res.status}_${contentType}_${bodyPrefix}` } : undefined;
-  }
-  return isJsonRecord(payload) ? payload : undefined;
+  return primary;
 }
 
 function mergeRmsQuizReview(review: QuizReviewPayload, rmsPayload: JsonRecord): QuizReviewPayload {
