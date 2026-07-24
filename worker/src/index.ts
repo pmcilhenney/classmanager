@@ -145,6 +145,13 @@ function versionBRemediationDeclinedMarkerId(combinedQuizId: string): string {
 function versionBRemediationCompletedMarkerId(combinedQuizId: string): string {
   return `${combinedQuizId}-version-b-remediation-completed`;
 }
+
+function isCombinedVersionAQuizId(quizId?: string): boolean {
+  return quizId === REFRESHER_A_COMBINED_QUIZ_ID ||
+    quizId === REFRESHER_B_COMBINED_QUIZ_ID ||
+    quizId === REFRESHER_C_COMBINED_QUIZ_ID;
+}
+
 const REFRESHER_VERSION_A_COURSES = [
   {
     letter: "A",
@@ -1343,6 +1350,9 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   const attendance = instructorPersonId
     ? await instructorAttendanceForCourse(env, instructorPersonId, classSessionId)
     : undefined;
+  const remediationRows = (remediations.results ?? []).filter((row) =>
+    isCombinedVersionAQuizId(stringField(row, "quiz_id"))
+  );
   const allowedFinalQuizIds = await finalExamQuizIdsForClassSession(env, classSessionId);
   const finalRows = (finals.results ?? []).filter((row) => {
     const quizId = stringField(row, "quiz_id") ?? "";
@@ -1360,7 +1370,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
     finalResults: finalRows.map(dashboardFinalResult),
     skillsVerifications: (skills.results ?? []).map(dashboardSkillsVerification),
     cprCards: (cprCards.results ?? []).map((row) => dashboardCprCard(row, url.origin)),
-    remediationAttestations: (remediations.results ?? []).map(dashboardRemediationAttestation)
+    remediationAttestations: remediationRows.map(dashboardRemediationAttestation)
   });
 }
 
@@ -4461,6 +4471,9 @@ async function requestRemediationReview(request: Request, env: Env): Promise<Res
   if (!studentId || !classSessionId || !quizId) {
     return json({ error: "missing_remediation_request_fields" }, 400);
   }
+  if (!isCombinedVersionAQuizId(quizId)) {
+    return json({ error: "remediation_requires_combined_version_a_review" }, 400);
+  }
 
   const now = new Date().toISOString();
   const id = `${classSessionId}:${studentId}:${quizId}:requested`;
@@ -4532,6 +4545,9 @@ async function declineRemediationReview(request: Request, env: Env): Promise<Res
   const deviceId = stringField(body, "deviceId");
   if (!studentId || !classSessionId || !quizId || !versionBQuizId || !attestationText || !signatureDataUrl) {
     return json({ error: "missing_remediation_decline_fields" }, 400);
+  }
+  if (!isCombinedVersionAQuizId(quizId)) {
+    return json({ error: "remediation_requires_combined_version_a_review" }, 400);
   }
 
   const now = new Date().toISOString();
@@ -4613,6 +4629,9 @@ async function acknowledgeRemediationReview(request: Request, env: Env): Promise
   if (!studentId || !classSessionId || !quizId || !versionBQuizId || !attestationText || !signatureDataUrl) {
     return json({ error: "missing_remediation_acknowledge_fields" }, 400);
   }
+  if (!isCombinedVersionAQuizId(quizId)) {
+    return json({ error: "remediation_requires_combined_version_a_review" }, 400);
+  }
 
   const now = new Date().toISOString();
   const id = `${classSessionId}:${studentId}:${quizId}:acknowledged`;
@@ -4682,6 +4701,9 @@ async function completeRemediationReview(request: Request, env: Env): Promise<Re
   const deviceId = stringField(body, "deviceId");
   if (!studentId || !classSessionId || !instructorPersonId || !quizId || !versionBQuizId) {
     return json({ error: "missing_remediation_complete_fields" }, 400);
+  }
+  if (!isCombinedVersionAQuizId(quizId)) {
+    return json({ error: "remediation_requires_combined_version_a_review" }, 400);
   }
 
   const now = new Date().toISOString();

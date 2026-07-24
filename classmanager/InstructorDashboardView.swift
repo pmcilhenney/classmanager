@@ -115,7 +115,14 @@ struct InstructorDashboardView: View {
                 NavigationStack {
                     ZStack {
                         if let skillsURL {
-                            SkillsWebView(url: skillsURL)
+                            SkillsWebView(url: skillsURL) {
+                                Task { @MainActor in
+                                    notice = "Skills verification submitted."
+                                    self.skillsURL = nil
+                                    self.isPreparingSkillsForm = false
+                                }
+                                Task { await refresh() }
+                            }
                         } else {
                             LoadingSpinnerView()
                         }

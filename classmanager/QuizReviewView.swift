@@ -68,7 +68,7 @@ struct QuizReviewView: View {
     private func requiresVersionBRemediation(_ review: ClassManagerAPIClient.QuizReviewResponse) -> Bool {
         quiz.questionRange == nil
             && review.passed == false
-            && !QuizInfo.isVersionBQuizId(review.quizId)
+            && QuizInfo.isCombinedVersionAQuizId(review.quizId)
             && !QuizInfo.isVersionBQuizId(quiz.flexiQuizId)
     }
 
