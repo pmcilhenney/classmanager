@@ -1241,6 +1241,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
       course: null,
       courses,
       attendance: null,
+      instructors: [],
       students: [],
       quizResults: [],
       finalResults: [],
@@ -1350,6 +1351,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   const attendance = instructorPersonId
     ? await instructorAttendanceForCourse(env, instructorPersonId, classSessionId)
     : undefined;
+  const instructorRows = await instructorsForCourse(env, classSessionId);
   const remediationRows = (remediations.results ?? []).filter((row) =>
     isCombinedVersionAQuizId(stringField(row, "quiz_id"))
   );
@@ -1365,6 +1367,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
     course: selectedCourse ?? null,
     courses,
     attendance: attendance ?? null,
+    instructors: instructorRows,
     students: (rows.results ?? []).map(dashboardStudent),
     quizResults: (attempts.results ?? []).map(dashboardQuizResult),
     finalResults: finalRows.map(dashboardFinalResult),
@@ -1732,6 +1735,24 @@ async function instructorAttendanceForCourse(
      LIMIT 1`
   ).bind(personId, classSessionId).first<JsonRecord>();
   return row ? instructorAttendanceFromRow(row) : undefined;
+}
+
+async function instructorsForCourse(env: Env, classSessionId: string): Promise<JsonRecord[]> {
+  const rows = await env.DB.prepare(
+    `SELECT ia.id, ia.person_id, ia.class_session_id, ia.course_id, ia.course_title, ia.course_date,
+            ia.checked_in_at, ia.checked_out_at,
+            i.full_name, i.first_name, i.last_name, i.email, i.oems_id
+     FROM instructor_attendance ia
+     LEFT JOIN instructors i ON i.person_id = ia.person_id
+     WHERE ia.class_session_id = ?1
+     ORDER BY CASE WHEN ia.checked_out_at IS NULL THEN 0 ELSE 1 END,
+              ia.checked_in_at ASC`
+  ).bind(classSessionId).all<JsonRecord>();
+
+  return (rows.results ?? []).map((row) => ({
+    ...instructorProfileFromRow(row),
+    attendance: instructorAttendanceFromRow(row)
+  }));
 }
 
 function instructorAttendanceFromRow(row: JsonRecord): JsonRecord {

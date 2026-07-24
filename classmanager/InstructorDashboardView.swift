@@ -297,6 +297,7 @@ struct InstructorDashboardView: View {
     private var dashboardList: some View {
         List {
             instructorSection
+            otherInstructorsSection
             rosterSection
         }
     }
@@ -341,6 +342,54 @@ struct InstructorDashboardView: View {
                 }
             }
             .padding(.vertical, 4)
+        }
+    }
+
+    private var otherInstructorsSection: some View {
+        let instructors = (dashboard?.instructors ?? [])
+            .filter { $0.personId != instructor.personId }
+
+        return Section("Other Instructors") {
+            if instructors.isEmpty {
+                Text("No other instructors have checked into this class yet.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(instructors) { row in
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: row.attendance?.checkedOutAt == nil ? "person.badge.clock.fill" : "checkmark.circle.fill")
+                            .foregroundStyle(row.attendance?.checkedOutAt == nil ? .blue : .green)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(row.fullName)
+                                .font(.subheadline.weight(.semibold))
+                            if let oemsId = row.oemsId, !oemsId.isEmpty {
+                                Text("OEMS \(oemsId)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let checkedIn = row.attendance?.checkedInAt {
+                                Text("In \(formatEasternTime(checkedIn))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let checkedOut = row.attendance?.checkedOutAt {
+                                Text("Out \(formatEasternTime(checkedOut))")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                            } else {
+                                Text("Still checked in")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.blue)
+                            }
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
         }
     }
 

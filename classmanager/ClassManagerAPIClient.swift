@@ -761,12 +761,25 @@ extension ClassManagerAPIClient {
         let course: InstructorCourse?
         let courses: [InstructorCourse]?
         let attendance: InstructorAttendance?
+        let instructors: [DashboardInstructorStatus]?
         let students: [DashboardStudent]
         let quizResults: [DashboardQuizResult]
         let finalResults: [DashboardFinalResult]
         let skillsVerifications: [DashboardSkillsVerification]
         let cprCards: [DashboardCprCard]?
         let remediationAttestations: [DashboardRemediationAttestation]?
+    }
+
+    struct DashboardInstructorStatus: Decodable, Identifiable, Hashable {
+        let personId: String
+        let fullName: String
+        let firstName: String?
+        let lastName: String?
+        let email: String?
+        let oemsId: String?
+        let attendance: InstructorAttendance?
+
+        var id: String { personId }
     }
 
     struct DashboardStudent: Decodable, Identifiable, Hashable {
