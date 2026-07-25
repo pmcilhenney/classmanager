@@ -6351,8 +6351,9 @@ function applyQuestionRationales(review: QuizReviewPayload): QuizReviewPayload {
   let mappedCount = 0;
   const questions = review.questions.map((question) => {
     const existing = question.feedback?.trim();
-    if (existing && rationaleLooksClinicallyUseful(existing)) {
-      return { ...question, feedback: cleanText(existing) };
+    const normalizedExisting = existing ? normalizeRationaleText(existing) : "";
+    if (normalizedExisting && rationaleLooksClinicallyUseful(normalizedExisting)) {
+      return { ...question, feedback: normalizedExisting };
     }
 
     const mapped = mappedRationaleForQuestion(review.quizId, question);
@@ -6380,7 +6381,7 @@ function rationaleLooksClinicallyUseful(value: string): boolean {
   if (clean.length < 80) {
     return false;
   }
-  if (/\bkeyed answer\b|\bkeyed option\b|question stem|question wording|answer choices|best fits the presentation, protocol, or EMT decision point/i.test(clean)) {
+  if (/\bkeyed answer\b|\bkeyed option\b|question stem|question wording|answer choices|objective link|this is the answer that|best fits the presentation, protocol, or EMT decision point/i.test(clean)) {
     return false;
   }
   return true;
@@ -6388,8 +6389,9 @@ function rationaleLooksClinicallyUseful(value: string): boolean {
 
 function mappedRationaleForQuestion(quizId: string, question: QuizReviewQuestion): string | undefined {
   const knownRationale = knownRationaleForQuestion(quizId, question);
-  if (knownRationale && rationaleLooksClinicallyUseful(knownRationale)) {
-    return normalizeRationaleText(knownRationale);
+  const normalizedKnownRationale = knownRationale ? normalizeRationaleText(knownRationale) : "";
+  if (normalizedKnownRationale && rationaleLooksClinicallyUseful(normalizedKnownRationale)) {
+    return normalizedKnownRationale;
   }
 
   return fallbackRationaleForQuestion(question);
@@ -6398,6 +6400,12 @@ function mappedRationaleForQuestion(quizId: string, question: QuizReviewQuestion
 function normalizeRationaleText(value: string): string {
   return cleanText(value)
     .replace(/^Correct answer:\s*[^.]+(?:\.\s*)?/i, "")
+    .replace(/\bThis is the answer that most directly addresses the EMT-level assessment or treatment decision in the prompt\.\s*/gi, "")
+    .replace(/\bThe other options may be plausible distractors, but they do not best match the clinical priority or definition being tested\.\s*/gi, "")
+    .replace(/\bOn retest, focus on identifying the key assessment finding and matching it to the safest field action\.\s*/gi, "")
+    .replace(/\bThe rationale is tied to recognizing the critical clue and choosing the answer that preserves patient safety\.\s*/gi, "")
+    .replace(/\bThis item reinforces the same competency from Version A while requiring the student to reason through a new stem\.\s*/gi, "")
+    .replace(/\s*Objective link:\s*.*$/i, "")
     .trim();
 }
 
