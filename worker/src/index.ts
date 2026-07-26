@@ -3837,6 +3837,25 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     return json({ error: "flexiquiz_not_configured" }, 503);
   }
 
+  const versionBEligibility = await versionBLaunchEligibility(env, {
+    quizId,
+    studentId,
+    classSessionId
+  });
+  if (!versionBEligibility.ok) {
+    await audit(env, "quiz.assign.blocked", {
+      studentId,
+      classSessionId,
+      deviceId,
+      payload: { email, quizId, reason: versionBEligibility.reason, details: versionBEligibility.details }
+    });
+    return json({
+      error: versionBEligibility.reason,
+      message: versionBEligibility.message,
+      details: versionBEligibility.details
+    }, 403);
+  }
+
   const warnings: string[] = [];
   const quizCheck = await flexiQuizStatus(env, quizId);
   if (!quizCheck.ok) {
@@ -4495,6 +4514,16 @@ async function requestRemediationReview(request: Request, env: Env): Promise<Res
   if (!isCombinedVersionAQuizId(quizId)) {
     return json({ error: "remediation_requires_combined_version_a_review" }, 400);
   }
+  const eligibility = await versionARemediationEligibility(env, { quizId, studentId, classSessionId });
+  if (!eligibility.ok) {
+    await audit(env, "quiz.remediation.blocked", {
+      studentId,
+      classSessionId,
+      deviceId,
+      payload: { quizId, versionBQuizId, reason: eligibility.reason, details: eligibility.details }
+    });
+    return json({ error: eligibility.reason, message: eligibility.message, details: eligibility.details }, 403);
+  }
 
   const now = new Date().toISOString();
   const id = `${classSessionId}:${studentId}:${quizId}:requested`;
@@ -4569,6 +4598,16 @@ async function declineRemediationReview(request: Request, env: Env): Promise<Res
   }
   if (!isCombinedVersionAQuizId(quizId)) {
     return json({ error: "remediation_requires_combined_version_a_review" }, 400);
+  }
+  const eligibility = await versionARemediationEligibility(env, { quizId, studentId, classSessionId });
+  if (!eligibility.ok) {
+    await audit(env, "quiz.remediation.blocked", {
+      studentId,
+      classSessionId,
+      deviceId,
+      payload: { quizId, versionBQuizId, reason: eligibility.reason, details: eligibility.details }
+    });
+    return json({ error: eligibility.reason, message: eligibility.message, details: eligibility.details }, 403);
   }
 
   const now = new Date().toISOString();
@@ -4653,6 +4692,16 @@ async function acknowledgeRemediationReview(request: Request, env: Env): Promise
   if (!isCombinedVersionAQuizId(quizId)) {
     return json({ error: "remediation_requires_combined_version_a_review" }, 400);
   }
+  const eligibility = await versionARemediationEligibility(env, { quizId, studentId, classSessionId });
+  if (!eligibility.ok) {
+    await audit(env, "quiz.remediation.blocked", {
+      studentId,
+      classSessionId,
+      deviceId,
+      payload: { quizId, versionBQuizId, reason: eligibility.reason, details: eligibility.details }
+    });
+    return json({ error: eligibility.reason, message: eligibility.message, details: eligibility.details }, 403);
+  }
 
   const now = new Date().toISOString();
   const id = `${classSessionId}:${studentId}:${quizId}:acknowledged`;
@@ -4725,6 +4774,16 @@ async function completeRemediationReview(request: Request, env: Env): Promise<Re
   }
   if (!isCombinedVersionAQuizId(quizId)) {
     return json({ error: "remediation_requires_combined_version_a_review" }, 400);
+  }
+  const eligibility = await versionARemediationEligibility(env, { quizId, studentId, classSessionId });
+  if (!eligibility.ok) {
+    await audit(env, "quiz.remediation.blocked", {
+      studentId,
+      classSessionId,
+      deviceId,
+      payload: { quizId, versionBQuizId, instructorPersonId, reason: eligibility.reason, details: eligibility.details }
+    });
+    return json({ error: eligibility.reason, message: eligibility.message, details: eligibility.details }, 403);
   }
 
   const now = new Date().toISOString();
@@ -5457,6 +5516,13 @@ function minimumPassingScoreForQuiz(quizId: string, sources: JsonRecord[]): numb
 
 type VersionACourse = typeof REFRESHER_VERSION_A_COURSES[number];
 
+type VersionBEligibilityResult = {
+  ok: boolean;
+  reason?: string;
+  message?: string;
+  details?: JsonRecord;
+};
+
 function versionACourseForQuizId(quizId?: string): VersionACourse | undefined {
   if (!quizId) {
     return undefined;
@@ -5464,6 +5530,158 @@ function versionACourseForQuizId(quizId?: string): VersionACourse | undefined {
   return REFRESHER_VERSION_A_COURSES.find((course) =>
     course.quizIds.includes(quizId) || course.aggregateQuizId === quizId
   );
+}
+
+function versionACourseForVersionBQuizId(quizId?: string): VersionACourse | undefined {
+  if (!quizId) {
+    return undefined;
+  }
+  return REFRESHER_VERSION_A_COURSES.find((course) =>
+    versionBQuizIdForCourseLetter(course.letter) === quizId
+  );
+}
+
+async function versionBLaunchEligibility(
+  env: Env,
+  input: { quizId: string; studentId?: string; classSessionId?: string }
+): Promise<VersionBEligibilityResult> {
+  const course = versionACourseForVersionBQuizId(input.quizId);
+  if (!course) {
+    return { ok: true };
+  }
+  if (!input.studentId || !input.classSessionId) {
+    return {
+      ok: false,
+      reason: "version_b_context_required",
+      message: "Version B requires a student and class context."
+    };
+  }
+
+  const versionA = await env.DB.prepare(
+    `SELECT score_text, result_text, passed, percentage_score, points, available_points, completed_at
+     FROM final_exam_results
+     WHERE student_id = ?1
+       AND class_session_id = ?2
+       AND quiz_id = ?3
+     ORDER BY completed_at DESC, updated_at DESC
+     LIMIT 1`
+  ).bind(input.studentId, input.classSessionId, course.aggregateQuizId).first<JsonRecord>();
+  if (!versionA) {
+    return {
+      ok: false,
+      reason: "version_a_result_required",
+      message: "Version A must be completed before Version B can be issued.",
+      details: { aggregateQuizId: course.aggregateQuizId }
+    };
+  }
+
+  const scoreText = stringField(versionA, "score_text");
+  const percentage = numberFromUnknown(versionA.percentage_score) ?? scorePartsFromText(scoreText).percent;
+  const passed = boolFromUnknown(versionA.passed) ??
+    passStatusFromText(stringField(versionA, "result_text") ?? scoreText) ??
+    (percentage !== undefined ? percentage >= REFRESHER_VERSION_A_PASSING_SCORE : undefined);
+  if (passed !== false) {
+    return {
+      ok: false,
+      reason: "version_a_already_passed",
+      message: "Version B is only available after an unsuccessful Version A attempt.",
+      details: {
+        aggregateQuizId: course.aggregateQuizId,
+        scoreText: scoreText ?? null,
+        percentageScore: percentage ?? null,
+        passed: passed ?? null
+      }
+    };
+  }
+
+  const cleared = await env.DB.prepare(
+    `SELECT action, signed_at, created_at
+     FROM remediation_attestations
+     WHERE student_id = ?1
+       AND class_session_id = ?2
+       AND quiz_id = ?3
+       AND version_b_quiz_id = ?4
+       AND action IN ('declined_in_person_review', 'acknowledged_in_person_review', 'completed_in_person_review')
+     ORDER BY COALESCE(signed_at, created_at) DESC
+     LIMIT 1`
+  ).bind(input.studentId, input.classSessionId, course.aggregateQuizId, input.quizId).first<JsonRecord>();
+  if (!cleared) {
+    return {
+      ok: false,
+      reason: "version_b_remediation_required",
+      message: "Version B is locked until the required review/remediation step is complete.",
+      details: {
+        aggregateQuizId: course.aggregateQuizId,
+        scoreText: scoreText ?? null
+      }
+    };
+  }
+
+  return {
+    ok: true,
+    details: {
+      aggregateQuizId: course.aggregateQuizId,
+      remediationAction: stringField(cleared, "action") ?? null
+    }
+  };
+}
+
+async function versionARemediationEligibility(
+  env: Env,
+  input: { quizId: string; studentId?: string; classSessionId?: string }
+): Promise<VersionBEligibilityResult> {
+  if (!isCombinedVersionAQuizId(input.quizId)) {
+    return {
+      ok: false,
+      reason: "remediation_requires_combined_version_a_review",
+      message: "Remediation can only be recorded against a combined Version A exam result."
+    };
+  }
+  if (!input.studentId || !input.classSessionId) {
+    return {
+      ok: false,
+      reason: "version_a_context_required",
+      message: "Version A remediation requires a student and class context."
+    };
+  }
+
+  const versionA = await env.DB.prepare(
+    `SELECT score_text, result_text, passed, percentage_score
+     FROM final_exam_results
+     WHERE student_id = ?1
+       AND class_session_id = ?2
+       AND quiz_id = ?3
+     ORDER BY completed_at DESC, updated_at DESC
+     LIMIT 1`
+  ).bind(input.studentId, input.classSessionId, input.quizId).first<JsonRecord>();
+  if (!versionA) {
+    return {
+      ok: false,
+      reason: "version_a_result_required",
+      message: "Version A must be completed before remediation can be recorded."
+    };
+  }
+
+  const scoreText = stringField(versionA, "score_text");
+  const percentage = numberFromUnknown(versionA.percentage_score) ?? scorePartsFromText(scoreText).percent;
+  const passed = boolFromUnknown(versionA.passed) ??
+    passStatusFromText(stringField(versionA, "result_text") ?? scoreText) ??
+    (percentage !== undefined ? percentage >= REFRESHER_VERSION_A_PASSING_SCORE : undefined);
+
+  if (passed !== false) {
+    return {
+      ok: false,
+      reason: "version_a_already_passed",
+      message: "Remediation is only required after an unsuccessful Version A attempt.",
+      details: {
+        scoreText: scoreText ?? null,
+        percentageScore: percentage ?? null,
+        passed: passed ?? null
+      }
+    };
+  }
+
+  return { ok: true };
 }
 
 function versionAComponentIndex(course: VersionACourse, quizId: string): number | undefined {
