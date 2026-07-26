@@ -53,11 +53,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        let userInfo = notification.request.content.userInfo
         NotificationCenter.default.post(
             name: .ckRemoteNotificationReceived,
             object: nil,
-            userInfo: notification.request.content.userInfo
+            userInfo: userInfo
         )
+        if (userInfo["type"] as? String) == "classmanager.instructor_dashboard_refresh" {
+            return []
+        }
         return [.banner, .sound, .list]
     }
 

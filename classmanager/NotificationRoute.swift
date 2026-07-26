@@ -34,6 +34,7 @@ struct ClassManagerNotificationRoute: Equatable {
 
     var isInstructorDashboardUpdate: Bool {
         type == "classmanager.instructor_dashboard_update"
+            || type == "classmanager.instructor_dashboard_refresh"
     }
 
     var isStudentExamRoute: Bool {

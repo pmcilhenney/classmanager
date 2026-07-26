@@ -942,7 +942,7 @@ struct InstructorDashboardView: View {
 
     private func handleRemoteDashboardUpdate(_ userInfo: [AnyHashable: Any]?) async {
         guard let userInfo,
-              (userInfo["type"] as? String) == "classmanager.instructor_dashboard_update" else {
+              ClassManagerNotificationRoute(userInfo: userInfo)?.isInstructorDashboardUpdate == true else {
             return
         }
 

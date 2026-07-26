@@ -1529,6 +1529,16 @@ async function sendStudentCheckoutNotice(request: Request, env: Env, url: URL): 
     return json({ error: "checkout_notice_send_failed", details: result }, 502);
   }
 
+  await notifyInstructorDashboard(env, {
+    classSessionId,
+    studentId,
+    event: "checkout_notice_sent",
+    title: "Checkout notice sent",
+    body: `Checkout notice sent to ${context.fullName}.`,
+    completedAt: new Date().toISOString(),
+    silent: true
+  });
+
   return json({ ok: true, sentAt: new Date().toISOString(), expiresAt });
 }
 
@@ -1660,6 +1670,15 @@ async function checkoutMagicSubmit(request: Request, url: URL, env: Env): Promis
     }
   });
 
+  await notifyInstructorDashboard(env, {
+    classSessionId: context.classSessionId,
+    studentId: context.studentId,
+    event: "checkout_magic_completed",
+    title: "Checkout completed",
+    body: `${context.fullName} completed checkout from the emailed link.`,
+    completedAt: now,
+    silent: true
+  });
   await maybeSendInstructorCheckoutReminder(env, context.classSessionId);
   return json({ ok: true, checkedOutAt: now });
 }
@@ -5577,6 +5596,7 @@ async function notifyInstructorDashboard(
     scoreText?: string;
     resultText?: string;
     completedAt?: string;
+    silent?: boolean;
   }
 ): Promise<void> {
   const instructors = await env.DB.prepare(
@@ -5623,6 +5643,7 @@ async function notifyInstructorDashboard(
       quizId: input.quizId ?? null,
       responseId: input.responseId ?? null,
       scoreText: input.scoreText ?? null,
+      silent: input.silent === true,
       sent,
       failed
     }
@@ -8846,6 +8867,7 @@ async function sendInstructorDashboardApns(
     scoreText?: string;
     resultText?: string;
     completedAt?: string;
+    silent?: boolean;
   }
 ): Promise<void> {
   const topic = (env.APNS_BUNDLE_ID ?? "").trim();
@@ -8858,24 +8880,27 @@ async function sendInstructorDashboardApns(
     : "https://api.push.apple.com";
   const jwt = await apnsJwt(env);
   const sentAt = new Date().toISOString();
+  const silent = input.silent === true;
 
   const response = await fetch(`${host}/3/device/${input.token}`, {
     method: "POST",
     headers: {
       authorization: `bearer ${jwt}`,
       "apns-topic": topic,
-      "apns-push-type": "alert",
-      "apns-priority": "10",
+      "apns-push-type": silent ? "background" : "alert",
+      "apns-priority": silent ? "5" : "10",
       "apns-collapse-id": `instructor-dashboard-${input.classSessionId}`,
       "content-type": "application/json"
     },
     body: JSON.stringify({
-      aps: {
-        alert: { title: input.title, body: input.body },
-        sound: "default",
-        "content-available": 1
-      },
-      type: "classmanager.instructor_dashboard_update",
+      aps: silent
+        ? { "content-available": 1 }
+        : {
+            alert: { title: input.title, body: input.body },
+            sound: "default",
+            "content-available": 1
+          },
+      type: silent ? "classmanager.instructor_dashboard_refresh" : "classmanager.instructor_dashboard_update",
       sentAt,
       event: input.event,
       classSessionId: input.classSessionId,
