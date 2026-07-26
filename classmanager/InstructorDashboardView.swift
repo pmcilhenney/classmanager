@@ -298,6 +298,8 @@ struct InstructorDashboardView: View {
         List {
             instructorSection
             otherInstructorsSection
+            endOfDayChecklistSection
+            liveAlertsSection
             rosterSection
         }
     }
@@ -388,6 +390,74 @@ struct InstructorDashboardView: View {
                         Spacer()
                     }
                     .padding(.vertical, 4)
+                }
+            }
+        }
+    }
+
+    private var endOfDayChecklistSection: some View {
+        let items = endOfDayChecklistItems()
+        let complete = items.filter(\.isComplete).count
+        return Section("End-of-Day Checklist") {
+            HStack {
+                Label("\(complete)/\(items.count) complete", systemImage: complete == items.count ? "checkmark.seal.fill" : "checklist")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(complete == items.count ? .green : .blue)
+                Spacer()
+            }
+            ForEach(items) { item in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: item.isComplete ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(item.isComplete ? .green : .secondary)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(item.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
+    private var liveAlertsSection: some View {
+        let alerts = liveAlertItems()
+        return Section("Live Alerts") {
+            if alerts.isEmpty {
+                Label("No active alerts", systemImage: "bell.badge")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(alerts) { alert in
+                    Button {
+                        if let student = alert.student {
+                            selectedStudent = student
+                        }
+                    } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: alert.icon)
+                                .foregroundStyle(alert.color)
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(alert.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                Text(alert.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if alert.student != nil {
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -494,6 +564,131 @@ struct InstructorDashboardView: View {
             .padding(.horizontal, 8)
             .frame(height: 24)
             .background(color.opacity(0.12), in: Capsule())
+    }
+
+    private struct ChecklistItem: Identifiable {
+        let id: String
+        let title: String
+        let detail: String
+        let isComplete: Bool
+    }
+
+    private struct LiveAlertItem: Identifiable {
+        let id: String
+        let title: String
+        let detail: String
+        let icon: String
+        let color: Color
+        let student: ClassManagerAPIClient.DashboardStudent?
+    }
+
+    private func endOfDayChecklistItems() -> [ChecklistItem] {
+        let students = dashboard?.students ?? []
+        let expected = students.count
+        let checkedIn = students.filter(\.didCheckIn).count
+        let checkedOut = students.filter(\.didCheckOut).count
+        let cprComplete = students.filter { student in
+            cprCard(for: student).map(cprAccepted) == true
+        }.count
+        let examsComplete = students.filter { examCompleteForEndOfDay($0) }.count
+        let skillsCompleteCount = students.filter { skillsComplete(for: $0) }.count
+        let instructorRows = dashboard?.instructors ?? []
+        let allInstructorsCheckedOut = !instructorRows.isEmpty && instructorRows.allSatisfy { $0.attendance?.checkedOutAt != nil }
+
+        return [
+            ChecklistItem(
+                id: "attendance-in",
+                title: "Student check-in",
+                detail: "\(checkedIn)/\(expected) students checked in",
+                isComplete: expected > 0 && checkedIn == expected
+            ),
+            ChecklistItem(
+                id: "exams",
+                title: "Exam outcomes finalized",
+                detail: "\(examsComplete)/\(expected) students have a final exam result",
+                isComplete: expected > 0 && examsComplete == expected
+            ),
+            ChecklistItem(
+                id: "cpr",
+                title: "CPR cards accepted",
+                detail: "\(cprComplete)/\(expected) cards accepted or approved",
+                isComplete: expected > 0 && cprComplete == expected
+            ),
+            ChecklistItem(
+                id: "skills",
+                title: "Skills verification",
+                detail: "\(skillsCompleteCount)/\(expected) skills forms complete",
+                isComplete: expected > 0 && skillsCompleteCount == expected
+            ),
+            ChecklistItem(
+                id: "attendance-out",
+                title: "Student checkout",
+                detail: "\(checkedOut)/\(expected) students checked out",
+                isComplete: expected > 0 && checkedOut == expected
+            ),
+            ChecklistItem(
+                id: "instructor-out",
+                title: "Instructor checkout",
+                detail: allInstructorsCheckedOut ? "All instructors checked out" : "One or more instructors still checked in",
+                isComplete: allInstructorsCheckedOut
+            )
+        ]
+    }
+
+    private func liveAlertItems() -> [LiveAlertItem] {
+        let students = dashboard?.students ?? []
+        var alerts: [LiveAlertItem] = []
+        for student in students {
+            if student.didCheckIn && !student.didCheckOut && examCompleteForEndOfDay(student) {
+                alerts.append(LiveAlertItem(
+                    id: "\(student.id)-checkout",
+                    title: "\(student.fullName.isEmpty ? student.studentId : student.fullName) needs checkout",
+                    detail: "Exam workflow is complete but checkout is still pending.",
+                    icon: "rectangle.portrait.and.arrow.right",
+                    color: .orange,
+                    student: student
+                ))
+            }
+            if let cpr = cprCard(for: student), !cprAccepted(cpr) {
+                alerts.append(LiveAlertItem(
+                    id: "\(student.id)-cpr",
+                    title: "\(student.fullName.isEmpty ? student.studentId : student.fullName) CPR needs review",
+                    detail: cprStatusLabel(cpr.validationStatus),
+                    icon: "cross.case.fill",
+                    color: .red,
+                    student: student
+                ))
+            } else if cprCard(for: student) == nil {
+                alerts.append(LiveAlertItem(
+                    id: "\(student.id)-cpr-missing",
+                    title: "\(student.fullName.isEmpty ? student.studentId : student.fullName) missing CPR card",
+                    detail: "No CPR card is on file for this class.",
+                    icon: "cross.case",
+                    color: .orange,
+                    student: student
+                ))
+            }
+            if failedVersionAAndB(student) {
+                alerts.append(LiveAlertItem(
+                    id: "\(student.id)-failed-ab",
+                    title: "\(student.fullName.isEmpty ? student.studentId : student.fullName) failed exams A & B",
+                    detail: "Do not complete skills verification for this student.",
+                    icon: "xmark.octagon.fill",
+                    color: .red,
+                    student: student
+                ))
+            } else if remediationAttestation(for: student)?.action == "requested_in_person_review" {
+                alerts.append(LiveAlertItem(
+                    id: "\(student.id)-remediation",
+                    title: "\(student.fullName.isEmpty ? student.studentId : student.fullName) requested review",
+                    detail: "In-person remediation is requested before Version B.",
+                    icon: "person.2.wave.2.fill",
+                    color: .orange,
+                    student: student
+                ))
+            }
+        }
+        return alerts
     }
 
     private func studentDetail(_ student: ClassManagerAPIClient.DashboardStudent) -> some View {
@@ -659,6 +854,13 @@ struct InstructorDashboardView: View {
 
                 Section("Instructor Actions") {
                     let skillsLockedForFailedExams = failedVersionAAndB(student)
+                    Button {
+                        Task { await sendCheckoutNotice(for: student) }
+                    } label: {
+                        Label("Email Checkout Notice", systemImage: "envelope.badge")
+                    }
+                    .disabled(student.didCheckOut || (student.email ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
                     Button {
                         if skillsLockedForFailedExams {
                             notice = "Skills verification is locked because exams A and B were unsuccessful."
@@ -944,6 +1146,33 @@ struct InstructorDashboardView: View {
         }
     }
 
+    private func sendCheckoutNotice(for student: ClassManagerAPIClient.DashboardStudent) async {
+        guard !student.didCheckOut else {
+            await MainActor.run { notice = "This student is already checked out." }
+            return
+        }
+        guard let email = student.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty else {
+            await MainActor.run { notice = "No student email address is available." }
+            return
+        }
+
+        await MainActor.run { busy = true }
+        defer { Task { @MainActor in busy = false } }
+
+        do {
+            let response = try await ClassManagerAPIClient.shared.sendCheckoutNotice(
+                instructorPersonId: instructor.personId,
+                studentId: student.studentId,
+                classSessionId: student.classSessionId
+            )
+            await MainActor.run {
+                notice = "Checkout notice sent to \(email).\(response.expiresAt.map { " Link expires \(formatEasternTime($0))." } ?? "")"
+            }
+        } catch {
+            await MainActor.run { notice = "Could not send checkout notice." }
+        }
+    }
+
     private func resetSelectedStudent() async {
         guard let resetCandidate else { return }
         do {
@@ -1214,6 +1443,13 @@ struct InstructorDashboardView: View {
     private func hasPassedFinalExam(_ student: ClassManagerAPIClient.DashboardStudent) -> Bool {
         finalResults(for: student).contains { result in
             guard result.passed == true, let quizId = result.quizId else { return false }
+            return QuizInfo.isCombinedVersionAQuizId(quizId) || QuizInfo.isVersionBQuizId(quizId)
+        }
+    }
+
+    private func examCompleteForEndOfDay(_ student: ClassManagerAPIClient.DashboardStudent) -> Bool {
+        finalResults(for: student).contains { result in
+            guard let quizId = result.quizId else { return false }
             return QuizInfo.isCombinedVersionAQuizId(quizId) || QuizInfo.isVersionBQuizId(quizId)
         }
     }

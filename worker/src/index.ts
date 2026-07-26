@@ -513,6 +513,18 @@ export default {
         return await instructorResetStudent(request, env);
       }
 
+      if (request.method === "POST" && url.pathname === "/instructor/student/send-checkout-notice") {
+        return await sendStudentCheckoutNotice(request, env, url);
+      }
+
+      if (request.method === "GET" && url.pathname.startsWith("/checkout/")) {
+        return await checkoutMagicPage(url, env);
+      }
+
+      if (request.method === "POST" && url.pathname.startsWith("/checkout/")) {
+        return await checkoutMagicSubmit(request, url, env);
+      }
+
       if (request.method === "POST" && url.pathname === "/skills/opened") {
         return await skillsOpened(request, env);
       }
@@ -1436,6 +1448,220 @@ async function instructorResetStudent(request: Request, env: Env): Promise<Respo
     },
     flexiquiz: flexiReset
   });
+}
+
+async function sendStudentCheckoutNotice(request: Request, env: Env, url: URL): Promise<Response> {
+  const body = await readJson(request);
+  const instructorPersonId = stringField(body, "instructorPersonId");
+  const studentId = stringField(body, "studentId");
+  const classSessionId = stringField(body, "classSessionId");
+  const deviceId = stringField(body, "deviceId");
+  if (!instructorPersonId || !studentId || !classSessionId) {
+    return json({ error: "missing_checkout_notice_fields" }, 400);
+  }
+
+  await ensureCheckoutMagicLinksTable(env);
+
+  const context = await checkoutStudentContext(env, studentId, classSessionId);
+  if (!context) {
+    return json({ error: "checkout_student_not_found" }, 404);
+  }
+  if (!context.email) {
+    return json({ error: "checkout_student_email_missing" }, 400);
+  }
+  if (context.didCheckOut) {
+    return json({ error: "student_already_checked_out" }, 409);
+  }
+
+  const token = randomUrlToken();
+  const tokenHash = await sha256Hex(token);
+  const now = new Date();
+  const createdAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + 72 * 60 * 60 * 1000).toISOString();
+  const id = crypto.randomUUID();
+  const checkoutUrl = new URL(`/checkout/${token}`, url.origin).toString();
+
+  await env.DB.prepare(
+    `INSERT INTO checkout_magic_links (
+      id, token_hash, student_id, class_session_id, email, created_by_person_id,
+      created_at, expires_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
+  ).bind(id, tokenHash, studentId, classSessionId, context.email, instructorPersonId, createdAt, expiresAt).run();
+
+  const email = checkoutNoticeEmail({
+    studentName: context.fullName,
+    courseTitle: context.courseTitle,
+    courseDate: context.courseDate,
+    courseId: context.courseId,
+    checkoutUrl,
+    expiresAt
+  });
+
+  const result = await sendSmarterMail(env, {
+    to: context.email,
+    subject: email.subject,
+    messagePlainText: email.plainText,
+    messageHTML: email.html
+  });
+
+  const sentOk = result.ok === true;
+  await env.DB.prepare(
+    `UPDATE checkout_magic_links
+     SET sent_at = ?2, last_error = ?3
+     WHERE id = ?1`
+  ).bind(id, sentOk ? new Date().toISOString() : null, sentOk ? null : JSON.stringify(result)).run();
+
+  await audit(env, "checkout_notice.sent", {
+    studentId,
+    classSessionId,
+    actorId: instructorPersonId,
+    deviceId,
+    payload: {
+      linkId: id,
+      to: context.email,
+      sent: sentOk,
+      expiresAt,
+      error: sentOk ? null : result
+    }
+  });
+
+  if (!sentOk) {
+    return json({ error: "checkout_notice_send_failed", details: result }, 502);
+  }
+
+  return json({ ok: true, sentAt: new Date().toISOString(), expiresAt });
+}
+
+async function checkoutMagicPage(url: URL, env: Env): Promise<Response> {
+  await ensureCheckoutMagicLinksTable(env);
+  const token = checkoutTokenFromPath(url);
+  if (!token) {
+    return htmlResponse(checkoutMagicMessageHtml("Checkout link unavailable", "This checkout link is invalid or no longer available. Please contact your instructor.", "error"), 404);
+  }
+  const context = token ? await checkoutMagicContext(env, token) : undefined;
+  if (!context) {
+    return htmlResponse(checkoutMagicMessageHtml("Checkout link unavailable", "This checkout link is invalid or no longer available. Please contact your instructor.", "error"), 404);
+  }
+  if (context.usedAt) {
+    return htmlResponse(checkoutMagicMessageHtml("Checkout already complete", "Your checkout signature has already been received for this class.", "success"));
+  }
+  if (Date.parse(context.expiresAt) <= Date.now()) {
+    return htmlResponse(checkoutMagicMessageHtml("Checkout link expired", "This checkout link has expired. Please contact your instructor so a new checkout notice can be sent.", "error"), 410);
+  }
+  if (context.didCheckOut) {
+    return htmlResponse(checkoutMagicMessageHtml("Checkout already complete", "Your class checkout is already recorded.", "success"));
+  }
+  return htmlResponse(checkoutMagicFormHtml(context, token));
+}
+
+async function checkoutMagicSubmit(request: Request, url: URL, env: Env): Promise<Response> {
+  await ensureCheckoutMagicLinksTable(env);
+  const token = checkoutTokenFromPath(url);
+  const body = await readJson(request);
+  const signatureDataUrl = stringField(body, "signatureDataUrl");
+  const location = recordField(body, "location");
+  if (!token || !signatureDataUrl) {
+    return json({ error: "missing_checkout_signature" }, 400);
+  }
+
+  const context = await checkoutMagicContext(env, token);
+  if (!context) {
+    return json({ error: "checkout_link_not_found" }, 404);
+  }
+  if (context.usedAt || context.didCheckOut) {
+    return json({ ok: true, alreadyComplete: true });
+  }
+  if (Date.parse(context.expiresAt) <= Date.now()) {
+    return json({ error: "checkout_link_expired" }, 410);
+  }
+
+  const now = new Date().toISOString();
+  const attendee: JsonRecord = {
+    submissionId: context.sourceSubmissionId,
+    firstName: context.firstName,
+    lastName: context.lastName,
+    email: context.email,
+    oemsId: context.oemsId,
+    courseType: context.courseTitle,
+    courseDate: context.courseDate,
+    courseId: context.courseId
+  };
+  const attestation: JsonRecord = {
+    signatureDataUrl,
+    signedAt: now,
+    attestationText: `I certify that ${context.fullName} checked out of ${context.courseTitle} on ${now}.`,
+    location: location ?? null
+  };
+  const fields: JsonRecord = {
+    studentName: context.fullName,
+    firstName: context.firstName,
+    lastName: context.lastName,
+    email: context.email,
+    oemsId: context.oemsId,
+    classSessionId: context.classSessionId,
+    courseId: context.courseId,
+    courseTitle: context.courseTitle,
+    courseDate: context.courseDate,
+    inOut: "Check-Out",
+    signedAt: now
+  };
+
+  let rms: { ok: boolean; attestationId?: string } | undefined;
+  const warnings: string[] = [];
+  if (env.ACADEMY_RMS_BASE_URL && env.ACADEMY_RMS_ATTENDANCE_SECRET) {
+    try {
+      rms = await postAcademyRmsAttendance(env, {
+        formId: "web-magic-checkout",
+        inOut: "Check-Out",
+        studentId: context.studentId,
+        classSessionId: context.classSessionId,
+        attendee,
+        fields,
+        attestation,
+        deviceId: "web-magic-checkout",
+        submittedAt: now,
+        source: "checkout_magic_link"
+      });
+    } catch (error) {
+      console.error("magic checkout rms submit failed", error);
+      warnings.push("rms_submit_failed");
+    }
+  } else {
+    warnings.push("rms_attendance_not_configured");
+  }
+
+  if (!rms?.ok) {
+    return json({ error: "checkout_submit_failed", warnings }, 502);
+  }
+
+  await writeProgress(env, {
+    studentId: context.studentId,
+    classSessionId: context.classSessionId,
+    didCheckOut: true,
+    checkOutAt: now,
+    deviceId: "web-magic-checkout"
+  });
+
+  await env.DB.prepare(
+    `UPDATE checkout_magic_links
+     SET used_at = ?2
+     WHERE id = ?1`
+  ).bind(context.id, now).run();
+
+  await audit(env, "checkout_magic.completed", {
+    studentId: context.studentId,
+    classSessionId: context.classSessionId,
+    actorId: context.createdByPersonId,
+    deviceId: "web-magic-checkout",
+    payload: {
+      linkId: context.id,
+      rmsAttestationId: rms.attestationId ?? null,
+      warnings
+    }
+  });
+
+  await maybeSendInstructorCheckoutReminder(env, context.classSessionId);
+  return json({ ok: true, checkedOutAt: now });
 }
 
 async function resetFlexiQuizUserForStudent(
@@ -7371,6 +7597,338 @@ async function buildFlexiQuizSsoUrl(env: Env, userId: string, quizId: string): P
   return url.toString();
 }
 
+type CheckoutMagicContext = {
+  id: string;
+  studentId: string;
+  classSessionId: string;
+  email: string;
+  createdByPersonId?: string;
+  expiresAt: string;
+  usedAt?: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  oemsId?: string;
+  courseTitle: string;
+  courseDate?: string;
+  courseId?: string;
+  sourceSubmissionId?: string;
+  didCheckOut: boolean;
+};
+
+async function ensureCheckoutMagicLinksTable(env: Env): Promise<void> {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS checkout_magic_links (
+      id TEXT PRIMARY KEY,
+      token_hash TEXT NOT NULL UNIQUE,
+      student_id TEXT NOT NULL,
+      class_session_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      created_by_person_id TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      sent_at TEXT,
+      last_error TEXT
+    )`
+  ).run();
+}
+
+async function checkoutStudentContext(env: Env, studentId: string, classSessionId: string): Promise<CheckoutMagicContext | undefined> {
+  const row = await env.DB.prepare(
+    `SELECT
+       COALESCE(scs.student_id, sp.student_id, s.id) AS student_id,
+       COALESCE(scs.class_session_id, sp.class_session_id, cs.id) AS class_session_id,
+       COALESCE(scs.first_name, s.first_name) AS first_name,
+       COALESCE(scs.last_name, s.last_name) AS last_name,
+       COALESCE(scs.email, s.email) AS email,
+       COALESCE(scs.oems_id, s.oems_id) AS oems_id,
+       scs.submission_id AS source_submission_id,
+       COALESCE(scs.course_title, cs.course_title) AS course_title,
+       COALESCE(scs.course_date, cs.course_date) AS course_date,
+       COALESCE(scs.course_id, cs.course_id) AS course_id,
+       COALESCE(sp.did_check_out, 0) AS did_check_out
+     FROM students s
+     LEFT JOIN student_progress sp
+       ON sp.student_id = s.id AND sp.class_session_id = ?2
+     LEFT JOIN class_sessions cs ON cs.id = ?2
+     LEFT JOIN scheduled_course_students scs
+       ON scs.student_id = s.id AND scs.class_session_id = ?2
+     WHERE s.id = ?1
+     LIMIT 1`
+  ).bind(studentId, classSessionId).first<JsonRecord>();
+  return row ? checkoutContextFromRow(row) : undefined;
+}
+
+async function checkoutMagicContext(env: Env, token: string): Promise<CheckoutMagicContext | undefined> {
+  const tokenHash = await sha256Hex(token);
+  const row = await env.DB.prepare(
+    `SELECT
+       cml.id, cml.student_id, cml.class_session_id, cml.email,
+       cml.created_by_person_id, cml.expires_at, cml.used_at,
+       COALESCE(scs.first_name, s.first_name) AS first_name,
+       COALESCE(scs.last_name, s.last_name) AS last_name,
+       COALESCE(scs.oems_id, s.oems_id) AS oems_id,
+       scs.submission_id AS source_submission_id,
+       COALESCE(scs.course_title, cs.course_title) AS course_title,
+       COALESCE(scs.course_date, cs.course_date) AS course_date,
+       COALESCE(scs.course_id, cs.course_id) AS course_id,
+       COALESCE(sp.did_check_out, 0) AS did_check_out
+     FROM checkout_magic_links cml
+     LEFT JOIN students s ON s.id = cml.student_id
+     LEFT JOIN class_sessions cs ON cs.id = cml.class_session_id
+     LEFT JOIN scheduled_course_students scs
+       ON scs.student_id = cml.student_id AND scs.class_session_id = cml.class_session_id
+     LEFT JOIN student_progress sp
+       ON sp.student_id = cml.student_id AND sp.class_session_id = cml.class_session_id
+     WHERE cml.token_hash = ?1
+     LIMIT 1`
+  ).bind(tokenHash).first<JsonRecord>();
+  return row ? checkoutContextFromRow(row) : undefined;
+}
+
+function checkoutContextFromRow(row: JsonRecord): CheckoutMagicContext {
+  const firstName = stringField(row, "first_name") ?? "";
+  const lastName = stringField(row, "last_name") ?? "";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim() || stringField(row, "student_id") || "Student";
+  return {
+    id: stringField(row, "id") ?? "",
+    studentId: stringField(row, "student_id") ?? "",
+    classSessionId: stringField(row, "class_session_id") ?? "",
+    email: stringField(row, "email") ?? "",
+    createdByPersonId: stringField(row, "created_by_person_id"),
+    expiresAt: stringField(row, "expires_at") ?? "",
+    usedAt: stringField(row, "used_at"),
+    firstName,
+    lastName,
+    fullName,
+    oemsId: stringField(row, "oems_id"),
+    courseTitle: stringField(row, "course_title") ?? "Class Session",
+    courseDate: stringField(row, "course_date"),
+    courseId: stringField(row, "course_id"),
+    sourceSubmissionId: stringField(row, "source_submission_id"),
+    didCheckOut: boolFromUnknown(row.did_check_out) ?? false
+  };
+}
+
+function checkoutNoticeEmail(input: {
+  studentName: string;
+  courseTitle: string;
+  courseDate?: string;
+  courseId?: string;
+  checkoutUrl: string;
+  expiresAt: string;
+}): { subject: string; plainText: string; html: string } {
+  const courseBits = [input.courseTitle, input.courseDate, input.courseId ? `NJ OEMS ${input.courseId}` : undefined].filter(Boolean).join(" • ");
+  const subject = `Action Required: Complete checkout for ${input.courseTitle}`;
+  const plainText = [
+    `Hello ${input.studentName},`,
+    "",
+    `You left class before completing the required Class Manager checkout for ${courseBits}.`,
+    "You will not receive credit for this class until checkout is complete.",
+    "",
+    `Complete checkout here: ${input.checkoutUrl}`,
+    "",
+    `This secure link expires ${formatEasternForEmail(input.expiresAt)}.`,
+    "",
+    "GCEMS Academy"
+  ].join("\n");
+  const html = `<!doctype html>
+<html><body style="margin:0;background:#f3f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#102033;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f7fb;padding:28px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #d9e5ef;">
+        <tr><td style="background:#0b5cab;color:#ffffff;padding:24px 28px;">
+          <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">GCEMS Academy Class Manager</div>
+          <h1 style="margin:10px 0 0;font-size:26px;line-height:1.2;">Checkout Required</h1>
+        </td></tr>
+        <tr><td style="padding:28px;">
+          <p style="font-size:17px;line-height:1.5;margin:0 0 16px;">Hello ${escapeHtml(input.studentName)},</p>
+          <p style="font-size:16px;line-height:1.55;margin:0 0 16px;">You left class before completing the required checkout for <strong>${escapeHtml(courseBits)}</strong>.</p>
+          <p style="font-size:16px;line-height:1.55;margin:0 0 22px;color:#a11515;"><strong>You will not receive credit for this class until checkout is complete.</strong></p>
+          <p style="margin:0 0 24px;"><a href="${escapeHtml(input.checkoutUrl)}" style="display:inline-block;background:#0b5cab;color:#ffffff;text-decoration:none;font-weight:800;padding:14px 22px;border-radius:6px;">Complete Checkout Now</a></p>
+          <p style="font-size:14px;line-height:1.5;margin:0;color:#5e6d7a;">This secure link expires ${escapeHtml(formatEasternForEmail(input.expiresAt))}. The checkout page will capture your signature and checkout timestamp for the official class record.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  return { subject, plainText, html };
+}
+
+function checkoutTokenFromPath(url: URL): string | undefined {
+  const parts = url.pathname.split("/").filter(Boolean);
+  return parts[0] === "checkout" ? parts[1] : undefined;
+}
+
+function checkoutMagicFormHtml(context: CheckoutMagicContext, token: string): string {
+  return checkoutHtmlShell("Complete Checkout", `
+    <section class="card">
+      <div class="brand">GCEMS Academy Class Manager</div>
+      <h1>Complete Checkout</h1>
+      <p class="lead">${escapeHtml(context.fullName)}</p>
+      <div class="details">
+        <div><strong>Class</strong><span>${escapeHtml(context.courseTitle)}</span></div>
+        <div><strong>Date</strong><span>${escapeHtml(context.courseDate ?? context.classSessionId)}</span></div>
+        ${context.courseId ? `<div><strong>NJ OEMS Course</strong><span>${escapeHtml(context.courseId)}</span></div>` : ""}
+      </div>
+      <p class="warning">You will not receive credit for this class until checkout is complete.</p>
+      <label for="signature">Draw your checkout signature below</label>
+      <canvas id="signature" width="900" height="320" aria-label="Signature pad"></canvas>
+      <div class="actions">
+        <button id="clear" type="button" class="secondary">Clear</button>
+        <button id="submit" type="button">Submit Checkout</button>
+      </div>
+      <p id="status" class="status">Location will be requested if your browser allows it.</p>
+    </section>
+    <script>
+      const canvas = document.getElementById('signature');
+      const ctx = canvas.getContext('2d');
+      const statusEl = document.getElementById('status');
+      let drawing = false;
+      let hasInk = false;
+      let locationPayload = null;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#102033';
+      function point(event) {
+        const rect = canvas.getBoundingClientRect();
+        const touch = event.touches && event.touches[0];
+        const source = touch || event;
+        return { x: (source.clientX - rect.left) * (canvas.width / rect.width), y: (source.clientY - rect.top) * (canvas.height / rect.height) };
+      }
+      function start(event) { event.preventDefault(); drawing = true; const p = point(event); ctx.beginPath(); ctx.moveTo(p.x, p.y); }
+      function move(event) { if (!drawing) return; event.preventDefault(); const p = point(event); ctx.lineTo(p.x, p.y); ctx.stroke(); hasInk = true; }
+      function end(event) { if (!drawing) return; event.preventDefault(); drawing = false; }
+      canvas.addEventListener('mousedown', start);
+      canvas.addEventListener('mousemove', move);
+      canvas.addEventListener('mouseup', end);
+      canvas.addEventListener('mouseleave', end);
+      canvas.addEventListener('touchstart', start, { passive: false });
+      canvas.addEventListener('touchmove', move, { passive: false });
+      canvas.addEventListener('touchend', end, { passive: false });
+      document.getElementById('clear').addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width, canvas.height); hasInk = false; });
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          locationPayload = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            horizontalAccuracy: pos.coords.accuracy,
+            address: null
+          };
+          statusEl.textContent = 'Location captured.';
+        }, () => { statusEl.textContent = 'Location unavailable. You may still submit checkout.'; }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+      }
+      document.getElementById('submit').addEventListener('click', async () => {
+        if (!hasInk) { statusEl.textContent = 'Please sign before submitting.'; return; }
+        const button = document.getElementById('submit');
+        button.disabled = true;
+        statusEl.textContent = 'Submitting checkout...';
+        try {
+          const response = await fetch('/checkout/${escapeHtml(token)}', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ signatureDataUrl: canvas.toDataURL('image/png'), location: locationPayload })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || result.error) throw new Error(result.error || 'submit_failed');
+          document.body.innerHTML = ${JSON.stringify(checkoutMagicMessageInnerHtml("Checkout complete", "Your signature and checkout timestamp were received. Thank you.", "success"))};
+        } catch (error) {
+          button.disabled = false;
+          statusEl.textContent = 'Checkout could not be submitted. Please try again or contact your instructor.';
+        }
+      });
+    </script>
+  `);
+}
+
+function checkoutMagicMessageHtml(title: string, message: string, tone: "success" | "error"): string {
+  return checkoutHtmlShell(title, checkoutMagicMessageInnerHtml(title, message, tone));
+}
+
+function checkoutMagicMessageInnerHtml(title: string, message: string, tone: "success" | "error"): string {
+  const icon = tone === "success" ? "✓" : "!";
+  return `<section class="card message ${tone}"><div class="icon">${icon}</div><h1>${escapeHtml(title)}</h1><p class="lead">${escapeHtml(message)}</p></section>`;
+}
+
+function checkoutHtmlShell(title: string, body: string): string {
+  return `<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)} | GCEMS Academy</title>
+  <style>
+    :root { color-scheme: light; --blue:#0b5cab; --ink:#102033; --muted:#667587; --bg:#f3f7fb; --line:#d9e5ef; --danger:#b42318; --green:#0b7a3b; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:18px; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; }
+    .card { width:min(100%,680px); background:#fff; border:1px solid var(--line); border-radius:8px; padding:28px; box-shadow:0 18px 48px rgba(11,92,171,.12); }
+    .brand { color:var(--blue); font-weight:800; font-size:13px; text-transform:uppercase; letter-spacing:.08em; }
+    h1 { margin:8px 0 8px; font-size:clamp(28px,6vw,42px); line-height:1.08; }
+    .lead { font-size:18px; line-height:1.5; margin:0 0 18px; color:var(--muted); }
+    .details { display:grid; gap:10px; margin:18px 0; padding:16px; background:#f8fbfe; border:1px solid var(--line); border-radius:8px; }
+    .details div { display:flex; gap:12px; justify-content:space-between; align-items:flex-start; }
+    .details strong { color:var(--muted); font-size:13px; text-transform:uppercase; letter-spacing:.04em; }
+    .details span { text-align:right; font-weight:700; }
+    .warning { color:var(--danger); font-weight:800; font-size:17px; line-height:1.45; }
+    label { display:block; font-weight:800; margin:18px 0 8px; }
+    canvas { width:100%; height:220px; border:2px solid var(--line); border-radius:8px; background:#fff; touch-action:none; }
+    .actions { display:flex; gap:12px; justify-content:flex-end; margin-top:16px; flex-wrap:wrap; }
+    button { border:0; border-radius:6px; background:var(--blue); color:#fff; font-weight:800; font-size:16px; padding:13px 18px; }
+    button.secondary { background:#e8f0f8; color:var(--blue); }
+    button:disabled { opacity:.55; }
+    .status { min-height:22px; color:var(--muted); font-size:14px; }
+    .message { text-align:center; }
+    .icon { margin:0 auto 12px; width:64px; height:64px; display:grid; place-items:center; border-radius:50%; font-size:36px; font-weight:900; }
+    .success .icon { background:rgba(11,122,59,.12); color:var(--green); }
+    .error .icon { background:rgba(180,35,24,.12); color:var(--danger); }
+  </style>
+</head><body>${body}</body></html>`;
+}
+
+function htmlResponse(html: string, status = 200): Response {
+  return new Response(html, {
+    status,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store"
+    }
+  });
+}
+
+function randomUrlToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return base64Url(bytes);
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function formatEasternForEmail(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function signHs256(header: JsonRecord, payload: JsonRecord, secret: string): Promise<string> {
   const signingInput = `${base64UrlJson(header)}.${base64UrlJson(payload)}`;
   const key = await crypto.subtle.importKey(
@@ -7394,11 +7952,14 @@ async function sendSmarterMail(
     attachmentGuid?: string;
   }
 ): Promise<JsonRecord> {
+  const username = env.SM_USERNAME || "no_reply@gcemstrainingacademy.org";
+  const fromAddress = env.FROM_ADDRESS || "no_reply@gcemstrainingacademy.org";
+  const replyToAddress = env.REPLY_TO_ADDRESS || fromAddress;
   const missing = [
-    ["SM_USERNAME", env.SM_USERNAME],
+    ["SM_USERNAME", username],
     ["SM_PASSWORD", env.SM_PASSWORD],
-    ["FROM_ADDRESS", env.FROM_ADDRESS],
-    ["REPLY_TO_ADDRESS", env.REPLY_TO_ADDRESS]
+    ["FROM_ADDRESS", fromAddress],
+    ["REPLY_TO_ADDRESS", replyToAddress]
   ].filter(([, value]) => !value).map(([name]) => name);
 
   if (missing.length > 0) {
@@ -7409,7 +7970,7 @@ async function sendSmarterMail(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      username: env.SM_USERNAME,
+      username,
       password: env.SM_PASSWORD
     })
   });
@@ -7424,8 +7985,8 @@ async function sendSmarterMail(
     stringField(authJson, "jwt");
 
   const payload: JsonRecord = {
-    from: env.FROM_ADDRESS,
-    replyTo: env.REPLY_TO_ADDRESS,
+    from: fromAddress,
+    replyTo: replyToAddress,
     to: message.to,
     subject: message.subject,
     messagePlainText: message.messagePlainText,

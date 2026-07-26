@@ -437,6 +437,7 @@ struct MainMenuView: View {
             Text("Course Functions")
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.secondary)
+            myClassProgressCard
             VStack(spacing: 10) {
                 if examWorkflowComplete {
                     checkOutButton()
@@ -520,6 +521,64 @@ struct MainMenuView: View {
                 
             }
         }
+    }
+
+    private var myClassProgressCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("My Class Progress", systemImage: "checklist")
+                .font(.subheadline.weight(.semibold))
+            progressRow(
+                title: "Checked in",
+                isComplete: progressStore.progress.didCheckIn,
+                systemImage: "checkmark.circle.fill"
+            )
+            progressRow(
+                title: cprProgressTitle,
+                isComplete: cprCardStatus?.hasCprCard == true,
+                systemImage: "cross.case.fill"
+            )
+            progressRow(
+                title: examProgressTitle,
+                isComplete: examWorkflowComplete,
+                systemImage: "doc.text.fill"
+            )
+            progressRow(
+                title: "Checked out",
+                isComplete: progressStore.progress.didCheckOut,
+                systemImage: "rectangle.portrait.and.arrow.right.fill"
+            )
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func progressRow(title: String, isComplete: Bool, systemImage: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isComplete ? .green : .secondary)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isComplete ? .primary : .secondary)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var cprProgressTitle: String {
+        if cprCardStatus?.hasCprCard == true {
+            return "CPR card complete"
+        }
+        return "CPR card needed"
+    }
+
+    private var examProgressTitle: String {
+        if examWorkflowComplete {
+            return "Exam complete"
+        }
+        if trackedQuizCount > 0 {
+            return "Exams \(completedTrackedQuizCount)/\(trackedQuizCount)"
+        }
+        return "Exam pending"
     }
     
     // MARK: - Button Visibility Helpers

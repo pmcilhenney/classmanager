@@ -155,6 +155,24 @@ final class ClassManagerAPIClient {
     }
 
     @discardableResult
+    func sendCheckoutNotice(
+        instructorPersonId: String,
+        studentId: String,
+        classSessionId: String
+    ) async throws -> CheckoutNoticeResponse {
+        try await send(
+            path: "/instructor/student/send-checkout-notice",
+            method: "POST",
+            body: CheckoutNoticeRequest(
+                instructorPersonId: instructorPersonId,
+                studentId: studentId,
+                classSessionId: classSessionId,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
+    @discardableResult
     func overrideCprCard(
         studentId: String,
         classSessionId: String,
@@ -916,6 +934,19 @@ extension ClassManagerAPIClient {
         let quizAttempts: Int
         let skillsVerifications: Int
         let progressRows: Int
+    }
+
+    struct CheckoutNoticeRequest: Encodable {
+        let instructorPersonId: String
+        let studentId: String
+        let classSessionId: String
+        let deviceId: String?
+    }
+
+    struct CheckoutNoticeResponse: Decodable {
+        let ok: Bool
+        let sentAt: String?
+        let expiresAt: String?
     }
 
     struct SkillsOpenedRequest: Encodable {
