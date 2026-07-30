@@ -2932,6 +2932,45 @@ async function quizMatchesClassSession(env: Env, classSessionId: string, quizId:
     versionBQuizIdForCourseLetter(course.letter) === quizId;
 }
 
+async function canonicalQuizClassSessionId(
+  env: Env,
+  input: { studentId?: string; classSessionId?: string; quizId?: string }
+): Promise<string | undefined> {
+  const current = input.classSessionId?.trim();
+  if (!input.studentId || !current || current !== "undated") {
+    return current;
+  }
+
+  const quizCourse = versionACourseForQuizId(input.quizId) ?? versionACourseForVersionBQuizId(input.quizId);
+  const today = todayEasternDate();
+  const rows = await env.DB.prepare(
+    `SELECT class_session_id, course_title, course_id
+     FROM scheduled_course_students
+     WHERE student_id = ?1
+       AND course_date = ?2
+     ORDER BY updated_at DESC
+     LIMIT 10`
+  ).bind(input.studentId, today).all<JsonRecord>();
+
+  const candidates = rows.results ?? [];
+  if (candidates.length === 0) {
+    return current;
+  }
+  if (quizCourse) {
+    const matched = candidates.find((row) =>
+      (stringField(row, "course_title") ?? "").toLowerCase().includes(`refresher ${quizCourse.letter.toLowerCase()}`)
+    );
+    const matchedSessionId = stringField(matched ?? {}, "class_session_id");
+    if (matchedSessionId) {
+      return matchedSessionId;
+    }
+  }
+
+  return candidates.length === 1
+    ? stringField(candidates[0], "class_session_id") ?? current
+    : current;
+}
+
 async function refresherCourseForClassSession(env: Env, classSessionId: string): Promise<VersionACourse | undefined> {
   const row = await env.DB.prepare(
     `SELECT course_title
@@ -4460,7 +4499,7 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   const quizId = decodeURIComponent(url.pathname.split("/").pop() ?? "");
   const email = url.searchParams.get("email")?.trim();
   const studentId = url.searchParams.get("studentId")?.trim();
-  const classSessionId = url.searchParams.get("classSessionId")?.trim();
+  let classSessionId = url.searchParams.get("classSessionId")?.trim();
   const sourceSubmissionId = url.searchParams.get("sourceSubmissionId")?.trim() || undefined;
   const deviceId = url.searchParams.get("deviceId")?.trim();
   const includeInProgress = url.searchParams.get("includeInProgress") === "1";
@@ -4494,6 +4533,7 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   if (!flexiquizUserId) {
     return json({ error: "flexiquiz_user_not_found" }, 404);
   }
+  classSessionId = await canonicalQuizClassSessionId(env, { studentId, classSessionId, quizId });
 
   const aggregateCourse = versionACourseForQuizId(quizId);
   if (aggregateCourse?.aggregateQuizId === quizId && !questionStart && !questionEnd) {
@@ -5153,7 +5193,12 @@ async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response>
 
   for (const context of contexts) {
     const studentId = stringField(context, "student_id");
-    const classSessionId = stringField(context, "class_session_id");
+    const contextClassSessionId = stringField(context, "class_session_id");
+    const classSessionId = await canonicalQuizClassSessionId(env, {
+      studentId,
+      classSessionId: contextClassSessionId,
+      quizId
+    });
     if (!studentId || !classSessionId) {
       continue;
     }
@@ -6141,8 +6186,13 @@ async function saveFinalExamResult(
     raw: JsonRecord;
   }
 ): Promise<boolean> {
+  const classSessionId = await canonicalQuizClassSessionId(env, {
+    studentId: input.studentId,
+    classSessionId: input.classSessionId,
+    quizId: input.quizId
+  }) ?? input.classSessionId;
   const id = input.responseId
-    ? `${input.classSessionId}:${input.studentId}:${input.quizId}:${input.responseId}`
+    ? `${classSessionId}:${input.studentId}:${input.quizId}:${input.responseId}`
     : crypto.randomUUID();
   const now = new Date().toISOString();
   if (input.responseId) {
@@ -6154,7 +6204,7 @@ async function saveFinalExamResult(
          AND quiz_id = ?3
          AND response_id = ?4
        LIMIT 1`
-    ).bind(input.studentId, input.classSessionId, input.quizId, input.responseId).first<JsonRecord>();
+    ).bind(input.studentId, classSessionId, input.quizId, input.responseId).first<JsonRecord>();
     const unchanged = existing &&
       stringField(existing, "score_text") === input.scoreText &&
       stringField(existing, "result_text") === input.resultText &&
@@ -6191,7 +6241,7 @@ async function saveFinalExamResult(
   ).bind(
     id,
     input.studentId,
-    input.classSessionId,
+    classSessionId,
     input.quizId,
     input.quizName ?? null,
     input.responseId ?? null,
@@ -6210,7 +6260,7 @@ async function saveFinalExamResult(
   ).run();
 
   await notifyInstructorDashboard(env, {
-    classSessionId: input.classSessionId,
+    classSessionId,
     studentId: input.studentId,
     event: "final_exam_result",
     title: "Final exam result ready",
@@ -6282,6 +6332,11 @@ async function saveQuizAttempt(
     return;
   }
   const quizId = section?.quizId ?? input.review.quizId;
+  const classSessionId = await canonicalQuizClassSessionId(env, {
+    studentId: input.studentId,
+    classSessionId: input.classSessionId,
+    quizId
+  }) ?? input.classSessionId;
   const isVersionAComponent = isVersionAComponentQuizId(quizId);
   const scoreText = section?.scoreText ?? versionAReviewRatio(input.review) ?? input.review.scoreText ?? null;
   const resultText = isVersionAComponent ? null : section?.resultText ?? input.review.resultText ?? null;
@@ -6299,6 +6354,8 @@ async function saveQuizAttempt(
       created_at, updated_at
     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12, ?12)
     ON CONFLICT(id) DO UPDATE SET
+      student_id = excluded.student_id,
+      class_session_id = excluded.class_session_id,
       flexiquiz_user_id = excluded.flexiquiz_user_id,
       quiz_id = excluded.quiz_id,
       response_id = excluded.response_id,
@@ -6312,7 +6369,7 @@ async function saveQuizAttempt(
   ).bind(
     attemptId,
     input.studentId,
-    input.classSessionId,
+    classSessionId,
     input.flexiquizUserId ?? null,
     quizId,
     input.review.responseId ?? null,
@@ -6326,7 +6383,7 @@ async function saveQuizAttempt(
 
   if (!existingAttempt) {
     await notifyInstructorDashboard(env, {
-      classSessionId: input.classSessionId,
+      classSessionId,
       studentId: input.studentId,
       event: section ? "quiz_section_result" : "quiz_attempt",
       title: "Quiz result ready",
@@ -6410,6 +6467,11 @@ async function saveQuizAttemptFromFinalResult(
   }
 ): Promise<void> {
   const now = new Date().toISOString();
+  const classSessionId = await canonicalQuizClassSessionId(env, {
+    studentId: input.studentId,
+    classSessionId: input.classSessionId,
+    quizId: input.quizId
+  }) ?? input.classSessionId;
   const isVersionAComponent = isVersionAComponentQuizId(input.quizId);
   const scoreText = isVersionAComponent
     ? (scoreTextFromPoints(input.finalResult.points, input.finalResult.availablePoints) ?? ratioScoreText(input.finalResult.scoreText) ?? input.finalResult.scoreText)
@@ -6423,6 +6485,8 @@ async function saveQuizAttemptFromFinalResult(
       created_at, updated_at
     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12, ?12)
     ON CONFLICT(id) DO UPDATE SET
+      student_id = excluded.student_id,
+      class_session_id = excluded.class_session_id,
       flexiquiz_user_id = COALESCE(excluded.flexiquiz_user_id, quiz_attempts.flexiquiz_user_id),
       quiz_id = excluded.quiz_id,
       response_id = excluded.response_id,
@@ -6436,7 +6500,7 @@ async function saveQuizAttemptFromFinalResult(
   ).bind(
     input.responseId,
     input.studentId,
-    input.classSessionId,
+    classSessionId,
     input.flexiquizUserId ?? null,
     input.quizId,
     input.responseId,
@@ -6449,7 +6513,7 @@ async function saveQuizAttemptFromFinalResult(
   ).run();
 
   await notifyInstructorDashboard(env, {
-    classSessionId: input.classSessionId,
+    classSessionId,
     studentId: input.studentId,
     event: "quiz_attempt",
     title: "Quiz result ready",
