@@ -1315,12 +1315,22 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   ).bind(classSessionId, limit).all<JsonRecord>();
 
   const attempts = await env.DB.prepare(
-    `SELECT qa.student_id, qa.class_session_id, qa.quiz_id, qa.result_text,
-            qa.score_text, qa.passed, qa.completed_at, qa.updated_at
-     FROM quiz_attempts qa
-     WHERE qa.class_session_id = ?1
-       AND lower(COALESCE(qa.result_text, '')) NOT IN ('not_submitted', 'not submitted', 'in_progress', 'in progress')
-     ORDER BY COALESCE(qa.completed_at, qa.updated_at) DESC
+    `WITH ranked_attempts AS (
+       SELECT qa.student_id, qa.class_session_id, qa.quiz_id, qa.result_text,
+              qa.score_text, qa.passed, qa.completed_at, qa.updated_at,
+              ROW_NUMBER() OVER (
+                PARTITION BY qa.student_id, qa.class_session_id, qa.quiz_id
+                ORDER BY COALESCE(qa.completed_at, qa.updated_at) DESC, qa.updated_at DESC
+              ) AS rn
+       FROM quiz_attempts qa
+       WHERE qa.class_session_id = ?1
+         AND lower(COALESCE(qa.result_text, '')) NOT IN ('not_submitted', 'not submitted', 'in_progress', 'in progress')
+     )
+     SELECT student_id, class_session_id, quiz_id, result_text,
+            score_text, passed, completed_at, updated_at
+     FROM ranked_attempts
+     WHERE rn = 1
+     ORDER BY COALESCE(completed_at, updated_at) DESC
      LIMIT 500`
   ).bind(classSessionId).all<JsonRecord>();
 
