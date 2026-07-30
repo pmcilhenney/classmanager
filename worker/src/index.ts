@@ -2048,21 +2048,7 @@ async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {
 }
 
 async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
-  const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/form/${REGISTRATION_FORM_ID}/submissions`));
-  url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
-  url.searchParams.set("limit", "250");
-  url.searchParams.set("orderby", "id");
-
-  const response = await fetch(url, {
-    headers: { accept: "application/json" },
-    signal: AbortSignal.timeout(12_000)
-  });
-  if (!response.ok) {
-    throw new HttpError(502, "registration_course_lookup_failed");
-  }
-
-  const data = await response.json<JsonRecord>().catch(() => ({}));
-  const submissions = arrayField(data, "content").filter(isJsonRecord);
+  const submissions = await fetchRegistrationSubmissions(env);
   const courseMap = new Map<string, { course: InstructorCourse; students: JsonRecord[] }>();
 
   for (const submission of submissions) {
@@ -2109,6 +2095,37 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
   }
 
   return instructorCourseMenuList([...courseMap.values()].map((entry) => entry.course));
+}
+
+async function fetchRegistrationSubmissions(env: Env): Promise<JsonRecord[]> {
+  const submissions: JsonRecord[] = [];
+  const limit = 1000;
+  const maxPages = 5;
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/form/${REGISTRATION_FORM_ID}/submissions`));
+    url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", String(page * limit));
+    url.searchParams.set("orderby", "id");
+
+    const response = await fetch(url, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(12_000)
+    });
+    if (!response.ok) {
+      throw new HttpError(502, "registration_course_lookup_failed");
+    }
+
+    const data = await response.json<JsonRecord>().catch(() => ({}));
+    const pageSubmissions = arrayField(data, "content").filter(isJsonRecord);
+    submissions.push(...pageSubmissions);
+    if (pageSubmissions.length < limit) {
+      break;
+    }
+  }
+
+  return submissions;
 }
 
 async function fetchIncludedInstructorCourses(env: Env): Promise<InstructorCourse[]> {
