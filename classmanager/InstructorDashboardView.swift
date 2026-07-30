@@ -1479,13 +1479,13 @@ struct InstructorDashboardView: View {
 
     private func finalScoreText(_ result: ClassManagerAPIClient.DashboardFinalResult?) -> String? {
         guard let result else { return nil }
+        if let percentage = result.percentageScore {
+            return "\(Int(percentage.rounded()))%"
+        }
         if let points = result.points,
            let available = result.availablePoints,
            available > 0 {
-            return "\(Int(points.rounded()))/\(Int(available.rounded()))"
-        }
-        if let percentage = result.percentageScore {
-            return "\(Int(percentage.rounded()))%"
+            return "\(Int((points / available * 100).rounded()))%"
         }
         return scoreText(result.scoreText, result.resultText).isEmpty ? nil : scoreText(result.scoreText, result.resultText)
     }

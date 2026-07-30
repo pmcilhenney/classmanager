@@ -6279,7 +6279,7 @@ async function saveFinalExamResult(
     studentId: input.studentId,
     event: "final_exam_result",
     title: "Final exam result ready",
-    body: `${await studentDisplayName(env, input.studentId)} final exam: ${input.scoreText ?? input.resultText ?? "result received"}.`,
+    body: await finalExamInstructorDashboardBody(env, input),
     quizId: input.quizId,
     responseId: input.responseId,
     scoreText: input.scoreText,
@@ -6287,6 +6287,33 @@ async function saveFinalExamResult(
     completedAt: input.completedAt ?? now
   });
   return true;
+}
+
+async function finalExamInstructorDashboardBody(
+  env: Env,
+  input: FinalExamResult & { studentId: string; raw: JsonRecord }
+): Promise<string> {
+  const studentName = await studentDisplayName(env, input.studentId);
+  const course = versionACourseForQuizId(input.quizId);
+  const components = Array.isArray(input.raw?.components) ? input.raw.components : [];
+  const finalComponent = course
+    ? components.find((component) => numberFromUnknown((component as JsonRecord)?.quiz_number) === course.quizIds.length) as JsonRecord | undefined
+    : undefined;
+  if (course && finalComponent) {
+    const quizScore = stringField(finalComponent, "score_text") ?? "submitted";
+    const grade = finalExamPercentText(input) ?? input.scoreText ?? "result received";
+    const result = input.passed === false ? "FAIL" : input.passed === true ? "PASS" : "RESULT READY";
+    return `${studentName} has submitted quiz #${course.quizIds.length} with a score of ${quizScore}. Their Final Exam score is ${grade} ${result}.`;
+  }
+  return `${studentName} final exam: ${input.scoreText ?? input.resultText ?? "result received"}.`;
+}
+
+function finalExamPercentText(result: FinalExamResult): string | undefined {
+  if (result.percentageScore !== undefined) {
+    return `${Math.round(result.percentageScore)}%`;
+  }
+  const parts = scorePartsFromText(result.scoreText);
+  return parts.percent !== undefined ? `${Math.round(parts.percent)}%` : undefined;
 }
 
 async function quizMetadata(url: URL, env: Env): Promise<Response> {
@@ -6396,7 +6423,12 @@ async function saveQuizAttempt(
     now
   ).run();
 
-  if (!existingAttempt) {
+  const suppressNotification = !existingAttempt && await shouldSuppressVersionAComponentNotification(env, {
+    classSessionId,
+    studentId: input.studentId,
+    quizId
+  });
+  if (!existingAttempt && !suppressNotification) {
     await notifyInstructorDashboard(env, {
       classSessionId,
       studentId: input.studentId,
@@ -6410,6 +6442,29 @@ async function saveQuizAttempt(
       completedAt: section ? now : input.review.completedAt ?? now
     });
   }
+}
+
+async function shouldSuppressVersionAComponentNotification(
+  env: Env,
+  input: { classSessionId: string; studentId: string; quizId: string }
+): Promise<boolean> {
+  const course = versionACourseForQuizId(input.quizId);
+  if (!course) {
+    return false;
+  }
+  const componentIndex = versionAComponentIndex(course, input.quizId);
+  if (componentIndex !== course.quizIds.length - 1) {
+    return false;
+  }
+  const placeholders = course.quizIds.map((_, index) => `?${index + 3}`).join(", ");
+  const row = await env.DB.prepare(
+    `SELECT COUNT(DISTINCT quiz_id) AS completed
+     FROM quiz_attempts
+     WHERE student_id = ?1
+       AND class_session_id = ?2
+       AND quiz_id IN (${placeholders})`
+  ).bind(input.studentId, input.classSessionId, ...course.quizIds).first<JsonRecord>();
+  return numberFromUnknown(row?.completed) === course.quizIds.length;
 }
 
 function versionAReviewRatio(review: QuizReviewPayload): string | undefined {
