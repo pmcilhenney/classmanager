@@ -34,6 +34,7 @@ private struct WebView: UIViewRepresentable {
         webView.allowsBackForwardNavigationGestures = true
         webView.backgroundColor = .systemBackground
         webView.scrollView.backgroundColor = .systemBackground
+        webView.scrollView.keyboardDismissMode = .interactive
         isLoading = true
         let request = URLRequest(url: url)
         context.coordinator.loadedURL = url
@@ -87,12 +88,17 @@ private struct WebView: UIViewRepresentable {
 
         private func notifyIfSubmitted(_ url: URL?) {
             guard !didNotifySubmitted, let url else { return }
-            let text = (url.absoluteString + " " + url.path + " " + (url.query ?? "")).lowercased()
-            let submitted = text.contains("submissionid=")
-                || text.contains("submission_id=")
-                || text.contains("thank")
-                || text.contains("success")
-                || text.contains("submitted")
+            let host = (url.host ?? "").lowercased()
+            let path = url.path.lowercased()
+            let query = (url.query ?? "").lowercased()
+            let isJotform = host.contains("jotform.com")
+            let submitted = isJotform && (
+                path.contains("/submit/")
+                    || path.contains("/thank")
+                    || path.contains("/thank-you")
+                    || query.contains("submit=success")
+                    || query.contains("submission_status=success")
+            )
             guard submitted else { return }
             didNotifySubmitted = true
             DispatchQueue.main.async { [onSubmitted] in

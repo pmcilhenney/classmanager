@@ -102,7 +102,7 @@ struct InstructorDashboardView: View {
             .sheet(item: $selectedStudent) { student in
                 studentDetail(student)
             }
-            .sheet(isPresented: Binding(
+            .fullScreenCover(isPresented: Binding(
                 get: { isPreparingSkillsForm || skillsURL != nil },
                 set: { isPresented in
                     if !isPresented {
