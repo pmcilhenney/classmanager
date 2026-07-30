@@ -4135,10 +4135,15 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
   const lastName = stringField(body, "lastName") ?? "";
   const oemsId = stringField(body, "oemsId") ?? "";
   const studentId = stringField(body, "studentId");
-  const classSessionId = stringField(body, "classSessionId");
+  const requestedClassSessionId = stringField(body, "classSessionId");
+  const classSessionId = await canonicalQuizClassSessionId(env, {
+    studentId,
+    classSessionId: requestedClassSessionId,
+    quizId
+  });
   const sourceSubmissionId = stringField(body, "sourceSubmissionId") ?? stringField(body, "submissionId");
   const courseTitle = stringField(body, "courseTitle") ?? "Class Session";
-  const courseDate = stringField(body, "courseDate") ?? classSessionId ?? "undated";
+  const courseDate = stringField(body, "courseDate") ?? classSessionId ?? requestedClassSessionId ?? "undated";
   const deviceId = stringField(body, "deviceId");
 
   if (!email || !quizId) {
@@ -4184,7 +4189,7 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
     email,
     sourceSubmissionId,
     studentId,
-    classSessionId
+    classSessionId: requestedClassSessionId ?? classSessionId
   });
   let flexiquizUserId = await flexiFindUserId(env, flexiquizUserName);
   let flexiUserProfile: FlexiUserProfile | undefined;
