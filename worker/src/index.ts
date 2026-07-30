@@ -2632,15 +2632,26 @@ async function resolveUndatedRegistrationOptions(
 
 async function matchingScheduledCourseOptions(env: Env, courseTitle: string): Promise<SessionOption[]> {
   const normalizedTitle = courseTitle.trim().toLowerCase().replace(/\s+/g, " ");
+  const normalizedBaseTitle = courseTitle
+    .replace(/\s*[-–—]\s*\d{4,}\s*$/u, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  const courseIdMatch = courseTitle.match(/\b\d{4,}\b/);
+  const courseId = courseIdMatch?.[0] ?? "";
   const rows = await env.DB.prepare(
     `SELECT course_title, course_date, course_id, course_location, raw_json
      FROM scheduled_courses
      WHERE course_date IS NOT NULL
        AND course_date != ''
-       AND LOWER(TRIM(course_title)) = ?1
+       AND (
+         LOWER(TRIM(course_title)) = ?1
+         OR LOWER(TRIM(course_title)) = ?2
+         OR course_id = ?3
+       )
      ORDER BY course_date ASC
      LIMIT 50`
-  ).bind(normalizedTitle).all<JsonRecord>();
+  ).bind(normalizedTitle, normalizedBaseTitle, courseId).all<JsonRecord>();
 
   const today = dateSortValue(todayEasternDate());
   return (rows.results ?? [])
