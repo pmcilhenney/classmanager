@@ -176,6 +176,7 @@ const ACADEMY_COORDINATOR_PERSON_IDS = new Set([
   "704bbc3f-9503-44e5-a442-e6cbf21c4ebe"
 ]);
 const REGISTRATION_FORM_ID = "251265925097060";
+const DEFAULT_COURSE_LOCATION = "1200 N. Delsea Drive. Clayton, NJ 08312";
 const INSTRUCTOR_PAST_COURSE_DAYS = 45;
 const INSTRUCTOR_UPCOMING_COURSE_DAYS = 120;
 const INSTRUCTOR_MAX_COURSES = 60;
@@ -1250,9 +1251,9 @@ async function rmsSkillsCompleted(request: Request, env: Env): Promise<Response>
 async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   const limit = Math.min(Math.max(numberFromUnknown(url.searchParams.get("limit")) ?? 100, 1), 250);
   await withTimeout(
-    refreshInstructorCoursesForMenu(env, "instructor_dashboard"),
+    refreshInstructorCourseCatalogForMenu(env, "instructor_dashboard"),
     2500,
-    "registration course refresh timed out"
+    "registration course catalog refresh timed out"
   ).catch((error) => {
     console.warn("dashboard registration course refresh failed", error);
   });
@@ -2768,9 +2769,31 @@ async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {
 }
 
 async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
-  const submissions = await fetchRegistrationSubmissions(env);
   const courseMap = new Map<string, { course: InstructorCourse; students: JsonRecord[] }>();
 
+  const catalogCourses = await fetchRegistrationCatalogCourses(env).catch((error) => {
+    console.warn("registration catalog course lookup failed", error);
+    return [];
+  });
+  for (const course of catalogCourses) {
+    const existing = courseMap.get(course.id) ?? { course, students: [] };
+    existing.course = {
+      ...existing.course,
+      courseId: existing.course.courseId ?? course.courseId,
+      title: existing.course.title || course.title,
+      date: existing.course.date || course.date,
+      location: existing.course.location ?? course.location,
+      expectedCount: Math.max(existing.course.expectedCount, existing.students.length)
+    };
+    courseMap.set(course.id, existing);
+  }
+
+  const catalogRefreshAt = new Date().toISOString();
+  for (const entry of courseMap.values()) {
+    await upsertScheduledCourse(env, entry.course, catalogRefreshAt);
+  }
+
+  const submissions = await fetchRegistrationSubmissions(env);
   for (const submission of submissions) {
     const answers = recordField(submission, "answers");
     const submissionId = stringField(submission, "id");
@@ -2820,6 +2843,50 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
   return instructorCourseMenuList([...courseMap.values()].map((entry) => entry.course));
 }
 
+async function fetchRegistrationCatalogCourses(env: Env): Promise<InstructorCourse[]> {
+  const properties = await fetchJotformRegistrationProperties(env);
+  const products = arrayField(properties, "products").filter(isJsonRecord);
+  return products
+    .map((product) => productToOption(product, DEFAULT_COURSE_LOCATION))
+    .filter((option) => validCourseDate(option.dateRaw))
+    .map((option) => {
+      const attendee: NormalizedAttendee = {
+        submissionId: `catalog:${option.courseId ?? option.courseType}:${option.dateRaw}`,
+        firstName: "",
+        lastName: "",
+        email: "",
+        oemsId: "",
+        courseType: option.courseType,
+        courseDate: option.dateRaw,
+        courseId: option.courseId,
+        ceuValue: option.ceuValue,
+        productCategories: option.productCategories,
+        courseImageURL: option.courseImageURL,
+        courseLocation: option.courseLocation
+      };
+      return instructorCourseFromAttendee(attendee, REGISTRATION_FORM_ID);
+    });
+}
+
+async function fetchJotformRegistrationProperties(env: Env): Promise<JsonRecord> {
+  if (!env.JOTFORM_API_KEY) {
+    return {};
+  }
+
+  const apiUrl = new URL(joinUrl(env.JOTFORM_BASE_URL, `/form/${REGISTRATION_FORM_ID}/properties`));
+  apiUrl.searchParams.set("apiKey", env.JOTFORM_API_KEY);
+  const response = await fetch(apiUrl, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(12_000)
+  });
+  if (!response.ok) {
+    throw new HttpError(502, "registration_properties_lookup_failed");
+  }
+
+  const payload = await response.json<JsonRecord>().catch(() => ({}));
+  return recordField(payload, "content") ?? {};
+}
+
 async function refreshInstructorCoursesForMenu(env: Env, source: string): Promise<void> {
   if (!env.JOTFORM_API_KEY) {
     return;
@@ -2830,6 +2897,23 @@ async function refreshInstructorCoursesForMenu(env: Env, source: string): Promis
   const elapsed = Date.now() - started;
   if (elapsed > 5000) {
     console.warn("registration course refresh slow", { source, elapsed });
+  }
+}
+
+async function refreshInstructorCourseCatalogForMenu(env: Env, source: string): Promise<void> {
+  if (!env.JOTFORM_API_KEY) {
+    return;
+  }
+
+  const started = Date.now();
+  const courses = await fetchRegistrationCatalogCourses(env);
+  const now = new Date().toISOString();
+  for (const course of courses) {
+    await upsertScheduledCourse(env, course, now);
+  }
+  const elapsed = Date.now() - started;
+  if (elapsed > 2500) {
+    console.warn("registration course catalog refresh slow", { source, elapsed });
   }
 }
 
