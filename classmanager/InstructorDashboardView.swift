@@ -35,6 +35,7 @@ struct InstructorDashboardView: View {
     @State private var coordinatorScorePassed = true
     @State private var coordinatorAttendanceAction: CoordinatorPendingAction?
     @State private var coordinatorCprUploadStudent: CoordinatorCprUploadTarget?
+    @State private var coordinatorDeleteAttempt: CoordinatorPendingAction?
     @State private var attendanceAction: InstructorAttendanceAction?
     @State private var busy = false
     @State private var notice: String?
@@ -142,6 +143,8 @@ struct InstructorDashboardView: View {
             .sheet(item: $coordinatorAttendanceAction) { pending in
                 CoordinatorAttendanceOverrideSheet(
                     pending: pending,
+                    actorPersonId: instructor.personId,
+                    classSessionId: activeCourse?.classSessionId ?? "",
                     onCancel: { coordinatorAttendanceAction = nil },
                     onApply: { updated in
                         coordinatorAttendanceAction = nil
@@ -167,6 +170,28 @@ struct InstructorDashboardView: View {
                 if let pending = coordinatorPendingAction {
                     Button(pending.destructive ? "Delete Permanently" : "Apply Override", role: pending.destructive ? .destructive : nil) {
                         Task { await runCoordinatorAction(pending) }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .confirmationDialog(
+                "Delete external record?",
+                isPresented: Binding(
+                    get: { coordinatorDeleteAttempt != nil },
+                    set: { if !$0 { coordinatorDeleteAttempt = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                if let pending = coordinatorDeleteAttempt {
+                    Button("Delete from ClassManager only", role: .destructive) {
+                        coordinatorDeleteAttempt = nil
+                        Task { await runCoordinatorAction(pending) }
+                    }
+                    Button("Delete ClassManager + External", role: .destructive) {
+                        var updated = pending
+                        updated.deleteExternal = true
+                        coordinatorDeleteAttempt = nil
+                        Task { await runCoordinatorAction(updated) }
                     }
                 }
                 Button("Cancel", role: .cancel) {}
@@ -747,8 +772,14 @@ struct InstructorDashboardView: View {
         var studentId: String?
         var targetPersonId: String?
         var quizId: String?
+        var responseId: String?
+        var submissionId: String?
         var confirmation: String?
         var overrideDate = Date()
+        var signatureMode: String?
+        var signatureDataUrl: String?
+        var copySignatureAttestationId: String?
+        var deleteExternal = false
         var destructive = false
         let message: String
 
@@ -893,32 +924,52 @@ struct InstructorDashboardView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(attempts) { result in
-                            Button {
-                                if let quiz = reviewQuiz(for: result, student: student) {
-                                    instructorReview = quiz
-                                }
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "doc.text")
-                                        .foregroundStyle(.blue)
-                                        .frame(width: 24)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(commonQuizName(result.quizId))
-                                        if let completedAt = result.completedAt ?? result.updatedAt {
-                                            Text(formatEasternTime(completedAt))
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
+                            HStack(spacing: 10) {
+                                Button {
+                                    if let quiz = reviewQuiz(for: result, student: student) {
+                                        instructorReview = quiz
                                     }
-                                    Spacer()
-                                    Text(scoreText(result.scoreText, result.resultText))
-                                        .font(.subheadline.weight(.semibold))
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "doc.text")
+                                            .foregroundStyle(.blue)
+                                            .frame(width: 24)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(commonQuizName(result.quizId))
+                                            if let completedAt = result.completedAt ?? result.updatedAt {
+                                                Text(formatEasternTime(completedAt))
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                        Spacer()
+                                        Text(scoreText(result.scoreText, result.resultText))
+                                            .font(.subheadline.weight(.semibold))
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+
+                                if hasCoordinatorAccess {
+                                    Button(role: .destructive) {
+                                        coordinatorDeleteAttempt = CoordinatorPendingAction(
+                                            action: "delete_quiz_attempt",
+                                            studentId: student.studentId,
+                                            quizId: result.quizId,
+                                            responseId: result.responseId,
+                                            confirmation: "DELETE",
+                                            destructive: true,
+                                            message: "Delete this mini-quiz attempt."
+                                        )
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .foregroundStyle(.red)
+                                    }
+                                    .buttonStyle(.borderless)
                                 }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -930,33 +981,53 @@ struct InstructorDashboardView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(results) { result in
-                            Button {
-                                if let quiz = reviewQuiz(for: result, student: student) {
-                                    instructorReview = quiz
-                                }
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: result.passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
-                                        .foregroundStyle(result.passed == false ? .red : .green)
-                                        .frame(width: 24)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(result.quizName ?? commonQuizName(result.quizId))
-                                        if let completedAt = result.completedAt ?? result.updatedAt {
-                                            Text(formatEasternTime(completedAt))
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
+                            HStack(spacing: 10) {
+                                Button {
+                                    if let quiz = reviewQuiz(for: result, student: student) {
+                                        instructorReview = quiz
                                     }
-                                    Spacer()
-                                    Text(scoreText(result.scoreText, result.resultText))
-                                        .font(.headline)
-                                        .foregroundStyle(result.passed == false ? .red : .green)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: result.passed == false ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
+                                            .foregroundStyle(result.passed == false ? .red : .green)
+                                            .frame(width: 24)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(result.quizName ?? commonQuizName(result.quizId))
+                                            if let completedAt = result.completedAt ?? result.updatedAt {
+                                                Text(formatEasternTime(completedAt))
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                        Spacer()
+                                        Text(scoreText(result.scoreText, result.resultText))
+                                            .font(.headline)
+                                            .foregroundStyle(result.passed == false ? .red : .green)
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+
+                                if hasCoordinatorAccess {
+                                    Button(role: .destructive) {
+                                        coordinatorDeleteAttempt = CoordinatorPendingAction(
+                                            action: "delete_final_exam",
+                                            studentId: student.studentId,
+                                            quizId: result.quizId,
+                                            responseId: result.responseId,
+                                            confirmation: "DELETE",
+                                            destructive: true,
+                                            message: "Delete this final exam result."
+                                        )
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .foregroundStyle(.red)
+                                    }
+                                    .buttonStyle(.borderless)
                                 }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -1156,6 +1227,20 @@ struct InstructorDashboardView: View {
                         } label: {
                             Label("Upload / Replace CPR Card", systemImage: "square.and.arrow.up")
                         }
+
+                        Button(role: .destructive) {
+                            coordinatorPendingAction = CoordinatorPendingAction(
+                                action: "delete_jotform_submission",
+                                studentId: student.studentId,
+                                submissionId: student.sourceSubmissionId,
+                                confirmation: "DELETE",
+                                destructive: true,
+                                message: "This deletes the source Jotform registration submission for this student if Jotform still has it."
+                            )
+                        } label: {
+                            Label("Delete Jotform Registration", systemImage: "doc.badge.minus")
+                        }
+                        .disabled((student.sourceSubmissionId ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }
@@ -1481,11 +1566,17 @@ struct InstructorDashboardView: View {
                     studentId: pending.studentId,
                     targetPersonId: pending.targetPersonId,
                     quizId: pending.quizId,
+                    responseId: pending.responseId,
                     at: ISO8601DateFormatter().string(from: pending.overrideDate),
                     courseId: course.courseId,
                     courseTitle: course.title,
                     courseDate: course.date,
-                    confirmation: pending.confirmation
+                    confirmation: pending.confirmation,
+                    signatureMode: pending.signatureMode,
+                    signatureDataUrl: pending.signatureDataUrl,
+                    copySignatureAttestationId: pending.copySignatureAttestationId,
+                    deleteExternal: pending.deleteExternal,
+                    submissionId: pending.submissionId
                 )
             )
             await MainActor.run {
@@ -2176,17 +2267,28 @@ private struct InstructorCprPreviewURL: Identifiable {
 
 private struct CoordinatorAttendanceOverrideSheet: View {
     let pending: InstructorDashboardView.CoordinatorPendingAction
+    let actorPersonId: String
+    let classSessionId: String
     let onCancel: () -> Void
     let onApply: (InstructorDashboardView.CoordinatorPendingAction) -> Void
 
     @State private var selectedDate: Date
+    @State private var signatureMode = "none"
+    @State private var signatureOptions: [ClassManagerAPIClient.CoordinatorSignatureOption] = []
+    @State private var selectedSignatureId = ""
+    @State private var signatureDrawing = PKDrawing()
+    @State private var isLoadingSignatures = false
 
     init(
         pending: InstructorDashboardView.CoordinatorPendingAction,
+        actorPersonId: String,
+        classSessionId: String,
         onCancel: @escaping () -> Void,
         onApply: @escaping (InstructorDashboardView.CoordinatorPendingAction) -> Void
     ) {
         self.pending = pending
+        self.actorPersonId = actorPersonId
+        self.classSessionId = classSessionId
         self.onCancel = onCancel
         self.onApply = onApply
         _selectedDate = State(initialValue: pending.overrideDate)
@@ -2208,8 +2310,42 @@ private struct CoordinatorAttendanceOverrideSheet: View {
                     )
                 }
 
-                Section {
-                    Text("This will write an audited ClassManager override. If a signature needs to be attached or copied from a prior record, finish the timestamp override here, then reconcile the signature in RMS until the next signature-copy pass is added.")
+                Section("Signature") {
+                    Picker("Signature", selection: $signatureMode) {
+                        Text("Timestamp Only").tag("none")
+                        Text("Copy Prior").tag("copy")
+                        Text("Draw New").tag("new")
+                    }
+                    .pickerStyle(.segmented)
+
+                    if signatureMode == "copy" {
+                        if isLoadingSignatures {
+                            ProgressView("Loading signatures...")
+                        } else if signatureOptions.isEmpty {
+                            Text("No prior signatures were found for this person.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker("Prior signature", selection: $selectedSignatureId) {
+                                ForEach(signatureOptions) { option in
+                                    Text(signatureOptionLabel(option))
+                                        .tag(option.attestationId ?? "")
+                                }
+                            }
+                        }
+                    } else if signatureMode == "new" {
+                        InstructorSignatureCanvas(drawing: $signatureDrawing)
+                            .frame(minHeight: 220)
+                            .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                            )
+                        Button("Clear Signature") {
+                            signatureDrawing = PKDrawing()
+                        }
+                    }
+
+                    Text("Timestamp-only overrides update ClassManager. Copying or drawing a signature also writes a new audited RMS attendance attestation for this class.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -2224,12 +2360,71 @@ private struct CoordinatorAttendanceOverrideSheet: View {
                     Button("Apply") {
                         var updated = pending
                         updated.overrideDate = selectedDate
+                        updated.signatureMode = signatureMode
+                        if signatureMode == "copy" {
+                            updated.copySignatureAttestationId = selectedSignatureId
+                        } else if signatureMode == "new" {
+                            updated.signatureDataUrl = signatureDataUrl()
+                        }
                         onApply(updated)
                     }
                     .fontWeight(.semibold)
+                    .disabled(signatureMode == "new" && signatureDrawing.bounds.isEmpty)
+                }
+            }
+            .task {
+                await loadSignatureOptionsIfNeeded()
+            }
+            .onChange(of: signatureMode) { newValue in
+                if newValue == "copy" {
+                    Task { await loadSignatureOptionsIfNeeded() }
                 }
             }
         }
+    }
+
+    private func loadSignatureOptionsIfNeeded() async {
+        guard signatureOptions.isEmpty, pending.studentId != nil || pending.targetPersonId != nil else { return }
+        isLoadingSignatures = true
+        defer { isLoadingSignatures = false }
+        do {
+            let response = try await ClassManagerAPIClient.shared.coordinatorSignatureOptions(
+                actorPersonId: actorPersonId,
+                studentId: pending.studentId,
+                targetPersonId: pending.targetPersonId,
+                classSessionId: classSessionId
+            )
+            signatureOptions = response.signatures
+            selectedSignatureId = response.signatures.first?.attestationId ?? ""
+        } catch {
+            signatureOptions = []
+        }
+    }
+
+    private func signatureDataUrl() -> String? {
+        let bounds = signatureDrawing.bounds.insetBy(dx: -12, dy: -12)
+        let image = signatureDrawing.image(from: bounds, scale: UIScreen.main.scale)
+        guard let png = image.pngData() else { return nil }
+        return "data:image/png;base64,\(png.base64EncodedString())"
+    }
+
+    private func signatureOptionLabel(_ option: ClassManagerAPIClient.CoordinatorSignatureOption) -> String {
+        let date = option.signedAt.map(formatSignatureDate) ?? "Prior signature"
+        let action = (option.actionType ?? "").replacingOccurrences(of: "_", with: " ")
+        let course = option.courseTitle ?? option.courseDate ?? ""
+        return [date, action, course].filter { !$0.isEmpty }.joined(separator: " - ")
+    }
+
+    private func formatSignatureDate(_ raw: String) -> String {
+        let isoWithFractionalSeconds = ISO8601DateFormatter()
+        isoWithFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso = ISO8601DateFormatter()
+        guard let date = isoWithFractionalSeconds.date(from: raw) ?? iso.date(from: raw) else { return raw }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York")
+        formatter.dateFormat = "MMM d h:mm a"
+        return formatter.string(from: date)
     }
 }
 

@@ -518,6 +518,9 @@ export default {
       if (request.method === "POST" && url.pathname === "/coordinator/action") {
         return await coordinatorAction(request, env);
       }
+      if (request.method === "POST" && url.pathname === "/coordinator/signature-options") {
+        return await coordinatorSignatureOptions(request, env);
+      }
 
       if (request.method === "POST" && url.pathname === "/instructor/student/send-checkout-notice") {
         return await sendStudentCheckoutNotice(request, env, url);
@@ -1322,7 +1325,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
 
   const attempts = await env.DB.prepare(
     `WITH ranked_attempts AS (
-       SELECT qa.student_id, qa.class_session_id, qa.quiz_id, qa.result_text,
+       SELECT qa.student_id, qa.class_session_id, qa.quiz_id, qa.response_id, qa.result_text,
               qa.score_text, qa.passed, qa.completed_at, qa.updated_at,
               ROW_NUMBER() OVER (
                 PARTITION BY qa.student_id, qa.class_session_id, qa.quiz_id
@@ -1332,7 +1335,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
        WHERE qa.class_session_id = ?1
          AND lower(COALESCE(qa.result_text, '')) NOT IN ('not_submitted', 'not submitted', 'in_progress', 'in progress')
      )
-     SELECT student_id, class_session_id, quiz_id, result_text,
+     SELECT student_id, class_session_id, quiz_id, response_id, result_text,
             score_text, passed, completed_at, updated_at
      FROM ranked_attempts
      WHERE rn = 1
@@ -1502,7 +1505,9 @@ async function coordinatorAction(request: Request, env: Env): Promise<Response> 
     "delete_skills",
     "delete_cpr_card",
     "remove_instructor_day",
-    "reset_student"
+    "reset_student",
+    "delete_jotform_submission",
+    "delete_flexiquiz_response"
   ]);
   if (destructive.has(action) && confirmation !== "DELETE") {
     return json({ error: "delete_confirmation_required" }, 400);
@@ -1517,7 +1522,11 @@ async function coordinatorAction(request: Request, env: Env): Promise<Response> 
         studentId,
         classSessionId,
         action,
-        at: stringField(body, "at") ?? now
+        at: stringField(body, "at") ?? now,
+        signatureMode: stringField(body, "signatureMode"),
+        signatureDataUrl: stringField(body, "signatureDataUrl"),
+        copySignatureAttestationId: stringField(body, "copySignatureAttestationId"),
+        deviceId
       });
       break;
     case "instructor_check_in":
@@ -1530,7 +1539,11 @@ async function coordinatorAction(request: Request, env: Env): Promise<Response> 
         at: stringField(body, "at") ?? now,
         courseId: stringField(body, "courseId"),
         courseTitle: stringField(body, "courseTitle"),
-        courseDate: stringField(body, "courseDate")
+        courseDate: stringField(body, "courseDate"),
+        signatureMode: stringField(body, "signatureMode"),
+        signatureDataUrl: stringField(body, "signatureDataUrl"),
+        copySignatureAttestationId: stringField(body, "copySignatureAttestationId"),
+        deviceId
       });
       break;
     case "edit_quiz_attempt":
@@ -1552,7 +1565,8 @@ async function coordinatorAction(request: Request, env: Env): Promise<Response> 
         studentId,
         classSessionId,
         quizId: stringField(body, "quizId"),
-        responseId: stringField(body, "responseId")
+        responseId: stringField(body, "responseId"),
+        deleteExternal: boolFromUnknown(body.deleteExternal) === true
       });
       break;
     case "delete_final_exam":
@@ -1561,7 +1575,19 @@ async function coordinatorAction(request: Request, env: Env): Promise<Response> 
         studentId,
         classSessionId,
         quizId: stringField(body, "quizId"),
+        responseId: stringField(body, "responseId"),
+        deleteExternal: boolFromUnknown(body.deleteExternal) === true
+      });
+      break;
+    case "delete_flexiquiz_response":
+      result = await coordinatorDeleteFlexiQuizResponse(env, {
+        quizId: stringField(body, "quizId"),
         responseId: stringField(body, "responseId")
+      });
+      break;
+    case "delete_jotform_submission":
+      result = await coordinatorDeleteJotformSubmission(env, {
+        submissionId: stringField(body, "submissionId") ?? stringField(body, "sourceSubmissionId")
       });
       break;
     case "delete_skills":
@@ -1604,7 +1630,16 @@ async function coordinatorAction(request: Request, env: Env): Promise<Response> 
 
 async function coordinatorStudentAttendanceOverride(
   env: Env,
-  input: { studentId: string; classSessionId: string; action: string; at: string }
+  input: {
+    studentId: string;
+    classSessionId: string;
+    action: string;
+    at: string;
+    signatureMode?: string;
+    signatureDataUrl?: string;
+    copySignatureAttestationId?: string;
+    deviceId?: string;
+  }
 ): Promise<JsonRecord> {
   const isCheckIn = input.action === "student_check_in";
   await env.DB.prepare(
@@ -1636,7 +1671,11 @@ async function coordinatorStudentAttendanceOverride(
     isCheckIn ? input.at : null,
     isCheckIn ? null : input.at
   ).run();
-  return { changes: result.meta.changes };
+  const external = await coordinatorMaybeSubmitStudentAttendanceSignature(env, input, isCheckIn).catch((error) => ({
+    ok: false,
+    error: error instanceof Error ? error.message : String(error)
+  }));
+  return { changes: result.meta.changes, external };
 }
 
 async function coordinatorInstructorAttendanceOverride(
@@ -1649,6 +1688,10 @@ async function coordinatorInstructorAttendanceOverride(
     courseId?: string;
     courseTitle?: string;
     courseDate?: string;
+    signatureMode?: string;
+    signatureDataUrl?: string;
+    copySignatureAttestationId?: string;
+    deviceId?: string;
   }
 ): Promise<JsonRecord> {
   const isCheckIn = input.action === "instructor_check_in";
@@ -1677,7 +1720,249 @@ async function coordinatorInstructorAttendanceOverride(
     isCheckIn ? null : input.at,
     isCheckIn ? 1 : 0
   ).run();
-  return { changes: result.meta.changes, attendanceId: id };
+  const external = await coordinatorMaybeSubmitInstructorAttendanceSignature(env, input, isCheckIn).catch((error) => ({
+    ok: false,
+    error: error instanceof Error ? error.message : String(error)
+  }));
+  return { changes: result.meta.changes, attendanceId: id, external };
+}
+
+async function coordinatorMaybeSubmitInstructorAttendanceSignature(
+  env: Env,
+  input: {
+    personId: string;
+    classSessionId: string;
+    action: string;
+    at: string;
+    courseId?: string;
+    courseTitle?: string;
+    courseDate?: string;
+    signatureMode?: string;
+    signatureDataUrl?: string;
+    copySignatureAttestationId?: string;
+    deviceId?: string;
+  },
+  isCheckIn: boolean
+): Promise<JsonRecord> {
+  const mode = (input.signatureMode ?? "none").trim();
+  if (mode === "none" || mode === "") {
+    return { ok: true, skipped: true, reason: "no_signature_selected" };
+  }
+  if (!env.ACADEMY_RMS_BASE_URL || !env.ACADEMY_RMS_ATTENDANCE_SECRET) {
+    return { ok: false, skipped: true, reason: "rms_attendance_not_configured" };
+  }
+  const signatureDataUrl = mode === "copy"
+    ? await coordinatorCopiedSignatureDataUrl(env, {
+      studentId: "",
+      classSessionId: input.classSessionId,
+      personId: input.personId,
+      copySignatureAttestationId: input.copySignatureAttestationId
+    })
+    : input.signatureDataUrl;
+  if (!signatureDataUrl?.startsWith("data:image/")) {
+    throw new HttpError(400, "coordinator_signature_required");
+  }
+  const person = await env.DB.prepare(
+    `SELECT full_name, email, oems_id FROM instructors WHERE person_id = ?1 LIMIT 1`
+  ).bind(input.personId).first<JsonRecord>();
+  const fullName = stringField(person ?? {}, "full_name") ?? "Instructor";
+  const inOut = isCheckIn ? "Check-In" : "Check-Out";
+  const actionText = isCheckIn ? "checked in to" : "checked out of";
+  const attestation = {
+    signatureDataUrl,
+    signedAt: input.at,
+    attestationText: `Coordinator override: ${fullName} ${actionText} ${input.courseTitle ?? "Class Manager Course"} on ${input.at}.`,
+    location: null
+  };
+  const rms = await postAcademyRmsAttendance(env, {
+    kind: "instructor_attendance",
+    personId: input.personId,
+    inOut,
+    classSessionId: input.classSessionId,
+    courseId: input.courseId,
+    courseTitle: input.courseTitle,
+    courseDate: input.courseDate,
+    attendee: {
+      firstName: fullName.split(" ")[0] ?? "Instructor",
+      lastName: fullName.split(" ").slice(1).join(" "),
+      email: stringField(person ?? {}, "email") ?? "",
+      oemsId: stringField(person ?? {}, "oems_id") ?? ""
+    },
+    fields: {},
+    attestation,
+    deviceId: input.deviceId,
+    submittedAt: new Date().toISOString(),
+    coordinatorOverride: true,
+    signatureMode: mode,
+    copiedSignatureAttestationId: mode === "copy" ? input.copySignatureAttestationId : undefined
+  });
+  return { ok: true, rmsAttestationId: rms.attestationId, signatureMode: mode };
+}
+
+async function coordinatorMaybeSubmitStudentAttendanceSignature(
+  env: Env,
+  input: {
+    studentId: string;
+    classSessionId: string;
+    action: string;
+    at: string;
+    signatureMode?: string;
+    signatureDataUrl?: string;
+    copySignatureAttestationId?: string;
+    deviceId?: string;
+  },
+  isCheckIn: boolean
+): Promise<JsonRecord> {
+  const mode = (input.signatureMode ?? "none").trim();
+  if (mode === "none" || mode === "") {
+    return { ok: true, skipped: true, reason: "no_signature_selected" };
+  }
+  if (!env.ACADEMY_RMS_BASE_URL || !env.ACADEMY_RMS_ATTENDANCE_SECRET) {
+    return { ok: false, skipped: true, reason: "rms_attendance_not_configured" };
+  }
+
+  const signatureDataUrl = mode === "copy"
+    ? await coordinatorCopiedSignatureDataUrl(env, input)
+    : input.signatureDataUrl;
+  if (!signatureDataUrl?.startsWith("data:image/")) {
+    throw new HttpError(400, "coordinator_signature_required");
+  }
+
+  const context = await coordinatorStudentAttendanceContext(env, input.studentId, input.classSessionId);
+  const attendee = {
+    submissionId: context.sourceSubmissionId ?? input.studentId,
+    firstName: context.firstName ?? "Unknown",
+    lastName: context.lastName ?? "Student",
+    email: context.email ?? "",
+    oemsId: context.oemsId ?? input.studentId,
+    courseType: context.courseTitle ?? "Class Session",
+    courseDate: context.courseDate ?? input.classSessionId,
+    courseId: context.courseId ?? ""
+  };
+  const inOut = isCheckIn ? "Check-In" : "Check-Out";
+  const actionText = isCheckIn ? "checked in to" : "checked out of";
+  const fullName = `${attendee.firstName} ${attendee.lastName}`.trim() || input.studentId;
+  const attestation = {
+    signatureDataUrl,
+    signedAt: input.at,
+    attestationText: `Coordinator override: ${fullName} ${actionText} ${attendee.courseType} on ${input.at}.`,
+    location: null
+  };
+  const fields = {
+    studentName: fullName,
+    email: attendee.email,
+    njoemsId: attendee.oemsId,
+    courseTitle: attendee.courseType,
+    courseDate: attendee.courseDate,
+    njCourse: attendee.courseId,
+    attendanceStatus: inOut
+  };
+  const rms = await postAcademyRmsAttendance(env, {
+    formId: "coordinator-override",
+    inOut,
+    studentId: input.studentId,
+    classSessionId: input.classSessionId,
+    attendee,
+    fields,
+    attestation,
+    deviceId: input.deviceId,
+    submittedAt: new Date().toISOString(),
+    coordinatorOverride: true,
+    signatureMode: mode,
+    copiedSignatureAttestationId: mode === "copy" ? input.copySignatureAttestationId : undefined
+  });
+  return { ok: true, rmsAttestationId: rms.attestationId, signatureMode: mode };
+}
+
+async function coordinatorStudentAttendanceContext(
+  env: Env,
+  studentId: string,
+  classSessionId: string
+): Promise<JsonRecord> {
+  const row = await env.DB.prepare(
+    `SELECT scs.submission_id AS sourceSubmissionId, scs.first_name AS firstName,
+            scs.last_name AS lastName, scs.email, scs.oems_id AS oemsId,
+            scs.course_id AS courseId, scs.course_title AS courseTitle,
+            scs.course_date AS courseDate
+     FROM scheduled_course_students scs
+     WHERE scs.student_id = ?1 AND scs.class_session_id = ?2
+     LIMIT 1`
+  ).bind(studentId, classSessionId).first<JsonRecord>();
+  if (row) return row;
+  return await env.DB.prepare(
+    `SELECT s.first_name AS firstName, s.last_name AS lastName, s.email,
+            s.oems_id AS oemsId, cs.course_id AS courseId,
+            cs.course_title AS courseTitle, cs.course_date AS courseDate,
+            cs.source_submission_id AS sourceSubmissionId
+     FROM students s
+     LEFT JOIN class_sessions cs ON cs.id = ?2
+     WHERE s.id = ?1
+     LIMIT 1`
+  ).bind(studentId, classSessionId).first<JsonRecord>() ?? {};
+}
+
+async function coordinatorCopiedSignatureDataUrl(
+  env: Env,
+  input: { studentId?: string; personId?: string; classSessionId: string; copySignatureAttestationId?: string }
+): Promise<string | undefined> {
+  const response = await fetchRmsSignatureOptions(env, {
+    studentId: input.studentId,
+    personId: input.personId,
+    classSessionId: input.classSessionId,
+    limit: 20
+  });
+  const signatures = arrayField(response, "signatures").filter(isJsonRecord);
+  const selected = input.copySignatureAttestationId
+    ? signatures.find((item) => stringField(item, "attestationId") === input.copySignatureAttestationId)
+    : signatures[0];
+  return stringField(selected ?? {}, "dataUrl");
+}
+
+async function coordinatorSignatureOptions(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const actorPersonId = stringField(body, "actorPersonId") ?? stringField(body, "personId");
+  const studentId = stringField(body, "studentId");
+  const targetPersonId = stringField(body, "targetPersonId");
+  const classSessionId = stringField(body, "classSessionId");
+  if (!isAcademyCoordinator(actorPersonId)) {
+    return json({ error: "coordinator_access_required" }, 403);
+  }
+  if ((!studentId && !targetPersonId) || !classSessionId) {
+    return json({ error: "missing_signature_option_fields" }, 400);
+  }
+  const payload = await fetchRmsSignatureOptions(env, { studentId, personId: targetPersonId, classSessionId, limit: 12 });
+  const signatures = arrayField(payload, "signatures").filter(isJsonRecord).map((item) => ({
+    attestationId: stringField(item, "attestationId"),
+    actionType: stringField(item, "actionType"),
+    signedAt: stringField(item, "signedAt"),
+    classSessionId: stringField(item, "classSessionId"),
+    courseTitle: stringField(item, "courseTitle"),
+    courseDate: stringField(item, "courseDate")
+  }));
+  return json({ ok: true, signatures });
+}
+
+async function fetchRmsSignatureOptions(
+  env: Env,
+  input: { studentId?: string; personId?: string; classSessionId: string; limit?: number }
+): Promise<JsonRecord> {
+  if (!env.ACADEMY_RMS_BASE_URL || !env.ACADEMY_RMS_ATTENDANCE_SECRET) {
+    throw new HttpError(503, "rms_attendance_not_configured");
+  }
+  const response = await fetch(joinUrl(env.ACADEMY_RMS_BASE_URL, "/api/webhooks/classmanager-attendance/signatures"), {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "x-classmanager-secret": env.ACADEMY_RMS_ATTENDANCE_SECRET
+    },
+    body: JSON.stringify(input)
+  });
+  const parsed = await response.json<JsonRecord>().catch((): JsonRecord => ({}));
+  if (!response.ok || parsed.ok === false) {
+    throw new HttpError(response.status || 502, stringField(parsed, "error") ?? "rms_signature_lookup_failed");
+  }
+  return parsed;
 }
 
 async function coordinatorEditQuizAttempt(
@@ -1732,7 +2017,7 @@ async function coordinatorEditQuizAttempt(
 
 async function coordinatorDeleteQuizAttempt(
   env: Env,
-  input: { studentId: string; classSessionId: string; quizId?: string; responseId?: string }
+  input: { studentId: string; classSessionId: string; quizId?: string; responseId?: string; deleteExternal?: boolean }
 ): Promise<JsonRecord> {
   const result = await env.DB.prepare(
     `DELETE FROM quiz_attempts
@@ -1740,12 +2025,15 @@ async function coordinatorDeleteQuizAttempt(
        AND (?3 IS NULL OR quiz_id = ?3)
        AND (?4 IS NULL OR response_id = ?4)`
   ).bind(input.studentId, input.classSessionId, input.quizId ?? null, input.responseId ?? null).run();
-  return { quizAttempts: result.meta.changes };
+  const external = input.deleteExternal && input.quizId && input.responseId
+    ? await coordinatorDeleteFlexiQuizResponse(env, { quizId: input.quizId, responseId: input.responseId })
+    : { skipped: true, reason: "external_delete_not_requested_or_missing_ids" };
+  return { quizAttempts: result.meta.changes, external };
 }
 
 async function coordinatorDeleteFinalExam(
   env: Env,
-  input: { studentId: string; classSessionId: string; quizId?: string; responseId?: string }
+  input: { studentId: string; classSessionId: string; quizId?: string; responseId?: string; deleteExternal?: boolean }
 ): Promise<JsonRecord> {
   const result = await env.DB.prepare(
     `DELETE FROM final_exam_results
@@ -1753,7 +2041,58 @@ async function coordinatorDeleteFinalExam(
        AND (?3 IS NULL OR quiz_id = ?3)
        AND (?4 IS NULL OR response_id = ?4)`
   ).bind(input.studentId, input.classSessionId, input.quizId ?? null, input.responseId ?? null).run();
-  return { finalExamResults: result.meta.changes };
+  const external = input.deleteExternal && input.quizId && input.responseId
+    ? await coordinatorDeleteFlexiQuizResponse(env, { quizId: input.quizId, responseId: input.responseId })
+    : { skipped: true, reason: "external_delete_not_requested_or_missing_ids" };
+  return { finalExamResults: result.meta.changes, external };
+}
+
+async function coordinatorDeleteFlexiQuizResponse(
+  env: Env,
+  input: { quizId?: string; responseId?: string }
+): Promise<JsonRecord> {
+  if (!input.quizId || !input.responseId) {
+    return { ok: false, skipped: true, reason: "missing_flexiquiz_response_ids" };
+  }
+  if (!env.FLEXIQUIZ_API_KEY) {
+    return { ok: false, skipped: true, reason: "flexiquiz_not_configured" };
+  }
+  const response = await flexiRequest(
+    env,
+    "DELETE",
+    `/v1/quizzes/${encodeURIComponent(input.quizId)}/responses/${encodeURIComponent(input.responseId)}`
+  );
+  const body = await response.text().catch(() => undefined);
+  return {
+    ok: response.ok || response.status === 404,
+    status: response.status,
+    body: body || undefined
+  };
+}
+
+async function coordinatorDeleteJotformSubmission(
+  env: Env,
+  input: { submissionId?: string }
+): Promise<JsonRecord> {
+  if (!input.submissionId) {
+    return { ok: false, skipped: true, reason: "missing_jotform_submission_id" };
+  }
+  if (!env.JOTFORM_API_KEY) {
+    return { ok: false, skipped: true, reason: "jotform_not_configured" };
+  }
+  const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/submission/${encodeURIComponent(input.submissionId)}`));
+  url.searchParams.set("apiKey", env.JOTFORM_API_KEY);
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: { accept: "application/json" }
+  });
+  const body = await response.text().catch(() => undefined);
+  return {
+    ok: response.ok || response.status === 404,
+    status: response.status,
+    submissionId: input.submissionId,
+    body: body || undefined
+  };
 }
 
 async function coordinatorDeleteSkills(
@@ -2854,6 +3193,7 @@ function dashboardQuizResult(row: JsonRecord): JsonRecord {
     studentId: stringField(row, "student_id"),
     classSessionId: stringField(row, "class_session_id"),
     quizId: stringField(row, "quiz_id"),
+    responseId: stringField(row, "response_id"),
     resultText: stringField(row, "result_text"),
     scoreText: stringField(row, "score_text"),
     passed: boolFromUnknown(row.passed),

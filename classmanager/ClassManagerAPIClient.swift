@@ -517,6 +517,25 @@ final class ClassManagerAPIClient {
         )
     }
 
+    func coordinatorSignatureOptions(
+        actorPersonId: String,
+        studentId: String?,
+        targetPersonId: String?,
+        classSessionId: String
+    ) async throws -> CoordinatorSignatureOptionsResponse {
+        try await send(
+            path: "/coordinator/signature-options",
+            method: "POST",
+            body: CoordinatorSignatureOptionsRequest(
+                actorPersonId: actorPersonId,
+                studentId: studentId,
+                targetPersonId: targetPersonId,
+                classSessionId: classSessionId,
+                deviceId: UIDevice.current.identifierForVendor?.uuidString
+            )
+        )
+    }
+
     @discardableResult
     func saveProgress(
         _ progress: CKProgress,
@@ -838,13 +857,14 @@ extension ClassManagerAPIClient {
         let studentId: String?
         let classSessionId: String?
         let quizId: String?
+        let responseId: String?
         let resultText: String?
         let scoreText: String?
         let passed: Bool?
         let completedAt: String?
         let updatedAt: String?
 
-        var id: String { [studentId, classSessionId, quizId, completedAt, updatedAt].compactMap { $0 }.joined(separator: ":") }
+        var id: String { [studentId, classSessionId, quizId, responseId, completedAt, updatedAt].compactMap { $0 }.joined(separator: ":") }
     }
 
     struct DashboardFinalResult: Decodable, Identifiable, Hashable {
@@ -942,6 +962,11 @@ extension ClassManagerAPIClient {
         let courseTitle: String?
         let courseDate: String?
         let confirmation: String?
+        let signatureMode: String?
+        let signatureDataUrl: String?
+        let copySignatureAttestationId: String?
+        let deleteExternal: Bool?
+        let submissionId: String?
         let deviceId: String?
 
         init(
@@ -960,6 +985,11 @@ extension ClassManagerAPIClient {
             courseTitle: String? = nil,
             courseDate: String? = nil,
             confirmation: String? = nil,
+            signatureMode: String? = nil,
+            signatureDataUrl: String? = nil,
+            copySignatureAttestationId: String? = nil,
+            deleteExternal: Bool? = nil,
+            submissionId: String? = nil,
             deviceId: String? = nil
         ) {
             self.actorPersonId = actorPersonId
@@ -977,6 +1007,11 @@ extension ClassManagerAPIClient {
             self.courseTitle = courseTitle
             self.courseDate = courseDate
             self.confirmation = confirmation
+            self.signatureMode = signatureMode
+            self.signatureDataUrl = signatureDataUrl
+            self.copySignatureAttestationId = copySignatureAttestationId
+            self.deleteExternal = deleteExternal
+            self.submissionId = submissionId
             self.deviceId = deviceId
         }
 
@@ -997,9 +1032,38 @@ extension ClassManagerAPIClient {
                 courseTitle: courseTitle,
                 courseDate: courseDate,
                 confirmation: confirmation,
+                signatureMode: signatureMode,
+                signatureDataUrl: signatureDataUrl,
+                copySignatureAttestationId: copySignatureAttestationId,
+                deleteExternal: deleteExternal,
+                submissionId: submissionId,
                 deviceId: deviceId
             )
         }
+    }
+
+    struct CoordinatorSignatureOptionsRequest: Encodable {
+        let actorPersonId: String
+        let studentId: String?
+        let targetPersonId: String?
+        let classSessionId: String
+        let deviceId: String?
+    }
+
+    struct CoordinatorSignatureOptionsResponse: Decodable {
+        let ok: Bool
+        let signatures: [CoordinatorSignatureOption]
+    }
+
+    struct CoordinatorSignatureOption: Decodable, Identifiable, Hashable {
+        let attestationId: String?
+        let actionType: String?
+        let signedAt: String?
+        let classSessionId: String?
+        let courseTitle: String?
+        let courseDate: String?
+
+        var id: String { attestationId ?? [actionType, signedAt, classSessionId].compactMap { $0 }.joined(separator: ":") }
     }
 
     struct CoordinatorActionResponse: Decodable {
