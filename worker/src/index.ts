@@ -183,6 +183,80 @@ const INSTRUCTOR_MAX_COURSES = 60;
 const INSTRUCTOR_INCLUDED_SUBMISSION_IDS = new Set([
   "6406705846326091703"
 ]);
+const REGISTRATION_COURSE_OVERRIDES: Record<string, SessionOption> = {
+  "6602086567713588288": {
+    courseType: "EMT Refresher A",
+    datePretty: "08/11/2026",
+    dateRaw: "08/11/2026",
+    courseId: "169415",
+    ceuValue: "8.0",
+    courseLocation: DEFAULT_COURSE_LOCATION
+  },
+  "6599800153325116151": {
+    courseType: "EMT Refresher A",
+    datePretty: "08/11/2026",
+    dateRaw: "08/11/2026",
+    courseId: "169415",
+    ceuValue: "8.0",
+    courseLocation: DEFAULT_COURSE_LOCATION
+  },
+  "6598576525317842464": {
+    courseType: "EMT Refresher A",
+    datePretty: "08/11/2026",
+    dateRaw: "08/11/2026",
+    courseId: "169415",
+    ceuValue: "8.0",
+    courseLocation: DEFAULT_COURSE_LOCATION
+  },
+  "6597532452252671554": {
+    courseType: "EMT Refresher A",
+    datePretty: "08/11/2026",
+    dateRaw: "08/11/2026",
+    courseId: "169415",
+    ceuValue: "8.0",
+    courseLocation: DEFAULT_COURSE_LOCATION
+  },
+  "6597099803511564697": {
+    courseType: "EMT Refresher A",
+    datePretty: "08/11/2026",
+    dateRaw: "08/11/2026",
+    courseId: "169415",
+    ceuValue: "8.0",
+    courseLocation: DEFAULT_COURSE_LOCATION
+  },
+  "6595460823584348757": {
+    courseType: "EMT Refresher A",
+    datePretty: "08/11/2026",
+    dateRaw: "08/11/2026",
+    courseId: "169415",
+    ceuValue: "8.0",
+    courseLocation: DEFAULT_COURSE_LOCATION
+  },
+  "6594604457318159851": {
+    courseType: "EMT Refresher A",
+    datePretty: "08/11/2026",
+    dateRaw: "08/11/2026",
+    courseId: "169415",
+    ceuValue: "8.0",
+    courseLocation: DEFAULT_COURSE_LOCATION
+  },
+  "6594578952817975509": {
+    courseType: "EMT Refresher A",
+    datePretty: "08/11/2026",
+    dateRaw: "08/11/2026",
+    courseId: "169415",
+    ceuValue: "8.0",
+    courseLocation: DEFAULT_COURSE_LOCATION
+  },
+  "6594459094314855485": {
+    courseType: "EMT Refresher A",
+    datePretty: "08/11/2026",
+    dateRaw: "08/11/2026",
+    courseId: "169415",
+    ceuValue: "8.0",
+    courseLocation: DEFAULT_COURSE_LOCATION
+  }
+};
 const REFRESHER_C_RATIONALES_BY_PROMPT_KEY: Record<string, string> = {
   "a 9 year old female was struck by a car while she was riding her bicycle she complains of pain in her left forearm right shoulder and abdomen her skin is pale and cool her right shoulder appears uninjured you observe an angulated injury to her forearm and distal pulses are present she has an abrasion to her right upper abdominal quadrant and the pain increases with palpation you should perform spinal motion restriction": "Correct answer: administer oxygen, and transport immediately. Pale cool skin, abdominal pain after bicycle impact, and extremity injury suggest possible internal bleeding and shock. Provide spinal precautions as indicated, oxygen, and rapid transport.",
   "a patient has been critically hurt in a nighttime motor vehicle collision she was wearing a seat belt and hit a tree at 70 mph the car she was driving weighed 2 tons and was equipped with air bags that did deploy which factor had the greatest impact on the injuries she sustained": "Correct answer: Speed of the vehicle at impact. Kinetic energy rises sharply as speed increases, so the 70 mph impact is the major driver of injury severity even when seat belts and airbags reduce some injury risk.",
@@ -670,6 +744,7 @@ async function sessionLookup(request: Request, env: Env): Promise<Response> {
     const now = new Date().toISOString();
     await upsertScheduledCourse(env, course, now);
     await upsertScheduledStudent(env, { attendee, formId: normalized.formId, course }, now);
+    await refreshScheduledCourseExpectedCount(env, course.classSessionId, course.courseId, now);
   }
 
   await audit(env, "session.lookup", {
@@ -3102,6 +3177,28 @@ async function upsertScheduledStudent(env: Env, row: JsonRecord, now: string): P
   ).run();
 }
 
+async function refreshScheduledCourseExpectedCount(
+  env: Env,
+  classSessionId: string,
+  courseId: string | undefined,
+  now: string
+): Promise<void> {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS expected_count
+     FROM scheduled_course_students
+     WHERE class_session_id = ?1
+       AND (?2 IS NULL OR course_id = ?2)`
+  ).bind(classSessionId, courseId ?? null).first<JsonRecord>();
+  const expectedCount = numberFromUnknown(row?.expected_count) ?? 0;
+  await env.DB.prepare(
+    `UPDATE scheduled_courses
+     SET expected_count = ?3,
+         updated_at = ?4
+     WHERE class_session_id = ?1
+       AND (?2 IS NULL OR course_id = ?2)`
+  ).bind(classSessionId, courseId ?? null, expectedCount, now).run();
+}
+
 function courseFromScheduledRow(row: JsonRecord): InstructorCourse {
   const date = stringField(row, "course_date") ?? "";
   const raw = parseJsonRecord(stringField(row, "raw_json") ?? "") ?? {};
@@ -3534,8 +3631,9 @@ function normalizeRegistrationSubmission(
     normalizeDateToMMDDYYYY(stringField(dobAnswer, "datetime") ?? "");
   const location = answerString(answers, "46");
   const products = registrationProducts(answers);
+  const override = REGISTRATION_COURSE_OVERRIDES[submissionId];
   const firstProduct = products[0];
-  const firstOption = firstProduct ? productToOption(firstProduct, location) : undefined;
+  const firstOption = override ?? (firstProduct ? productToOption(firstProduct, location) : undefined);
 
   const attendee: NormalizedAttendee = {
     submissionId,
@@ -3557,7 +3655,7 @@ function normalizeRegistrationSubmission(
     formId,
     formType: "registration",
     attendee,
-    options: products.map((product) => productToOption(product, location))
+    options: override ? [override] : products.map((product) => productToOption(product, location))
   };
 }
 
