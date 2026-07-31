@@ -2739,8 +2739,7 @@ async function resolveInstructorCourses(env: Env): Promise<InstructorCourse[]> {
      FROM scheduled_courses
      ORDER BY course_date DESC, course_title`
   ).all<JsonRecord>();
-  const included = await fetchIncludedInstructorCourses(env);
-  const scheduled = [...(rows.results ?? []).map(courseFromScheduledRow), ...included];
+  const scheduled = (rows.results ?? []).map(courseFromScheduledRow);
   if (scheduled.length > 0) {
     return instructorCourseMenuList(scheduled);
   }
