@@ -872,9 +872,9 @@ async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext
   const instructor = await resolveInstructorProfile(env, personId);
   await upsertInstructorProfile(env, instructor, now);
 
-  await refreshInstructorCoursesForMenu(env, "instructor_scan").catch((error) => {
+  ctx?.waitUntil(refreshInstructorCoursesForMenu(env, "instructor_scan").catch((error) => {
     console.warn("instructor scan registration course refresh failed", error);
-  });
+  }));
   const courses = await resolveInstructorCourses(env);
   const defaultCourse = courses.find(isInstructorAutoDefaultCourse);
   const attendance = defaultCourse
@@ -1249,7 +1249,11 @@ async function rmsSkillsCompleted(request: Request, env: Env): Promise<Response>
 
 async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   const limit = Math.min(Math.max(numberFromUnknown(url.searchParams.get("limit")) ?? 100, 1), 250);
-  await refreshInstructorCoursesForMenu(env, "instructor_dashboard").catch((error) => {
+  await withTimeout(
+    refreshInstructorCoursesForMenu(env, "instructor_dashboard"),
+    2500,
+    "registration course refresh timed out"
+  ).catch((error) => {
     console.warn("dashboard registration course refresh failed", error);
   });
   const courses = await resolveInstructorCourses(env);
@@ -2780,6 +2784,9 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
     for (const option of normalized.options) {
       const attendee = attendeeWithOption(normalized.attendee, option);
       const course = instructorCourseFromAttendee(attendee, formId);
+      if (!validCourseDate(course.date)) {
+        continue;
+      }
       const existing = courseMap.get(course.id) ?? { course, students: [] };
       existing.students.push({
         attendee,
@@ -3170,6 +3177,21 @@ function dateFromSortValue(value: number): Date | undefined {
     return undefined;
   }
   return new Date(Date.UTC(year, month - 1, day));
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 function todayEasternDate(): string {
