@@ -2,6 +2,9 @@ import PencilKit
 import SwiftUI
 
 struct InstructorDashboardView: View {
+    private static let duplicateSkillsMessage = "This student already has a completed skills verification. Continue only if you intentionally need to submit another form."
+    private static let coordinatorScoreMessage = "This creates or updates a ClassManager quiz row and is permanently audited."
+
     let config: AppConfig
     let jotform: JotFormClient
     let flexi: FlexiQuizClient
@@ -24,6 +27,11 @@ struct InstructorDashboardView: View {
     @State private var resetCandidate: ClassManagerAPIClient.DashboardStudent?
     @State private var resetConfirmationText = ""
     @State private var showingResetText = false
+    @State private var coordinatorPendingAction: CoordinatorPendingAction?
+    @State private var coordinatorScoreEditStudent: ClassManagerAPIClient.DashboardStudent?
+    @State private var coordinatorScoreQuizId = ""
+    @State private var coordinatorScoreText = ""
+    @State private var coordinatorScorePassed = true
     @State private var attendanceAction: InstructorAttendanceAction?
     @State private var busy = false
     @State private var notice: String?
@@ -36,6 +44,54 @@ struct InstructorDashboardView: View {
 
     private var activeCourse: ClassManagerAPIClient.InstructorCourse? {
         selectedCourse ?? initialCourse
+    }
+
+    private var hasCoordinatorAccess: Bool {
+        dashboard?.coordinatorAccess == true || instructor.personId == "704bbc3f-9503-44e5-a442-e6cbf21c4ebe"
+    }
+
+    private var isNoticePresented: Binding<Bool> {
+        Binding(
+            get: { notice != nil },
+            set: { isPresented in
+                if !isPresented {
+                    notice = nil
+                }
+            }
+        )
+    }
+
+    private var isRepeatSkillsPresented: Binding<Bool> {
+        Binding(
+            get: { repeatSkillsCandidate != nil },
+            set: { isPresented in
+                if !isPresented {
+                    repeatSkillsCandidate = nil
+                }
+            }
+        )
+    }
+
+    private var isCprOverridePresented: Binding<Bool> {
+        Binding(
+            get: { cprOverrideCandidate != nil },
+            set: { isPresented in
+                if !isPresented {
+                    cprOverrideCandidate = nil
+                }
+            }
+        )
+    }
+
+    private var isCoordinatorActionPresented: Binding<Bool> {
+        Binding(
+            get: { coordinatorPendingAction != nil },
+            set: { isPresented in
+                if !isPresented {
+                    coordinatorPendingAction = nil
+                }
+            }
+        )
     }
 
     init(
@@ -61,6 +117,117 @@ struct InstructorDashboardView: View {
     }
 
     var body: some View {
+        dashboardBase
+            .sheet(item: $selectedStudent) { student in
+                studentDetail(student)
+            }
+            .fullScreenCover(isPresented: Binding(
+                get: { isPreparingSkillsForm || skillsURL != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        skillsURL = nil
+                        isPreparingSkillsForm = false
+                        Task { await refresh() }
+                    }
+                }
+            )) {
+                skillsVerificationCover
+            }
+            .sheet(item: $attendanceAction) { action in
+                attendanceSheet(for: action)
+            }
+            .confirmationDialog(
+                "Coordinator action",
+                isPresented: isCoordinatorActionPresented,
+                titleVisibility: .visible
+            ) {
+                if let pending = coordinatorPendingAction {
+                    Button(pending.destructive ? "Delete Permanently" : "Apply Override", role: pending.destructive ? .destructive : nil) {
+                        Task { await runCoordinatorAction(pending) }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Override Quiz Score", isPresented: Binding(
+                get: { coordinatorScoreEditStudent != nil },
+                set: { if !$0 { coordinatorScoreEditStudent = nil } }
+            )) {
+                TextField("Quiz ID", text: $coordinatorScoreQuizId)
+                TextField("Score, e.g. 9/12", text: $coordinatorScoreText)
+                Button("Save Passed") {
+                    if let student = coordinatorScoreEditStudent {
+                        coordinatorScorePassed = true
+                        Task { await saveCoordinatorScoreOverride(for: student) }
+                    }
+                }
+                Button("Save Failed", role: .destructive) {
+                    if let student = coordinatorScoreEditStudent {
+                        coordinatorScorePassed = false
+                        Task { await saveCoordinatorScoreOverride(for: student) }
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    coordinatorScoreEditStudent = nil
+                }
+            }
+            .confirmationDialog(
+                "Reset this student's ClassManager progress?",
+                isPresented: Binding(
+                    get: { resetCandidate != nil && !showingResetText },
+                    set: { if !$0 && !showingResetText { resetCandidate = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Continue to Reset", role: .destructive) {
+                    resetConfirmationText = ""
+                    showingResetText = true
+                }
+                Button("Cancel", role: .cancel) {
+                    resetCandidate = nil
+                }
+            }
+            .confirmationDialog(
+                "Skills verification is already complete.",
+                isPresented: isRepeatSkillsPresented,
+                titleVisibility: .visible
+            ) {
+                Button("Open Form Again", role: .destructive) {
+                    openRepeatSkillsForm()
+                }
+                Button("Cancel", role: .cancel) {
+                    repeatSkillsCandidate = nil
+                }
+            }
+            .confirmationDialog(
+                "Approve this CPR card?",
+                isPresented: isCprOverridePresented,
+                titleVisibility: .visible
+            ) {
+                Button("Approve CPR Card", role: .destructive) {
+                    approvePendingCprCard()
+                }
+                Button("Cancel", role: .cancel) {
+                    cprOverrideCandidate = nil
+                }
+            }
+            .alert("Type RESET STUDENT", isPresented: $showingResetText) {
+                TextField("RESET STUDENT", text: $resetConfirmationText)
+                    .textInputAutocapitalization(.characters)
+                Button("Reset", role: .destructive) {
+                    Task { await resetSelectedStudent() }
+                }
+                .disabled(resetConfirmationText != "RESET STUDENT")
+                Button("Cancel", role: .cancel) {
+                    resetCandidate = nil
+                    resetConfirmationText = ""
+                }
+            }
+            .alert(notice ?? "", isPresented: isNoticePresented) {
+                Button("OK", role: .cancel) {}
+            }
+    }
+
+    private var dashboardBase: some View {
         NavigationStack {
             Group {
                 if attendance == nil {
@@ -99,140 +266,71 @@ struct InstructorDashboardView: View {
                 guard let route = ClassManagerNotificationRoute(userInfo: notification.userInfo ?? [:]) else { return }
                 Task { await handleTappedDashboardNotification(route) }
             }
-            .sheet(item: $selectedStudent) { student in
-                studentDetail(student)
+        }
+    }
+
+    private var skillsVerificationCover: some View {
+        NavigationStack {
+            ZStack {
+                if let skillsURL {
+                    SkillsWebView(url: skillsURL) {
+                        Task { @MainActor in
+                            notice = "Skills verification submitted."
+                            self.skillsURL = nil
+                            self.isPreparingSkillsForm = false
+                        }
+                        Task { await refresh() }
+                    }
+                } else {
+                    LoadingSpinnerView()
+                }
             }
-            .fullScreenCover(isPresented: Binding(
-                get: { isPreparingSkillsForm || skillsURL != nil },
-                set: { isPresented in
-                    if !isPresented {
+            .navigationTitle("Skills Verification")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
                         skillsURL = nil
                         isPreparingSkillsForm = false
                         Task { await refresh() }
                     }
                 }
-            )) {
-                NavigationStack {
-                    ZStack {
-                        if let skillsURL {
-                            SkillsWebView(url: skillsURL) {
-                                Task { @MainActor in
-                                    notice = "Skills verification submitted."
-                                    self.skillsURL = nil
-                                    self.isPreparingSkillsForm = false
-                                }
-                                Task { await refresh() }
-                            }
-                        } else {
-                            LoadingSpinnerView()
-                        }
-                    }
-                    .navigationTitle("Skills Verification")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("Done") {
-                                skillsURL = nil
-                                isPreparingSkillsForm = false
-                                Task { await refresh() }
-                            }
-                        }
-                    }
-                }
-            }
-            .sheet(item: $attendanceAction) { action in
-                if let course = activeCourse {
-                    InstructorAttendanceCaptureSheet(
-                        instructorName: instructor.fullName,
-                        course: course,
-                        inOut: action.inOut,
-                        onCancel: { attendanceAction = nil },
-                        onSubmit: { attestation, locationRequestId in
-                            attendanceAction = nil
-                            Task { await submitAttendance(inOut: action.inOut, attestation: attestation, locationRequestId: locationRequestId) }
-                        }
-                    )
-                }
-            }
-            .confirmationDialog(
-                "Reset this student's ClassManager progress?",
-                isPresented: Binding(
-                    get: { resetCandidate != nil && !showingResetText },
-                    set: { if !$0 && !showingResetText { resetCandidate = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Continue to Reset", role: .destructive) {
-                    resetConfirmationText = ""
-                    showingResetText = true
-                }
-                Button("Cancel", role: .cancel) {
-                    resetCandidate = nil
-                }
-            } message: {
-                Text("This removes ClassManager check-in, quiz, final exam, and skills progress for this student in this session.")
-            }
-            .confirmationDialog(
-                "Skills verification is already complete.",
-                isPresented: Binding(
-                    get: { repeatSkillsCandidate != nil },
-                    set: { if !$0 { repeatSkillsCandidate = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Open Form Again", role: .destructive) {
-                    if let student = repeatSkillsCandidate {
-                        repeatSkillsCandidate = nil
-                        Task { await openSkills(for: student) }
-                    }
-                }
-                Button("Cancel", role: .cancel) {
-                    repeatSkillsCandidate = nil
-                }
-            } message: {
-                Text("This student already has a completed skills verification. Continue only if you intentionally need to submit another form.")
-            }
-            .confirmationDialog(
-                "Approve this CPR card?",
-                isPresented: Binding(
-                    get: { cprOverrideCandidate != nil },
-                    set: { if !$0 { cprOverrideCandidate = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Approve CPR Card", role: .destructive) {
-                    if let student = cprOverrideCandidate {
-                        cprOverrideCandidate = nil
-                        Task { await approveCprCard(for: student) }
-                    }
-                }
-                Button("Cancel", role: .cancel) {
-                    cprOverrideCandidate = nil
-                }
-            } message: {
-                Text("Use this only after personally reviewing the CPR card against NJ OEMS requirements.")
-            }
-            .alert("Type RESET STUDENT", isPresented: $showingResetText) {
-                TextField("RESET STUDENT", text: $resetConfirmationText)
-                    .textInputAutocapitalization(.characters)
-                Button("Reset", role: .destructive) {
-                    Task { await resetSelectedStudent() }
-                }
-                .disabled(resetConfirmationText != "RESET STUDENT")
-                Button("Cancel", role: .cancel) {
-                    resetCandidate = nil
-                    resetConfirmationText = ""
-                }
-            } message: {
-                Text("Final confirmation required. This does not delete the student's FlexiQuiz account.")
-            }
-            .alert(notice ?? "", isPresented: Binding(
-                get: { notice != nil },
-                set: { if !$0 { notice = nil } }
-            )) {
-                Button("OK", role: .cancel) {}
             }
         }
+    }
+
+    @ViewBuilder
+    private func attendanceSheet(for action: InstructorAttendanceAction) -> some View {
+        if let course = activeCourse {
+            InstructorAttendanceCaptureSheet(
+                instructorName: instructor.fullName,
+                course: course,
+                inOut: action.inOut,
+                onCancel: { attendanceAction = nil },
+                onSubmit: { attestation, locationRequestId in
+                    attendanceAction = nil
+                    Task {
+                        await submitAttendance(
+                            inOut: action.inOut,
+                            attestation: attestation,
+                            locationRequestId: locationRequestId
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    private func openRepeatSkillsForm() {
+        guard let student = repeatSkillsCandidate else { return }
+        repeatSkillsCandidate = nil
+        Task { await openSkills(for: student) }
+    }
+
+    private func approvePendingCprCard() {
+        guard let student = cprOverrideCandidate else { return }
+        cprOverrideCandidate = nil
+        Task { await approveCprCard(for: student) }
     }
 
     private var checkInGate: some View {
@@ -388,6 +486,35 @@ struct InstructorDashboardView: View {
                         }
 
                         Spacer()
+                        if hasCoordinatorAccess {
+                            Menu {
+                                Button("Check In Now") {
+                                    coordinatorPendingAction = CoordinatorPendingAction(
+                                        action: "instructor_check_in",
+                                        targetPersonId: row.personId,
+                                        message: "Manually check \(row.fullName) into this class now."
+                                    )
+                                }
+                                Button("Check Out Now") {
+                                    coordinatorPendingAction = CoordinatorPendingAction(
+                                        action: "instructor_check_out",
+                                        targetPersonId: row.personId,
+                                        message: "Manually check \(row.fullName) out of this class now."
+                                    )
+                                }
+                                Button("Remove From Day", role: .destructive) {
+                                    coordinatorPendingAction = CoordinatorPendingAction(
+                                        action: "remove_instructor_day",
+                                        targetPersonId: row.personId,
+                                        confirmation: "DELETE",
+                                        destructive: true,
+                                        message: "This removes \(row.fullName) from the instructor attendance record for this class."
+                                    )
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                            }
+                        }
                     }
                     .padding(.vertical, 4)
                 }
@@ -589,6 +716,17 @@ struct InstructorDashboardView: View {
         let icon: String
         let color: Color
         let student: ClassManagerAPIClient.DashboardStudent?
+    }
+
+    private struct CoordinatorPendingAction: Identifiable {
+        let id = UUID()
+        let action: String
+        var studentId: String?
+        var targetPersonId: String?
+        var quizId: String?
+        var confirmation: String?
+        var destructive = false
+        let message: String
     }
 
     private func endOfDayChecklistItems() -> [ChecklistItem] {
@@ -900,6 +1038,87 @@ struct InstructorDashboardView: View {
                         Label("Reset ClassManager Progress", systemImage: "arrow.counterclockwise")
                     }
                 }
+
+                if hasCoordinatorAccess {
+                    Section("Academy Coordinator Master Access") {
+                        Button {
+                            coordinatorPendingAction = CoordinatorPendingAction(
+                                action: "student_check_in",
+                                studentId: student.studentId,
+                                message: "Manually check \(student.fullName.isEmpty ? student.studentId : student.fullName) into this class now."
+                            )
+                        } label: {
+                            Label("Manual Student Check In", systemImage: "person.badge.plus")
+                        }
+
+                        Button {
+                            coordinatorPendingAction = CoordinatorPendingAction(
+                                action: "student_check_out",
+                                studentId: student.studentId,
+                                message: "Manually check \(student.fullName.isEmpty ? student.studentId : student.fullName) out of this class now."
+                            )
+                        } label: {
+                            Label("Manual Student Check Out", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+
+                        Button {
+                            coordinatorScoreEditStudent = student
+                            coordinatorScoreQuizId = quizResults(for: student).first?.quizId ?? ""
+                            coordinatorScoreText = quizResults(for: student).first?.scoreText ?? ""
+                            coordinatorScorePassed = true
+                        } label: {
+                            Label("Edit / Add Quiz Score", systemImage: "pencil.and.list.clipboard")
+                        }
+
+                        Button(role: .destructive) {
+                            coordinatorPendingAction = CoordinatorPendingAction(
+                                action: "delete_quiz_attempt",
+                                studentId: student.studentId,
+                                confirmation: "DELETE",
+                                destructive: true,
+                                message: "This deletes all local mini-quiz attempts for this student in this class unless a quiz ID is supplied in a future detailed editor."
+                            )
+                        } label: {
+                            Label("Delete Local Quiz Attempts", systemImage: "trash")
+                        }
+
+                        Button(role: .destructive) {
+                            coordinatorPendingAction = CoordinatorPendingAction(
+                                action: "delete_final_exam",
+                                studentId: student.studentId,
+                                confirmation: "DELETE",
+                                destructive: true,
+                                message: "This deletes local final exam result rows for this student in this class."
+                            )
+                        } label: {
+                            Label("Delete Final Exam Results", systemImage: "trash.slash")
+                        }
+
+                        Button(role: .destructive) {
+                            coordinatorPendingAction = CoordinatorPendingAction(
+                                action: "delete_skills",
+                                studentId: student.studentId,
+                                confirmation: "DELETE",
+                                destructive: true,
+                                message: "This deletes the ClassManager skills-complete marker for this student."
+                            )
+                        } label: {
+                            Label("Delete Skills Status", systemImage: "checklist.unchecked")
+                        }
+
+                        Button(role: .destructive) {
+                            coordinatorPendingAction = CoordinatorPendingAction(
+                                action: "delete_cpr_card",
+                                studentId: student.studentId,
+                                confirmation: "DELETE",
+                                destructive: true,
+                                message: "This deletes the CPR card row and associated R2 object for this student in this class."
+                            )
+                        } label: {
+                            Label("Delete CPR Card", systemImage: "cross.case")
+                        }
+                    }
+                }
             }
             .navigationTitle("Student")
             .navigationBarTitleDisplayMode(.inline)
@@ -1204,6 +1423,80 @@ struct InstructorDashboardView: View {
                 self.resetCandidate = nil
                 resetConfirmationText = ""
             }
+        }
+    }
+
+    private func runCoordinatorAction(_ pending: CoordinatorPendingAction) async {
+        guard let course = activeCourse else {
+            await MainActor.run { notice = "Choose a course first." }
+            return
+        }
+        await MainActor.run { busy = true }
+        defer { Task { @MainActor in busy = false } }
+        do {
+            _ = try await ClassManagerAPIClient.shared.coordinatorAction(
+                ClassManagerAPIClient.CoordinatorActionRequest(
+                    actorPersonId: instructor.personId,
+                    action: pending.action,
+                    classSessionId: course.classSessionId,
+                    studentId: pending.studentId,
+                    targetPersonId: pending.targetPersonId,
+                    quizId: pending.quizId,
+                    at: ISO8601DateFormatter().string(from: Date()),
+                    courseId: course.courseId,
+                    courseTitle: course.title,
+                    courseDate: course.date,
+                    confirmation: pending.confirmation
+                )
+            )
+            await MainActor.run {
+                notice = "Coordinator action saved."
+                selectedStudent = nil
+            }
+            await refresh()
+        } catch {
+            await MainActor.run { notice = "Coordinator action failed." }
+        }
+    }
+
+    private func saveCoordinatorScoreOverride(for student: ClassManagerAPIClient.DashboardStudent) async {
+        guard let course = activeCourse else {
+            await MainActor.run { notice = "Choose a course first." }
+            return
+        }
+        let quizId = coordinatorScoreQuizId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let score = coordinatorScoreText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !quizId.isEmpty, !score.isEmpty else {
+            await MainActor.run { notice = "Quiz ID and score are required." }
+            return
+        }
+        await MainActor.run { busy = true }
+        defer { Task { @MainActor in busy = false } }
+        do {
+            _ = try await ClassManagerAPIClient.shared.coordinatorAction(
+                ClassManagerAPIClient.CoordinatorActionRequest(
+                    actorPersonId: instructor.personId,
+                    action: "edit_quiz_attempt",
+                    classSessionId: course.classSessionId,
+                    studentId: student.studentId,
+                    quizId: quizId,
+                    scoreText: score,
+                    resultText: coordinatorScorePassed ? "Pass" : "Fail",
+                    passed: coordinatorScorePassed,
+                    at: ISO8601DateFormatter().string(from: Date()),
+                    courseId: course.courseId,
+                    courseTitle: course.title,
+                    courseDate: course.date
+                )
+            )
+            await MainActor.run {
+                notice = "Quiz score override saved."
+                coordinatorScoreEditStudent = nil
+                selectedStudent = nil
+            }
+            await refresh()
+        } catch {
+            await MainActor.run { notice = "Could not save score override." }
         }
     }
 

@@ -172,6 +172,9 @@ const REFRESHER_VERSION_A_COURSES = [
     quizName: "Refresher C Version A"
   }
 ] as const;
+const ACADEMY_COORDINATOR_PERSON_IDS = new Set([
+  "704bbc3f-9503-44e5-a442-e6cbf21c4ebe"
+]);
 const REGISTRATION_FORM_ID = "251265925097060";
 const INSTRUCTOR_PAST_COURSE_DAYS = 45;
 const INSTRUCTOR_UPCOMING_COURSE_DAYS = 120;
@@ -511,6 +514,9 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/instructor/student/reset") {
         return await instructorResetStudent(request, env);
+      }
+      if (request.method === "POST" && url.pathname === "/coordinator/action") {
+        return await coordinatorAction(request, env);
       }
 
       if (request.method === "POST" && url.pathname === "/instructor/student/send-checkout-notice") {
@@ -1388,6 +1394,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
     generatedAt: new Date().toISOString(),
     course: selectedCourse ?? null,
     courses,
+    coordinatorAccess: isAcademyCoordinator(instructorPersonId),
     attendance: attendance ?? null,
     instructors: instructorRows,
     students: (rows.results ?? []).map(dashboardStudent),
@@ -1458,6 +1465,364 @@ async function instructorResetStudent(request: Request, env: Env): Promise<Respo
     },
     flexiquiz: flexiReset
   });
+}
+
+function isAcademyCoordinator(personId?: string | null): boolean {
+  return !!personId && ACADEMY_COORDINATOR_PERSON_IDS.has(personId.trim());
+}
+
+async function coordinatorAction(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const actorPersonId = stringField(body, "actorPersonId") ?? stringField(body, "personId");
+  const action = stringField(body, "action");
+  const classSessionId = stringField(body, "classSessionId");
+  const studentId = stringField(body, "studentId");
+  const targetPersonId = stringField(body, "targetPersonId");
+  const confirmation = stringField(body, "confirmation");
+  const deviceId = stringField(body, "deviceId");
+  const now = new Date().toISOString();
+
+  if (!isAcademyCoordinator(actorPersonId)) {
+    await audit(env, "coordinator.action.denied", {
+      actorId: actorPersonId,
+      classSessionId,
+      studentId,
+      deviceId,
+      payload: { action }
+    });
+    return json({ error: "coordinator_access_required" }, 403);
+  }
+  if (!action || !classSessionId) {
+    return json({ error: "missing_coordinator_action_fields" }, 400);
+  }
+
+  const destructive = new Set([
+    "delete_quiz_attempt",
+    "delete_final_exam",
+    "delete_skills",
+    "delete_cpr_card",
+    "remove_instructor_day",
+    "reset_student"
+  ]);
+  if (destructive.has(action) && confirmation !== "DELETE") {
+    return json({ error: "delete_confirmation_required" }, 400);
+  }
+
+  let result: JsonRecord;
+  switch (action) {
+    case "student_check_in":
+    case "student_check_out":
+      if (!studentId) return json({ error: "missing_student_id" }, 400);
+      result = await coordinatorStudentAttendanceOverride(env, {
+        studentId,
+        classSessionId,
+        action,
+        at: stringField(body, "at") ?? now
+      });
+      break;
+    case "instructor_check_in":
+    case "instructor_check_out":
+      if (!targetPersonId) return json({ error: "missing_target_person_id" }, 400);
+      result = await coordinatorInstructorAttendanceOverride(env, {
+        personId: targetPersonId,
+        classSessionId,
+        action,
+        at: stringField(body, "at") ?? now,
+        courseId: stringField(body, "courseId"),
+        courseTitle: stringField(body, "courseTitle"),
+        courseDate: stringField(body, "courseDate")
+      });
+      break;
+    case "edit_quiz_attempt":
+      if (!studentId) return json({ error: "missing_student_id" }, 400);
+      result = await coordinatorEditQuizAttempt(env, {
+        studentId,
+        classSessionId,
+        quizId: stringField(body, "quizId"),
+        responseId: stringField(body, "responseId"),
+        scoreText: stringField(body, "scoreText"),
+        resultText: stringField(body, "resultText"),
+        passed: boolFromUnknown(body.passed),
+        completedAt: stringField(body, "completedAt")
+      });
+      break;
+    case "delete_quiz_attempt":
+      if (!studentId) return json({ error: "missing_student_id" }, 400);
+      result = await coordinatorDeleteQuizAttempt(env, {
+        studentId,
+        classSessionId,
+        quizId: stringField(body, "quizId"),
+        responseId: stringField(body, "responseId")
+      });
+      break;
+    case "delete_final_exam":
+      if (!studentId) return json({ error: "missing_student_id" }, 400);
+      result = await coordinatorDeleteFinalExam(env, {
+        studentId,
+        classSessionId,
+        quizId: stringField(body, "quizId"),
+        responseId: stringField(body, "responseId")
+      });
+      break;
+    case "delete_skills":
+      if (!studentId) return json({ error: "missing_student_id" }, 400);
+      result = await coordinatorDeleteSkills(env, { studentId, classSessionId });
+      break;
+    case "delete_cpr_card":
+      if (!studentId) return json({ error: "missing_student_id" }, 400);
+      result = await coordinatorDeleteCprCard(env, { studentId, classSessionId });
+      break;
+    case "remove_instructor_day":
+      if (!targetPersonId) return json({ error: "missing_target_person_id" }, 400);
+      result = await coordinatorRemoveInstructorDay(env, { personId: targetPersonId, classSessionId });
+      break;
+    case "reset_student":
+      if (!studentId) return json({ error: "missing_student_id" }, 400);
+      result = await coordinatorResetStudent(env, { studentId, classSessionId });
+      break;
+    default:
+      return json({ error: "unknown_coordinator_action" }, 400);
+  }
+
+  await audit(env, "coordinator.action", {
+    actorId: actorPersonId,
+    classSessionId,
+    studentId,
+    deviceId,
+    payload: { action, result }
+  });
+  await notifyInstructorDashboard(env, {
+    classSessionId,
+    studentId,
+    event: "coordinator_action",
+    title: "Coordinator update",
+    body: `Coordinator updated ${action.replace(/_/g, " ")}.`,
+    completedAt: now
+  }).catch((error) => console.warn("coordinator dashboard push failed", error));
+  return json({ ok: true, action, result });
+}
+
+async function coordinatorStudentAttendanceOverride(
+  env: Env,
+  input: { studentId: string; classSessionId: string; action: string; at: string }
+): Promise<JsonRecord> {
+  const isCheckIn = input.action === "student_check_in";
+  await env.DB.prepare(
+    `INSERT INTO students (id, oems_id, first_name, last_name, updated_at)
+     VALUES (?1, ?1, '', '', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at`
+  ).bind(input.studentId).run();
+  await env.DB.prepare(
+    `INSERT INTO class_sessions (id, course_title, course_date, updated_at)
+     VALUES (?1, 'Class Session', ?1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     ON CONFLICT(id) DO NOTHING`
+  ).bind(input.classSessionId).run();
+  const result = await env.DB.prepare(
+    `INSERT INTO student_progress (
+       student_id, class_session_id, did_check_in, did_check_out,
+       check_in_at, check_out_at, updated_at
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     ON CONFLICT(student_id, class_session_id) DO UPDATE SET
+       did_check_in = CASE WHEN ?3 = 1 THEN 1 ELSE student_progress.did_check_in END,
+       did_check_out = CASE WHEN ?4 = 1 THEN 1 ELSE student_progress.did_check_out END,
+       check_in_at = CASE WHEN ?3 = 1 THEN ?5 ELSE student_progress.check_in_at END,
+       check_out_at = CASE WHEN ?4 = 1 THEN ?6 ELSE student_progress.check_out_at END,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+  ).bind(
+    input.studentId,
+    input.classSessionId,
+    isCheckIn ? 1 : 0,
+    isCheckIn ? 0 : 1,
+    isCheckIn ? input.at : null,
+    isCheckIn ? null : input.at
+  ).run();
+  return { changes: result.meta.changes };
+}
+
+async function coordinatorInstructorAttendanceOverride(
+  env: Env,
+  input: {
+    personId: string;
+    classSessionId: string;
+    action: string;
+    at: string;
+    courseId?: string;
+    courseTitle?: string;
+    courseDate?: string;
+  }
+): Promise<JsonRecord> {
+  const isCheckIn = input.action === "instructor_check_in";
+  const id = `${input.personId}:${input.classSessionId}`;
+  const result = await env.DB.prepare(
+    `INSERT INTO instructor_attendance (
+       id, person_id, class_session_id, course_id, course_title, course_date,
+       checked_in_at, checked_out_at, source, updated_at
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'coordinator_override', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     ON CONFLICT(id) DO UPDATE SET
+       course_id = COALESCE(excluded.course_id, instructor_attendance.course_id),
+       course_title = COALESCE(excluded.course_title, instructor_attendance.course_title),
+       course_date = COALESCE(excluded.course_date, instructor_attendance.course_date),
+       checked_in_at = CASE WHEN ?9 = 1 THEN ?7 ELSE instructor_attendance.checked_in_at END,
+       checked_out_at = CASE WHEN ?9 = 0 THEN ?8 ELSE instructor_attendance.checked_out_at END,
+       source = 'coordinator_override',
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+  ).bind(
+    id,
+    input.personId,
+    input.classSessionId,
+    input.courseId ?? null,
+    input.courseTitle ?? null,
+    input.courseDate ?? null,
+    isCheckIn ? input.at : null,
+    isCheckIn ? null : input.at,
+    isCheckIn ? 1 : 0
+  ).run();
+  return { changes: result.meta.changes, attendanceId: id };
+}
+
+async function coordinatorEditQuizAttempt(
+  env: Env,
+  input: {
+    studentId: string;
+    classSessionId: string;
+    quizId?: string;
+    responseId?: string;
+    scoreText?: string;
+    resultText?: string;
+    passed?: boolean;
+    completedAt?: string;
+  }
+): Promise<JsonRecord> {
+  if (!input.quizId && !input.responseId) {
+    return { error: "quiz_id_or_response_id_required" };
+  }
+  const existing = await env.DB.prepare(
+    `SELECT id FROM quiz_attempts
+     WHERE student_id = ?1 AND class_session_id = ?2
+       AND (?3 IS NULL OR quiz_id = ?3)
+       AND (?4 IS NULL OR response_id = ?4)
+     ORDER BY COALESCE(completed_at, updated_at) DESC
+     LIMIT 1`
+  ).bind(input.studentId, input.classSessionId, input.quizId ?? null, input.responseId ?? null).first<JsonRecord>();
+  const id = stringField(existing ?? {}, "id") ?? input.responseId ?? crypto.randomUUID();
+  const result = await env.DB.prepare(
+    `INSERT INTO quiz_attempts (
+       id, student_id, class_session_id, quiz_id, response_id, score_text,
+       result_text, passed, review_released, completed_at, created_at, updated_at
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     ON CONFLICT(id) DO UPDATE SET
+       score_text = COALESCE(excluded.score_text, quiz_attempts.score_text),
+       result_text = COALESCE(excluded.result_text, quiz_attempts.result_text),
+       passed = COALESCE(excluded.passed, quiz_attempts.passed),
+       completed_at = COALESCE(excluded.completed_at, quiz_attempts.completed_at),
+       updated_at = excluded.updated_at`
+  ).bind(
+    id,
+    input.studentId,
+    input.classSessionId,
+    input.quizId ?? "coordinator-manual-quiz",
+    input.responseId ?? id,
+    input.scoreText ?? null,
+    input.resultText ?? null,
+    input.passed === undefined ? null : boolInt(input.passed),
+    input.completedAt ?? new Date().toISOString()
+  ).run();
+  return { changes: result.meta.changes, id };
+}
+
+async function coordinatorDeleteQuizAttempt(
+  env: Env,
+  input: { studentId: string; classSessionId: string; quizId?: string; responseId?: string }
+): Promise<JsonRecord> {
+  const result = await env.DB.prepare(
+    `DELETE FROM quiz_attempts
+     WHERE student_id = ?1 AND class_session_id = ?2
+       AND (?3 IS NULL OR quiz_id = ?3)
+       AND (?4 IS NULL OR response_id = ?4)`
+  ).bind(input.studentId, input.classSessionId, input.quizId ?? null, input.responseId ?? null).run();
+  return { quizAttempts: result.meta.changes };
+}
+
+async function coordinatorDeleteFinalExam(
+  env: Env,
+  input: { studentId: string; classSessionId: string; quizId?: string; responseId?: string }
+): Promise<JsonRecord> {
+  const result = await env.DB.prepare(
+    `DELETE FROM final_exam_results
+     WHERE student_id = ?1 AND class_session_id = ?2
+       AND (?3 IS NULL OR quiz_id = ?3)
+       AND (?4 IS NULL OR response_id = ?4)`
+  ).bind(input.studentId, input.classSessionId, input.quizId ?? null, input.responseId ?? null).run();
+  return { finalExamResults: result.meta.changes };
+}
+
+async function coordinatorDeleteSkills(
+  env: Env,
+  input: { studentId: string; classSessionId: string }
+): Promise<JsonRecord> {
+  const result = await env.DB.prepare(
+    `DELETE FROM skills_verifications WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(input.studentId, input.classSessionId).run();
+  return { skillsVerifications: result.meta.changes };
+}
+
+async function coordinatorDeleteCprCard(
+  env: Env,
+  input: { studentId: string; classSessionId: string }
+): Promise<JsonRecord> {
+  const rows = await env.DB.prepare(
+    `SELECT r2_key FROM cpr_card_uploads WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(input.studentId, input.classSessionId).all<JsonRecord>();
+  let r2Deleted = 0;
+  for (const row of rows.results ?? []) {
+    const key = stringField(row, "r2_key");
+    if (key) {
+      await env.ARTIFACTS.delete(key).catch(() => undefined);
+      r2Deleted += 1;
+    }
+  }
+  const result = await env.DB.prepare(
+    `DELETE FROM cpr_card_uploads WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(input.studentId, input.classSessionId).run();
+  return { cprCards: result.meta.changes, r2Objects: r2Deleted };
+}
+
+async function coordinatorRemoveInstructorDay(
+  env: Env,
+  input: { personId: string; classSessionId: string }
+): Promise<JsonRecord> {
+  const result = await env.DB.prepare(
+    `DELETE FROM instructor_attendance WHERE person_id = ?1 AND class_session_id = ?2`
+  ).bind(input.personId, input.classSessionId).run();
+  return { instructorAttendance: result.meta.changes };
+}
+
+async function coordinatorResetStudent(
+  env: Env,
+  input: { studentId: string; classSessionId: string }
+): Promise<JsonRecord> {
+  const deletedFinals = await env.DB.prepare(
+    `DELETE FROM final_exam_results WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(input.studentId, input.classSessionId).run();
+  const deletedAttempts = await env.DB.prepare(
+    `DELETE FROM quiz_attempts WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(input.studentId, input.classSessionId).run();
+  const deletedSkills = await env.DB.prepare(
+    `DELETE FROM skills_verifications WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(input.studentId, input.classSessionId).run();
+  const deletedCpr = await coordinatorDeleteCprCard(env, input);
+  const flexiReset = await resetFlexiQuizUserForStudent(env, input);
+  const deletedProgress = await env.DB.prepare(
+    `DELETE FROM student_progress WHERE student_id = ?1 AND class_session_id = ?2`
+  ).bind(input.studentId, input.classSessionId).run();
+  return {
+    finalExamResults: deletedFinals.meta.changes,
+    quizAttempts: deletedAttempts.meta.changes,
+    skillsVerifications: deletedSkills.meta.changes,
+    cprCards: deletedCpr.cprCards,
+    progressRows: deletedProgress.meta.changes,
+    flexiquiz: flexiReset
+  };
 }
 
 async function sendStudentCheckoutNotice(request: Request, env: Env, url: URL): Promise<Response> {

@@ -509,6 +509,15 @@ final class ClassManagerAPIClient {
     }
 
     @discardableResult
+    func coordinatorAction(_ request: CoordinatorActionRequest) async throws -> CoordinatorActionResponse {
+        try await send(
+            path: "/coordinator/action",
+            method: "POST",
+            body: request.withDeviceId(UIDevice.current.identifierForVendor?.uuidString)
+        )
+    }
+
+    @discardableResult
     func saveProgress(
         _ progress: CKProgress,
         studentId: String,
@@ -778,6 +787,7 @@ extension ClassManagerAPIClient {
         let generatedAt: String
         let course: InstructorCourse?
         let courses: [InstructorCourse]?
+        let coordinatorAccess: Bool?
         let attendance: InstructorAttendance?
         let instructors: [DashboardInstructorStatus]?
         let students: [DashboardStudent]
@@ -914,6 +924,87 @@ extension ClassManagerAPIClient {
         let validationStatus: String?
         let validationNotes: String?
         let overriddenAt: String?
+    }
+
+    struct CoordinatorActionRequest: Encodable {
+        let actorPersonId: String
+        let action: String
+        let classSessionId: String
+        let studentId: String?
+        let targetPersonId: String?
+        let quizId: String?
+        let responseId: String?
+        let scoreText: String?
+        let resultText: String?
+        let passed: Bool?
+        let at: String?
+        let courseId: String?
+        let courseTitle: String?
+        let courseDate: String?
+        let confirmation: String?
+        let deviceId: String?
+
+        init(
+            actorPersonId: String,
+            action: String,
+            classSessionId: String,
+            studentId: String? = nil,
+            targetPersonId: String? = nil,
+            quizId: String? = nil,
+            responseId: String? = nil,
+            scoreText: String? = nil,
+            resultText: String? = nil,
+            passed: Bool? = nil,
+            at: String? = nil,
+            courseId: String? = nil,
+            courseTitle: String? = nil,
+            courseDate: String? = nil,
+            confirmation: String? = nil,
+            deviceId: String? = nil
+        ) {
+            self.actorPersonId = actorPersonId
+            self.action = action
+            self.classSessionId = classSessionId
+            self.studentId = studentId
+            self.targetPersonId = targetPersonId
+            self.quizId = quizId
+            self.responseId = responseId
+            self.scoreText = scoreText
+            self.resultText = resultText
+            self.passed = passed
+            self.at = at
+            self.courseId = courseId
+            self.courseTitle = courseTitle
+            self.courseDate = courseDate
+            self.confirmation = confirmation
+            self.deviceId = deviceId
+        }
+
+        func withDeviceId(_ deviceId: String?) -> CoordinatorActionRequest {
+            CoordinatorActionRequest(
+                actorPersonId: actorPersonId,
+                action: action,
+                classSessionId: classSessionId,
+                studentId: studentId,
+                targetPersonId: targetPersonId,
+                quizId: quizId,
+                responseId: responseId,
+                scoreText: scoreText,
+                resultText: resultText,
+                passed: passed,
+                at: at,
+                courseId: courseId,
+                courseTitle: courseTitle,
+                courseDate: courseDate,
+                confirmation: confirmation,
+                deviceId: deviceId
+            )
+        }
+    }
+
+    struct CoordinatorActionResponse: Decodable {
+        let ok: Bool
+        let action: String
     }
 
     struct StudentResetRequest: Encodable {
