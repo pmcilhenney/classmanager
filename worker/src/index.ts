@@ -1359,7 +1359,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
      LIMIT 250`
   ).bind(classSessionId).all<JsonRecord>();
   const cprCards = await env.DB.prepare(
-    `SELECT id, student_id, class_session_id, uploaded_at, expiration_date,
+    `SELECT id, student_id, class_session_id, r2_key, uploaded_at, expiration_date,
             validation_status, validation_notes, overridden_by_person_id,
             overridden_at, override_notes
      FROM cpr_card_uploads
@@ -1543,7 +1543,7 @@ async function coordinatorAction(request: Request, env: Env): Promise<Response> 
         scoreText: stringField(body, "scoreText"),
         resultText: stringField(body, "resultText"),
         passed: boolFromUnknown(body.passed),
-        completedAt: stringField(body, "completedAt")
+        completedAt: stringField(body, "completedAt") ?? stringField(body, "at")
       });
       break;
     case "delete_quiz_attempt":
@@ -2898,6 +2898,7 @@ function dashboardCprCard(row: JsonRecord, origin: string): JsonRecord {
     id: stringField(row, "id"),
     studentId,
     classSessionId,
+    r2Key: stringField(row, "r2_key"),
     uploadedAt: stringField(row, "uploaded_at"),
     expirationDate: stringField(row, "expiration_date"),
     validationStatus: stringField(row, "validation_status"),

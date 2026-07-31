@@ -1,5 +1,6 @@
 import PencilKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct InstructorDashboardView: View {
     private static let duplicateSkillsMessage = "This student already has a completed skills verification. Continue only if you intentionally need to submit another form."
@@ -32,6 +33,8 @@ struct InstructorDashboardView: View {
     @State private var coordinatorScoreQuizId = ""
     @State private var coordinatorScoreText = ""
     @State private var coordinatorScorePassed = true
+    @State private var coordinatorAttendanceAction: CoordinatorPendingAction?
+    @State private var coordinatorCprUploadStudent: CoordinatorCprUploadTarget?
     @State private var attendanceAction: InstructorAttendanceAction?
     @State private var busy = false
     @State private var notice: String?
@@ -135,6 +138,26 @@ struct InstructorDashboardView: View {
             }
             .sheet(item: $attendanceAction) { action in
                 attendanceSheet(for: action)
+            }
+            .sheet(item: $coordinatorAttendanceAction) { pending in
+                CoordinatorAttendanceOverrideSheet(
+                    pending: pending,
+                    onCancel: { coordinatorAttendanceAction = nil },
+                    onApply: { updated in
+                        coordinatorAttendanceAction = nil
+                        Task { await runCoordinatorAction(updated) }
+                    }
+                )
+            }
+            .sheet(item: $coordinatorCprUploadStudent) { target in
+                CoordinatorCprUploadSheet(
+                    studentName: target.student.fullName.isEmpty ? target.student.studentId : target.student.fullName,
+                    onCancel: { coordinatorCprUploadStudent = nil },
+                    onUpload: { fileURL, expirationDate in
+                        coordinatorCprUploadStudent = nil
+                        Task { await uploadCoordinatorCprCard(for: target.student, fileURL: fileURL, expirationDate: expirationDate) }
+                    }
+                )
             }
             .confirmationDialog(
                 "Coordinator action",
@@ -489,14 +512,14 @@ struct InstructorDashboardView: View {
                         if hasCoordinatorAccess {
                             Menu {
                                 Button("Check In Now") {
-                                    coordinatorPendingAction = CoordinatorPendingAction(
+                                    coordinatorAttendanceAction = CoordinatorPendingAction(
                                         action: "instructor_check_in",
                                         targetPersonId: row.personId,
                                         message: "Manually check \(row.fullName) into this class now."
                                     )
                                 }
                                 Button("Check Out Now") {
-                                    coordinatorPendingAction = CoordinatorPendingAction(
+                                    coordinatorAttendanceAction = CoordinatorPendingAction(
                                         action: "instructor_check_out",
                                         targetPersonId: row.personId,
                                         message: "Manually check \(row.fullName) out of this class now."
@@ -718,15 +741,25 @@ struct InstructorDashboardView: View {
         let student: ClassManagerAPIClient.DashboardStudent?
     }
 
-    private struct CoordinatorPendingAction: Identifiable {
+    fileprivate struct CoordinatorPendingAction: Identifiable {
         let id = UUID()
         let action: String
         var studentId: String?
         var targetPersonId: String?
         var quizId: String?
         var confirmation: String?
+        var overrideDate = Date()
         var destructive = false
         let message: String
+
+        var isCheckOut: Bool {
+            action == "student_check_out" || action == "instructor_check_out"
+        }
+    }
+
+    private struct CoordinatorCprUploadTarget: Identifiable {
+        let student: ClassManagerAPIClient.DashboardStudent
+        var id: String { student.id }
     }
 
     private func endOfDayChecklistItems() -> [ChecklistItem] {
@@ -1042,7 +1075,7 @@ struct InstructorDashboardView: View {
                 if hasCoordinatorAccess {
                     Section("Academy Coordinator Master Access") {
                         Button {
-                            coordinatorPendingAction = CoordinatorPendingAction(
+                            coordinatorAttendanceAction = CoordinatorPendingAction(
                                 action: "student_check_in",
                                 studentId: student.studentId,
                                 message: "Manually check \(student.fullName.isEmpty ? student.studentId : student.fullName) into this class now."
@@ -1052,7 +1085,7 @@ struct InstructorDashboardView: View {
                         }
 
                         Button {
-                            coordinatorPendingAction = CoordinatorPendingAction(
+                            coordinatorAttendanceAction = CoordinatorPendingAction(
                                 action: "student_check_out",
                                 studentId: student.studentId,
                                 message: "Manually check \(student.fullName.isEmpty ? student.studentId : student.fullName) out of this class now."
@@ -1116,6 +1149,12 @@ struct InstructorDashboardView: View {
                             )
                         } label: {
                             Label("Delete CPR Card", systemImage: "cross.case")
+                        }
+
+                        Button {
+                            coordinatorCprUploadStudent = CoordinatorCprUploadTarget(student: student)
+                        } label: {
+                            Label("Upload / Replace CPR Card", systemImage: "square.and.arrow.up")
                         }
                     }
                 }
@@ -1442,7 +1481,7 @@ struct InstructorDashboardView: View {
                     studentId: pending.studentId,
                     targetPersonId: pending.targetPersonId,
                     quizId: pending.quizId,
-                    at: ISO8601DateFormatter().string(from: Date()),
+                    at: ISO8601DateFormatter().string(from: pending.overrideDate),
                     courseId: course.courseId,
                     courseTitle: course.title,
                     courseDate: course.date,
@@ -1498,6 +1537,55 @@ struct InstructorDashboardView: View {
         } catch {
             await MainActor.run { notice = "Could not save score override." }
         }
+    }
+
+    private func uploadCoordinatorCprCard(for student: ClassManagerAPIClient.DashboardStudent, fileURL: URL, expirationDate: Date?) async {
+        let accessGranted = fileURL.startAccessingSecurityScopedResource()
+        defer {
+            if accessGranted {
+                fileURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let fileName = fileURL.lastPathComponent.isEmpty ? "coordinator-cpr-card" : fileURL.lastPathComponent
+            let mimeType = mimeTypeForUpload(fileURL)
+            await MainActor.run { busy = true }
+            defer { Task { @MainActor in busy = false } }
+            _ = try await ClassManagerAPIClient.shared.uploadCprCard(
+                attendee: attendee(from: student),
+                imageData: data,
+                fileName: fileName,
+                mimeType: mimeType,
+                expirationDate: expirationDate.map(coordinatorDateFormatter.string(from:)),
+                recognizedText: nil
+            )
+            await MainActor.run {
+                notice = "CPR card uploaded for \(student.fullName.isEmpty ? student.studentId : student.fullName)."
+                selectedStudent = nil
+            }
+            await refresh()
+        } catch {
+            await MainActor.run { notice = "Could not upload CPR card. If this file needs instructor review, try approving after it appears in the record." }
+            await refresh()
+        }
+    }
+
+    private func mimeTypeForUpload(_ url: URL) -> String {
+        if let type = UTType(filenameExtension: url.pathExtension),
+           let mime = type.preferredMIMEType {
+            return mime
+        }
+        return "application/octet-stream"
+    }
+
+    private var coordinatorDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
     }
 
     private func buildSkillsURL(for student: ClassManagerAPIClient.DashboardStudent, formURL: URL, aiComment: String) -> URL? {
@@ -2084,6 +2172,123 @@ private struct InstructorSignatureCanvas: UIViewRepresentable {
 private struct InstructorCprPreviewURL: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
+}
+
+private struct CoordinatorAttendanceOverrideSheet: View {
+    let pending: InstructorDashboardView.CoordinatorPendingAction
+    let onCancel: () -> Void
+    let onApply: (InstructorDashboardView.CoordinatorPendingAction) -> Void
+
+    @State private var selectedDate: Date
+
+    init(
+        pending: InstructorDashboardView.CoordinatorPendingAction,
+        onCancel: @escaping () -> Void,
+        onApply: @escaping (InstructorDashboardView.CoordinatorPendingAction) -> Void
+    ) {
+        self.pending = pending
+        self.onCancel = onCancel
+        self.onApply = onApply
+        _selectedDate = State(initialValue: pending.overrideDate)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Coordinator Override") {
+                    Label(pending.isCheckOut ? "Manual Check Out" : "Manual Check In", systemImage: pending.isCheckOut ? "rectangle.portrait.and.arrow.right" : "person.badge.plus")
+                        .font(.headline)
+                    Text(pending.message)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    DatePicker(
+                        "Official timestamp",
+                        selection: $selectedDate,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
+                }
+
+                Section {
+                    Text("This will write an audited ClassManager override. If a signature needs to be attached or copied from a prior record, finish the timestamp override here, then reconcile the signature in RMS until the next signature-copy pass is added.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Master Access")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Apply") {
+                        var updated = pending
+                        updated.overrideDate = selectedDate
+                        onApply(updated)
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+}
+
+private struct CoordinatorCprUploadSheet: View {
+    let studentName: String
+    let onCancel: () -> Void
+    let onUpload: (URL, Date?) -> Void
+
+    @State private var includeExpiration = false
+    @State private var expirationDate = Calendar.current.date(byAdding: .year, value: 2, to: Date()) ?? Date()
+    @State private var isImporterPresented = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Upload CPR Card") {
+                    Label(studentName, systemImage: "person.text.rectangle")
+                        .font(.headline)
+                    Text("Choose a CPR/BLS card image or PDF. The same validation and instructor-review workflow used by student uploads will run after upload.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Expiration") {
+                    Toggle("Set expiration date manually", isOn: $includeExpiration)
+                    if includeExpiration {
+                        DatePicker(
+                            "Expiration date",
+                            selection: $expirationDate,
+                            displayedComponents: [.date]
+                        )
+                    }
+                }
+
+                Section {
+                    Button {
+                        isImporterPresented = true
+                    } label: {
+                        Label("Choose File", systemImage: "doc.badge.plus")
+                    }
+                }
+            }
+            .navigationTitle("CPR Card")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+            }
+            .fileImporter(
+                isPresented: $isImporterPresented,
+                allowedContentTypes: [.image, .pdf],
+                allowsMultipleSelection: false
+            ) { result in
+                guard case let .success(urls) = result, let url = urls.first else { return }
+                onUpload(url, includeExpiration ? expirationDate : nil)
+            }
+        }
+    }
 }
 
 private struct InstructorStudentQuizReview: Identifiable {
