@@ -485,8 +485,18 @@ struct InstructorDashboardView: View {
                                 .foregroundStyle(studentStatusColor(student))
                                 .frame(width: 24)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(student.fullName.isEmpty ? student.studentId : student.fullName)
-                                    .foregroundStyle(.primary)
+                                HStack(spacing: 6) {
+                                    Text(student.fullName.isEmpty ? student.studentId : student.fullName)
+                                        .foregroundStyle(.primary)
+                                    if let final = currentFinalResult(for: student),
+                                       let passed = final.passed {
+                                        statusChip(
+                                            passed ? "Passed" : "Failed",
+                                            color: passed ? .green : .red,
+                                            systemImage: passed ? "checkmark.circle.fill" : "xmark.octagon.fill"
+                                        )
+                                    }
+                                }
                                 Text(student.didCheckIn ? "Checked in \(student.checkInAt.map(formatEasternTime) ?? "")" : "Expected")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -525,7 +535,6 @@ struct InstructorDashboardView: View {
                     )
                 }
                 if passedExam {
-                    statusChip("Passed", color: .green, systemImage: "checkmark.circle.fill")
                     if skillsComplete(for: student) {
                         statusChip("Skills complete", color: .green, systemImage: "checkmark.seal.fill")
                     } else {
