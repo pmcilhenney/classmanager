@@ -872,9 +872,9 @@ async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext
   const instructor = await resolveInstructorProfile(env, personId);
   await upsertInstructorProfile(env, instructor, now);
 
-  ctx?.waitUntil(fetchRegistrationCourses(env).catch((error) => {
-    console.warn("background registration course refresh failed", error);
-  }));
+  await refreshInstructorCoursesForMenu(env, "instructor_scan").catch((error) => {
+    console.warn("instructor scan registration course refresh failed", error);
+  });
   const courses = await resolveInstructorCourses(env);
   const defaultCourse = courses.find(isInstructorAutoDefaultCourse);
   const attendance = defaultCourse
@@ -1249,6 +1249,9 @@ async function rmsSkillsCompleted(request: Request, env: Env): Promise<Response>
 
 async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   const limit = Math.min(Math.max(numberFromUnknown(url.searchParams.get("limit")) ?? 100, 1), 250);
+  await refreshInstructorCoursesForMenu(env, "instructor_dashboard").catch((error) => {
+    console.warn("dashboard registration course refresh failed", error);
+  });
   const courses = await resolveInstructorCourses(env);
   const requestedClassSessionId = url.searchParams.get("classSessionId")?.trim();
   const classSessionId = requestedClassSessionId || courses.find(isInstructorAutoDefaultCourse)?.classSessionId;
@@ -2811,17 +2814,30 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
   return instructorCourseMenuList([...courseMap.values()].map((entry) => entry.course));
 }
 
+async function refreshInstructorCoursesForMenu(env: Env, source: string): Promise<void> {
+  if (!env.JOTFORM_API_KEY) {
+    return;
+  }
+
+  const started = Date.now();
+  await fetchRegistrationCourses(env);
+  const elapsed = Date.now() - started;
+  if (elapsed > 5000) {
+    console.warn("registration course refresh slow", { source, elapsed });
+  }
+}
+
 async function fetchRegistrationSubmissions(env: Env): Promise<JsonRecord[]> {
   const submissions: JsonRecord[] = [];
   const limit = 1000;
-  const maxPages = 5;
+  const maxPages = 12;
 
   for (let page = 0; page < maxPages; page += 1) {
     const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/form/${REGISTRATION_FORM_ID}/submissions`));
     url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
     url.searchParams.set("limit", String(limit));
     url.searchParams.set("offset", String(page * limit));
-    url.searchParams.set("orderby", "id");
+    url.searchParams.set("orderby", "submissionDate:DESC");
 
     const response = await fetch(url, {
       headers: { accept: "application/json" },
