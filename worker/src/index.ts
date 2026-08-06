@@ -3113,7 +3113,10 @@ async function upsertScheduledCourse(env: Env, course: InstructorCourse, now: st
       course_date = excluded.course_date,
       course_location = excluded.course_location,
       source_form_id = excluded.source_form_id,
-      expected_count = excluded.expected_count,
+      expected_count = CASE
+        WHEN excluded.expected_count > 0 THEN excluded.expected_count
+        ELSE scheduled_courses.expected_count
+      END,
       raw_json = excluded.raw_json,
       updated_at = excluded.updated_at`
   ).bind(
