@@ -1445,11 +1445,39 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
      LIMIT 250`
   ).bind(classSessionId).all<JsonRecord>();
   const cprCards = await env.DB.prepare(
-    `SELECT id, student_id, class_session_id, r2_key, uploaded_at, expiration_date,
+    `WITH dashboard_students AS (
+       SELECT scs.student_id
+       FROM scheduled_course_students scs
+       WHERE scs.class_session_id = ?1
+       UNION
+       SELECT sp.student_id
+       FROM student_progress sp
+       WHERE sp.class_session_id = ?1
+     ),
+     ranked_cpr_cards AS (
+       SELECT c.id, c.student_id, ?1 AS class_session_id, c.r2_key, c.uploaded_at, c.expiration_date,
+              c.validation_status, c.validation_notes, c.overridden_by_person_id,
+              c.overridden_at, c.override_notes,
+              ROW_NUMBER() OVER (
+                PARTITION BY c.student_id
+                ORDER BY CASE WHEN c.class_session_id = ?1 THEN 0 ELSE 1 END,
+                         CASE WHEN c.validation_status IN ('valid', 'approved_by_instructor') THEN 0 ELSE 1 END,
+                         CASE WHEN c.expiration_date IS NOT NULL AND c.expiration_date != '' THEN 0 ELSE 1 END,
+                         c.expiration_date DESC,
+                         c.uploaded_at DESC
+              ) AS rn
+       FROM cpr_card_uploads c
+       JOIN dashboard_students ds ON ds.student_id = c.student_id
+       WHERE c.class_session_id = ?1
+          OR c.expiration_date IS NULL
+          OR c.expiration_date = ''
+          OR date(c.expiration_date) >= date('now')
+     )
+     SELECT id, student_id, class_session_id, r2_key, uploaded_at, expiration_date,
             validation_status, validation_notes, overridden_by_person_id,
             overridden_at, override_notes
-     FROM cpr_card_uploads
-     WHERE class_session_id = ?1
+     FROM ranked_cpr_cards
+     WHERE rn = 1
      ORDER BY uploaded_at DESC
      LIMIT 250`
   ).bind(classSessionId).all<JsonRecord>();
@@ -1487,7 +1515,7 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
     quizResults: (attempts.results ?? []).map(dashboardQuizResult),
     finalResults: finalRows.map(dashboardFinalResult),
     skillsVerifications: (skills.results ?? []).map(dashboardSkillsVerification),
-    cprCards: (cprCards.results ?? []).map((row) => dashboardCprCard(row, url.origin)),
+    cprCards: (cprCards.results ?? []).map((row) => dashboardCprCard(row, url.origin, classSessionId)),
     remediationAttestations: remediationRows.map(dashboardRemediationAttestation)
   });
 }
@@ -3452,9 +3480,9 @@ function dashboardSkillsVerification(row: JsonRecord): JsonRecord {
   };
 }
 
-function dashboardCprCard(row: JsonRecord, origin: string): JsonRecord {
+function dashboardCprCard(row: JsonRecord, origin: string, displayClassSessionId?: string): JsonRecord {
   const studentId = stringField(row, "student_id");
-  const classSessionId = stringField(row, "class_session_id");
+  const classSessionId = displayClassSessionId ?? stringField(row, "class_session_id");
   return {
     id: stringField(row, "id"),
     studentId,
