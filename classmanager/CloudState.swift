@@ -329,7 +329,12 @@ final class CKProgressStore: ObservableObject {
             merged.didOpenSkills = merged.didOpenSkills || remote.didOpenSkills
             merged.didOpenQuiz = merged.didOpenQuiz || remote.didOpenQuiz
             merged.checkInTime = merged.checkInTime ?? remote.checkInAt
-            merged.completedQuizIDs = Array(Set(merged.completedQuizIDs).union(remote.completedQuizIDs))
+            let managedIds = Self.managedQuizProgressIds
+            let localUnmanagedIds = merged.completedQuizIDs.filter { !managedIds.contains($0) }
+            let remoteManagedIds = remote.completedQuizIDs.filter { managedIds.contains($0) }
+            let remoteUnmanagedIds = remote.completedQuizIDs.filter { !managedIds.contains($0) }
+            merged.completedQuizIDs = Array(Set(localUnmanagedIds + remoteManagedIds + remoteUnmanagedIds))
+            merged.quizResults = merged.quizResults.filter { !managedIds.contains($0.key) }
             for (quizId, result) in remote.quizResults {
                 merged.quizResults[quizId] = result
             }
@@ -373,6 +378,35 @@ final class CKProgressStore: ObservableObject {
     private var workerClassSessionId: String {
         let raw = (courseDate ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return raw.isEmpty ? "undated" : raw.replacingOccurrences(of: "/", with: "-")
+    }
+
+    private static var managedQuizProgressIds: Set<String> {
+        let combined = [
+            QuizInfo.refresherACombinedQuizId,
+            QuizInfo.refresherBCombinedQuizId,
+            QuizInfo.refresherCCombinedQuizId
+        ]
+        let versionB = [
+            QuizInfo.refresherAVersionBQuizId,
+            QuizInfo.refresherBVersionBQuizId,
+            QuizInfo.refresherCVersionBQuizId
+        ]
+        let markers = combined.flatMap {
+            [
+                QuizInfo.versionAReviewMarkerId(for: $0),
+                QuizInfo.versionBRemediationRequestedMarkerId(for: $0),
+                QuizInfo.versionBRemediationDeclinedMarkerId(for: $0),
+                QuizInfo.versionBRemediationCompletedMarkerId(for: $0)
+            ]
+        } + versionB.map { QuizInfo.versionBStartedMarkerId(for: $0) }
+        return Set(
+            QuizInfo.refresherAQuizIds +
+            QuizInfo.refresherBQuizIds +
+            QuizInfo.refresherCQuizIds +
+            combined +
+            versionB +
+            markers
+        )
     }
 
     // MARK: Cloud helpers

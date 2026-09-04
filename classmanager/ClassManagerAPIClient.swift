@@ -3,6 +3,7 @@ import UIKit
 
 final class ClassManagerAPIClient {
     static let shared = ClassManagerAPIClient()
+    private static let managedAppConfigKey = "com.apple.configuration.managed"
 
     private let baseURL: URL
     private let session: URLSession
@@ -69,7 +70,8 @@ final class ClassManagerAPIClient {
                 inOut: inOut,
                 course: course,
                 attestation: attestation,
-                deviceId: UIDevice.current.identifierForVendor?.uuidString
+                deviceId: UIDevice.current.identifierForVendor?.uuidString,
+                jamfDevice: Self.currentJamfDeviceIdentity()
             )
         )
         return response
@@ -219,9 +221,37 @@ final class ClassManagerAPIClient {
                 token: token,
                 deviceId: UIDevice.current.identifierForVendor?.uuidString ?? "unknown-device",
                 apnsEnvironment: apnsEnvironment,
-                platform: "ios"
+                platform: "ios",
+                jamfDevice: Self.currentJamfDeviceIdentity()
             )
         )
+    }
+
+    private static func currentJamfDeviceIdentity() -> JamfDeviceIdentity? {
+        guard let managed = UserDefaults.standard.dictionary(forKey: managedAppConfigKey) else {
+            return nil
+        }
+
+        func stringValue(_ keys: [String]) -> String? {
+            for key in keys {
+                if let value = managed[key] as? String {
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        return trimmed
+                    }
+                }
+            }
+            return nil
+        }
+
+        let identity = JamfDeviceIdentity(
+            id: stringValue(["JamfID", "jamfId", "JAMF_ID", "mobileDeviceId"]),
+            serialNumber: stringValue(["SerialNumber", "serialNumber", "SERIALNUMBER", "serial"]),
+            udid: stringValue(["UDID", "udid"]),
+            managementId: stringValue(["ManagementID", "managementId", "MANAGEMENT_ID"])
+        )
+
+        return identity.hasValue ? identity : nil
     }
 
     func assignQuiz(
@@ -424,7 +454,8 @@ final class ClassManagerAPIClient {
                 attendee: attendee,
                 fields: fields,
                 attestation: attestation,
-                deviceId: UIDevice.current.identifierForVendor?.uuidString
+                deviceId: UIDevice.current.identifierForVendor?.uuidString,
+                jamfDevice: Self.currentJamfDeviceIdentity()
             )
         )
     }
@@ -448,7 +479,8 @@ final class ClassManagerAPIClient {
                 actorId: actorId,
                 signedAt: signedAt,
                 location: location,
-                deviceId: UIDevice.current.identifierForVendor?.uuidString
+                deviceId: UIDevice.current.identifierForVendor?.uuidString,
+                jamfDevice: Self.currentJamfDeviceIdentity()
             )
         )
     }
@@ -689,6 +721,7 @@ extension ClassManagerAPIClient {
         let deviceId: String
         let apnsEnvironment: String
         let platform: String
+        let jamfDevice: JamfDeviceIdentity?
     }
 
     struct DeviceRegistrationResponse: Decodable {
@@ -744,6 +777,7 @@ extension ClassManagerAPIClient {
         let course: InstructorCourse
         let attestation: AttendanceAttestation
         let deviceId: String?
+        let jamfDevice: JamfDeviceIdentity?
     }
 
     struct InstructorAttendanceSubmitResponse: Decodable {
@@ -1125,6 +1159,7 @@ extension ClassManagerAPIClient {
         let fields: [String: String]
         let attestation: AttendanceAttestation?
         let deviceId: String?
+        let jamfDevice: JamfDeviceIdentity?
     }
 
     struct AttendanceSubmitResponse: Decodable {
@@ -1376,6 +1411,17 @@ extension ClassManagerAPIClient {
         let location: AttendanceLocation?
     }
 
+    struct JamfDeviceIdentity: Encodable {
+        let id: String?
+        let serialNumber: String?
+        let udid: String?
+        let managementId: String?
+
+        var hasValue: Bool {
+            id != nil || serialNumber != nil || udid != nil || managementId != nil
+        }
+    }
+
     struct AttendanceLocationUpdateRequest: Encodable {
         let attestationId: String
         let studentId: String?
@@ -1384,6 +1430,7 @@ extension ClassManagerAPIClient {
         let signedAt: String
         let location: AttendanceLocation
         let deviceId: String?
+        let jamfDevice: JamfDeviceIdentity?
     }
 
     struct AttendanceLocationUpdateResponse: Decodable {

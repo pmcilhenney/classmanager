@@ -18,6 +18,11 @@
       "invocation_logs": true
     }
   },
+  "triggers": {
+    "crons": [
+      "*/30 * * * *"
+    ]
+  },
   "vars": {
     "ENVIRONMENT": "production",
     "JOTFORM_BASE_URL": "https://api.jotform.com",

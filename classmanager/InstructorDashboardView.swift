@@ -1585,7 +1585,7 @@ struct InstructorDashboardView: View {
             }
             await refresh()
         } catch {
-            await MainActor.run { notice = "Coordinator action failed." }
+            await MainActor.run { notice = error.localizedDescription }
         }
     }
 
@@ -1810,9 +1810,12 @@ struct InstructorDashboardView: View {
     }
 
     private func cprCard(for student: ClassManagerAPIClient.DashboardStudent) -> ClassManagerAPIClient.DashboardCprCard? {
-        (dashboard?.cprCards ?? []).first {
+        if let exact = (dashboard?.cprCards ?? []).first(where: {
             $0.studentId == student.studentId && $0.classSessionId == student.classSessionId
+        }) {
+            return exact
         }
+        return (dashboard?.cprCards ?? []).first { $0.studentId == student.studentId }
     }
 
     private func remediationAttestation(for student: ClassManagerAPIClient.DashboardStudent) -> ClassManagerAPIClient.DashboardRemediationAttestation? {
@@ -2369,7 +2372,7 @@ private struct CoordinatorAttendanceOverrideSheet: View {
                         onApply(updated)
                     }
                     .fontWeight(.semibold)
-                    .disabled(signatureMode == "new" && signatureDrawing.bounds.isEmpty)
+                    .disabled((signatureMode == "new" && signatureDrawing.bounds.isEmpty) || (signatureMode == "copy" && selectedSignatureId.isEmpty))
                 }
             }
             .task {

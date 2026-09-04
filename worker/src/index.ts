@@ -24,9 +24,19 @@ export interface Env {
   APNS_KEY_ID?: string;
   APNS_TEAM_ID?: string;
   APNS_BUNDLE_ID?: string;
+  JAMF_BASE_URL?: string;
+  JAMF_API_BASE_URL?: string;
+  JAMF_CLIENT_ID?: string;
+  JAMF_CLIENT_SECRET?: string;
+  JAMF_LAST_LOCATION_EA_ID?: string;
 }
 
 type JsonRecord = Record<string, unknown>;
+
+type JamfTokenCache = {
+  token: string;
+  expiresAt: number;
+};
 
 type NormalizedAttendee = {
   submissionId: string;
@@ -106,6 +116,7 @@ type QuizReviewPayload = {
 const REFRESHER_A_COMBINED_QUIZ_ID = "89db2c06-5052-4ff5-867b-95ef67fcfcd2";
 const REFRESHER_B_COMBINED_QUIZ_ID = "bcab075c-a56a-459c-b313-f7b3966d7bb4";
 const REFRESHER_C_COMBINED_QUIZ_ID = "7f21b940-8344-4614-a935-49f2ea4218c7";
+const ATTENDANCE_FORM_ID = "243577669883075";
 const CHECKOUT_EVALUATION_FORM_ID = "240184388762060";
 const REFRESHER_A_VERSION_A_QUIZ_IDS = [
   "66564166-9de9-4b17-9c2d-6f76bc186970",
@@ -526,6 +537,7 @@ const jsonHeaders = {
 
 let cachedApnsJwt = "";
 let cachedApnsJwtExp = 0;
+let cachedJamfToken: JamfTokenCache | undefined;
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -572,11 +584,11 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname === "/instructor/attendance/submit") {
-        return await instructorAttendanceSubmit(request, env);
+        return await instructorAttendanceSubmit(request, env, ctx);
       }
 
       if (request.method === "PATCH" && url.pathname === "/attendance/location") {
-        return await attendanceLocationUpdate(request, env);
+        return await attendanceLocationUpdate(request, env, ctx);
       }
 
       if (request.method === "GET" && url.pathname === "/instructor/active") {
@@ -596,6 +608,12 @@ export default {
       if (request.method === "POST" && url.pathname === "/coordinator/signature-options") {
         return await coordinatorSignatureOptions(request, env);
       }
+      if (request.method === "POST" && url.pathname === "/coordinator/registration/refresh-course") {
+        return await coordinatorRefreshRegistrationCourse(request, env);
+      }
+      if (request.method === "POST" && url.pathname === "/coordinator/attendance/backfill-jotform") {
+        return await coordinatorBackfillJotformAttendance(request, env);
+      }
 
       if (request.method === "POST" && url.pathname === "/instructor/student/send-checkout-notice") {
         return await sendStudentCheckoutNotice(request, env, url);
@@ -606,7 +624,7 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname.startsWith("/checkout/")) {
-        return await checkoutMagicSubmit(request, url, env);
+        return await checkoutMagicSubmit(request, url, env, ctx);
       }
 
       if (request.method === "POST" && url.pathname === "/skills/opened") {
@@ -626,7 +644,7 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname === "/attendance/submit") {
-        return await submitAttendance(request, env);
+        return await submitAttendance(request, env, ctx);
       }
 
       if (request.method === "GET" && url.pathname === "/cpr-card/status") {
@@ -705,6 +723,12 @@ export default {
       console.error("request failed", error);
       return json({ error: "internal_error" }, 500);
     }
+  },
+
+  async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
+    await refreshInstructorCoursesForMenu(env, "scheduled").catch((error) => {
+      console.warn("scheduled registration refresh failed", error);
+    });
   }
 };
 
@@ -975,7 +999,7 @@ async function instructorScan(request: Request, env: Env, ctx?: ExecutionContext
   });
 }
 
-async function instructorAttendanceSubmit(request: Request, env: Env): Promise<Response> {
+async function instructorAttendanceSubmit(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const body = await readJson(request);
   const personId = stringField(body, "personId");
   const inOut = stringField(body, "inOut");
@@ -1088,6 +1112,19 @@ async function instructorAttendanceSubmit(request: Request, env: Env): Promise<R
     warnings.push("rms_attendance_not_configured");
   }
 
+  maybePostAttendanceLocationToJamf(ctx, env, {
+    source: "instructor_attendance",
+    studentId: undefined,
+    classSessionId,
+    actorId: personId,
+    deviceId,
+    body,
+    attestation,
+    signedAt: stringField(attestation, "signedAt") ?? now,
+    inOut,
+    attestationId: rms?.attestationId
+  });
+
   await audit(env, "instructor.attendance_submit", {
     actorId: personId,
     classSessionId,
@@ -1119,7 +1156,7 @@ async function instructorAttendanceSubmit(request: Request, env: Env): Promise<R
   });
 }
 
-async function attendanceLocationUpdate(request: Request, env: Env): Promise<Response> {
+async function attendanceLocationUpdate(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const body = await readJson(request);
   const attestationId = stringField(body, "attestationId") ?? stringField(body, "attestation_id");
   const studentId = stringField(body, "studentId");
@@ -1183,6 +1220,18 @@ async function attendanceLocationUpdate(request: Request, env: Env): Promise<Res
     }
   });
 
+  maybePostAttendanceLocationToJamf(ctx, env, {
+    source: "attendance_location_backfill",
+    studentId,
+    classSessionId,
+    actorId,
+    deviceId,
+    body,
+    location,
+    signedAt,
+    attestationId
+  });
+
   return json({ ok: true, updatedAt: new Date().toISOString() });
 }
 
@@ -1239,7 +1288,7 @@ async function rmsInstructorAttendance(request: Request, env: Env): Promise<Resp
     courseId ?? null,
     courseTitle,
     courseDate,
-    isCheckIn ? signedAt : null,
+    isCheckIn ? signedAt : signedAt,
     isCheckOut ? signedAt : null,
     now
   ).run();
@@ -1266,15 +1315,67 @@ async function rmsSkillsCompleted(request: Request, env: Env): Promise<Response>
   }
 
   const body = await readJson(request);
-  const studentId = stringField(body, "studentId") ?? stringField(body, "student_id") ?? stringField(body, "njoemsId") ?? stringField(body, "njoems_id");
-  const classSessionId = stringField(body, "classSessionId") ?? stringField(body, "class_session_id");
-  const instructorPersonId = stringField(body, "instructorPersonId") ?? stringField(body, "instructor_person_id");
-  const submissionId = stringField(body, "submissionId") ?? stringField(body, "submission_id");
-  const completedAt = stringField(body, "completedAt") ?? stringField(body, "completed_at") ?? new Date().toISOString();
+  const studentId = skillsPayloadValue(body, [
+    "studentId",
+    "student_id",
+    "njoemsId",
+    "njoems_id",
+    "njOems",
+    "njOemsId",
+    "classManagerStudentId",
+    "classmanagerstudentid",
+    "q77_classmanagerstudentid",
+    "q92_classManagerStudentId",
+    "q93_classmanagerstudentid"
+  ]);
+  let classSessionId = skillsPayloadValue(body, [
+    "classSessionId",
+    "class_session_id",
+    "classsessionid",
+    "q76_classsessionid",
+    "q91_classsessionid",
+    "q92_classsessionid"
+  ]);
+  const courseId = skillsPayloadValue(body, [
+    "courseId",
+    "njCourse",
+    "njcourse",
+    "q75_njcourse",
+    "q91_njcourse",
+    "typeA90",
+    "q90_typeA90"
+  ]);
+  const instructorPersonId = skillsPayloadValue(body, [
+    "instructorPersonId",
+    "instructor_person_id",
+    "classManagerInstructorPersonId"
+  ]);
+  const submissionId = skillsPayloadValue(body, ["submissionId", "submission_id", "submissionID", "id"]);
+  const completedAt = skillsPayloadValue(body, ["completedAt", "completed_at", "created_at", "createdAt"]) ?? new Date().toISOString();
   const now = new Date().toISOString();
 
+  if (!classSessionId && studentId && courseId) {
+    const resolved = await env.DB.prepare(
+      `SELECT class_session_id
+       FROM scheduled_course_students
+       WHERE student_id = ?1
+         AND course_id = ?2
+       ORDER BY updated_at DESC
+       LIMIT 1`
+    ).bind(studentId, courseId).first<JsonRecord>();
+    classSessionId = stringField(resolved ?? {}, "class_session_id");
+  }
+
   if (!studentId || !classSessionId) {
-    return json({ error: "missing_skills_completed_fields" }, 400);
+    await audit(env, "rms.skills.completed.rejected", {
+      payload: {
+        submissionId: submissionId ?? null,
+        studentId: studentId ?? null,
+        classSessionId: classSessionId ?? null,
+        courseId: courseId ?? null
+      }
+    });
+    return json({ error: "missing_skills_completed_fields", studentId: studentId ?? null, classSessionId: classSessionId ?? null, courseId: courseId ?? null }, 400);
   }
 
   await writeProgress(env, {
@@ -1307,7 +1408,8 @@ async function rmsSkillsCompleted(request: Request, env: Env): Promise<Response>
     actorId: instructorPersonId,
     payload: {
       submissionId: submissionId ?? null,
-      completedAt
+      completedAt,
+      courseId: courseId ?? null
     }
   });
 
@@ -1321,6 +1423,68 @@ async function rmsSkillsCompleted(request: Request, env: Env): Promise<Response>
   });
 
   return json({ ok: true, updatedAt: now });
+}
+
+function skillsPayloadValue(body: JsonRecord, aliases: string[]): string | undefined {
+  const direct = firstText([body], aliases);
+  if (direct) {
+    return direct;
+  }
+
+  const sources: JsonRecord[] = [];
+  const directAnswers = recordField(body, "answers");
+  if (directAnswers) {
+    sources.push(directAnswers);
+  }
+  const content = recordField(body, "content");
+  const contentAnswers = recordField(content ?? {}, "answers");
+  if (contentAnswers) {
+    sources.push(contentAnswers);
+  }
+  const rawRequest = typeof body.rawRequest === "string"
+    ? parseJsonRecord(body.rawRequest)
+    : recordField(body, "rawRequest");
+  const rawAnswers = recordField(rawRequest ?? {}, "answers");
+  if (rawAnswers) {
+    sources.push(rawAnswers);
+  }
+
+  const normalizedAliases = new Set(aliases.map(normalizedFieldKey));
+  for (const answers of sources) {
+    const directAnswerValue = firstText([answers], aliases);
+    if (directAnswerValue) {
+      return directAnswerValue;
+    }
+    for (const field of Object.values(answers)) {
+      if (!isJsonRecord(field)) {
+        continue;
+      }
+      const candidateKeys = [
+        stringField(field, "name"),
+        stringField(field, "text"),
+        stringField(field, "label"),
+        stringField(field, "title")
+      ].map(normalizedFieldKey);
+      if (!candidateKeys.some((key) => normalizedAliases.has(key))) {
+        continue;
+      }
+      const value = answerStringFromField(field);
+      if (value) {
+        return value;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function normalizedFieldKey(value?: string): string {
+  return (value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function answerStringFromField(field: JsonRecord): string | undefined {
+  const raw = field.answer ?? field.value ?? field.prettyFormat ?? field.text;
+  return textFromUnknown(raw);
 }
 
 async function instructorDashboard(url: URL, env: Env): Promise<Response> {
@@ -1406,6 +1570,10 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
      LIMIT ?2`
   ).bind(classSessionId, limit).all<JsonRecord>();
 
+  await syncVersionAAttemptsForDashboard(env, classSessionId, rows.results ?? []).catch((error) => {
+    console.warn("dashboard Version A attempt sync failed", error);
+  });
+
   const attempts = await env.DB.prepare(
     `WITH ranked_attempts AS (
        SELECT qa.student_id, qa.class_session_id, qa.quiz_id, qa.response_id, qa.result_text,
@@ -1417,6 +1585,14 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
        FROM quiz_attempts qa
        WHERE qa.class_session_id = ?1
          AND lower(COALESCE(qa.result_text, '')) NOT IN ('not_submitted', 'not submitted', 'in_progress', 'in progress')
+         AND (
+           qa.quiz_id NOT IN (
+             '${REFRESHER_A_VERSION_A_QUIZ_IDS.join("','")}',
+             '${REFRESHER_B_VERSION_A_QUIZ_IDS.join("','")}',
+             '${REFRESHER_C_VERSION_A_QUIZ_IDS.join("','")}'
+           )
+           OR qa.score_text LIKE '%/%'
+         )
      )
      SELECT student_id, class_session_id, quiz_id, response_id, result_text,
             score_text, passed, completed_at, updated_at
@@ -1455,9 +1631,10 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
        WHERE sp.class_session_id = ?1
      ),
      ranked_cpr_cards AS (
-       SELECT c.id, c.student_id, ?1 AS class_session_id, c.r2_key, c.uploaded_at, c.expiration_date,
-              c.validation_status, c.validation_notes, c.overridden_by_person_id,
-              c.overridden_at, c.override_notes,
+       SELECT c.id, c.student_id, ?1 AS class_session_id, c.class_session_id AS source_class_session_id,
+              c.r2_key, c.uploaded_at, c.expiration_date, c.validation_status,
+              c.validation_notes, c.overridden_by_person_id, c.overridden_at,
+              c.override_notes,
               ROW_NUMBER() OVER (
                 PARTITION BY c.student_id
                 ORDER BY CASE WHEN c.class_session_id = ?1 THEN 0 ELSE 1 END,
@@ -1473,9 +1650,9 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
           OR c.expiration_date = ''
           OR date(c.expiration_date) >= date('now')
      )
-     SELECT id, student_id, class_session_id, r2_key, uploaded_at, expiration_date,
-            validation_status, validation_notes, overridden_by_person_id,
-            overridden_at, override_notes
+     SELECT id, student_id, class_session_id, source_class_session_id, r2_key,
+            uploaded_at, expiration_date, validation_status, validation_notes,
+            overridden_by_person_id, overridden_at, override_notes
      FROM ranked_cpr_cards
      WHERE rn = 1
      ORDER BY uploaded_at DESC
@@ -1498,10 +1675,20 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
     isCombinedVersionAQuizId(stringField(row, "quiz_id"))
   );
   const allowedFinalQuizIds = await finalExamQuizIdsForClassSession(env, classSessionId);
-  const finalRows = (finals.results ?? []).filter((row) => {
+  const finalRows: JsonRecord[] = [];
+  for (const row of finals.results ?? []) {
     const quizId = stringField(row, "quiz_id") ?? "";
-    return !allowedFinalQuizIds || allowedFinalQuizIds.has(quizId);
-  });
+    if (allowedFinalQuizIds && !allowedFinalQuizIds.has(quizId)) {
+      continue;
+    }
+    const studentId = stringField(row, "student_id");
+    if (!studentId) {
+      continue;
+    }
+    if (await finalExamRowIsDisplayableForStudentProgress(env, row, studentId, classSessionId)) {
+      finalRows.push(row);
+    }
+  }
 
   return json({
     ok: true,
@@ -1625,100 +1812,112 @@ async function coordinatorAction(request: Request, env: Env): Promise<Response> 
   }
 
   let result: JsonRecord;
-  switch (action) {
-    case "student_check_in":
-    case "student_check_out":
-      if (!studentId) return json({ error: "missing_student_id" }, 400);
-      result = await coordinatorStudentAttendanceOverride(env, {
-        studentId,
-        classSessionId,
-        action,
-        at: stringField(body, "at") ?? now,
-        signatureMode: stringField(body, "signatureMode"),
-        signatureDataUrl: stringField(body, "signatureDataUrl"),
-        copySignatureAttestationId: stringField(body, "copySignatureAttestationId"),
-        deviceId
-      });
-      break;
-    case "instructor_check_in":
-    case "instructor_check_out":
-      if (!targetPersonId) return json({ error: "missing_target_person_id" }, 400);
-      result = await coordinatorInstructorAttendanceOverride(env, {
-        personId: targetPersonId,
-        classSessionId,
-        action,
-        at: stringField(body, "at") ?? now,
-        courseId: stringField(body, "courseId"),
-        courseTitle: stringField(body, "courseTitle"),
-        courseDate: stringField(body, "courseDate"),
-        signatureMode: stringField(body, "signatureMode"),
-        signatureDataUrl: stringField(body, "signatureDataUrl"),
-        copySignatureAttestationId: stringField(body, "copySignatureAttestationId"),
-        deviceId
-      });
-      break;
-    case "edit_quiz_attempt":
-      if (!studentId) return json({ error: "missing_student_id" }, 400);
-      result = await coordinatorEditQuizAttempt(env, {
-        studentId,
-        classSessionId,
-        quizId: stringField(body, "quizId"),
-        responseId: stringField(body, "responseId"),
-        scoreText: stringField(body, "scoreText"),
-        resultText: stringField(body, "resultText"),
-        passed: boolFromUnknown(body.passed),
-        completedAt: stringField(body, "completedAt") ?? stringField(body, "at")
-      });
-      break;
-    case "delete_quiz_attempt":
-      if (!studentId) return json({ error: "missing_student_id" }, 400);
-      result = await coordinatorDeleteQuizAttempt(env, {
-        studentId,
-        classSessionId,
-        quizId: stringField(body, "quizId"),
-        responseId: stringField(body, "responseId"),
-        deleteExternal: boolFromUnknown(body.deleteExternal) === true
-      });
-      break;
-    case "delete_final_exam":
-      if (!studentId) return json({ error: "missing_student_id" }, 400);
-      result = await coordinatorDeleteFinalExam(env, {
-        studentId,
-        classSessionId,
-        quizId: stringField(body, "quizId"),
-        responseId: stringField(body, "responseId"),
-        deleteExternal: boolFromUnknown(body.deleteExternal) === true
-      });
-      break;
-    case "delete_flexiquiz_response":
-      result = await coordinatorDeleteFlexiQuizResponse(env, {
-        quizId: stringField(body, "quizId"),
-        responseId: stringField(body, "responseId")
-      });
-      break;
-    case "delete_jotform_submission":
-      result = await coordinatorDeleteJotformSubmission(env, {
-        submissionId: stringField(body, "submissionId") ?? stringField(body, "sourceSubmissionId")
-      });
-      break;
-    case "delete_skills":
-      if (!studentId) return json({ error: "missing_student_id" }, 400);
-      result = await coordinatorDeleteSkills(env, { studentId, classSessionId });
-      break;
-    case "delete_cpr_card":
-      if (!studentId) return json({ error: "missing_student_id" }, 400);
-      result = await coordinatorDeleteCprCard(env, { studentId, classSessionId });
-      break;
-    case "remove_instructor_day":
-      if (!targetPersonId) return json({ error: "missing_target_person_id" }, 400);
-      result = await coordinatorRemoveInstructorDay(env, { personId: targetPersonId, classSessionId });
-      break;
-    case "reset_student":
-      if (!studentId) return json({ error: "missing_student_id" }, 400);
-      result = await coordinatorResetStudent(env, { studentId, classSessionId });
-      break;
-    default:
-      return json({ error: "unknown_coordinator_action" }, 400);
+  try {
+    switch (action) {
+      case "student_check_in":
+      case "student_check_out":
+        if (!studentId) return json({ error: "missing_student_id" }, 400);
+        result = await coordinatorStudentAttendanceOverride(env, {
+          studentId,
+          classSessionId,
+          action,
+          at: stringField(body, "at") ?? now,
+          signatureMode: stringField(body, "signatureMode"),
+          signatureDataUrl: stringField(body, "signatureDataUrl"),
+          copySignatureAttestationId: stringField(body, "copySignatureAttestationId"),
+          deviceId
+        });
+        break;
+      case "instructor_check_in":
+      case "instructor_check_out":
+        if (!targetPersonId) return json({ error: "missing_target_person_id" }, 400);
+        result = await coordinatorInstructorAttendanceOverride(env, {
+          personId: targetPersonId,
+          classSessionId,
+          action,
+          at: stringField(body, "at") ?? now,
+          courseId: stringField(body, "courseId"),
+          courseTitle: stringField(body, "courseTitle"),
+          courseDate: stringField(body, "courseDate"),
+          signatureMode: stringField(body, "signatureMode"),
+          signatureDataUrl: stringField(body, "signatureDataUrl"),
+          copySignatureAttestationId: stringField(body, "copySignatureAttestationId"),
+          deviceId
+        });
+        break;
+      case "edit_quiz_attempt":
+        if (!studentId) return json({ error: "missing_student_id" }, 400);
+        result = await coordinatorEditQuizAttempt(env, {
+          studentId,
+          classSessionId,
+          quizId: stringField(body, "quizId"),
+          responseId: stringField(body, "responseId"),
+          scoreText: stringField(body, "scoreText"),
+          resultText: stringField(body, "resultText"),
+          passed: boolFromUnknown(body.passed),
+          completedAt: stringField(body, "completedAt") ?? stringField(body, "at")
+        });
+        break;
+      case "delete_quiz_attempt":
+        if (!studentId) return json({ error: "missing_student_id" }, 400);
+        result = await coordinatorDeleteQuizAttempt(env, {
+          studentId,
+          classSessionId,
+          quizId: stringField(body, "quizId"),
+          responseId: stringField(body, "responseId"),
+          deleteExternal: boolFromUnknown(body.deleteExternal) === true
+        });
+        break;
+      case "delete_final_exam":
+        if (!studentId) return json({ error: "missing_student_id" }, 400);
+        result = await coordinatorDeleteFinalExam(env, {
+          studentId,
+          classSessionId,
+          quizId: stringField(body, "quizId"),
+          responseId: stringField(body, "responseId"),
+          deleteExternal: boolFromUnknown(body.deleteExternal) === true
+        });
+        break;
+      case "delete_flexiquiz_response":
+        result = await coordinatorDeleteFlexiQuizResponse(env, {
+          quizId: stringField(body, "quizId"),
+          responseId: stringField(body, "responseId")
+        });
+        break;
+      case "delete_jotform_submission":
+        result = await coordinatorDeleteJotformSubmission(env, {
+          submissionId: stringField(body, "submissionId") ?? stringField(body, "sourceSubmissionId")
+        });
+        break;
+      case "delete_skills":
+        if (!studentId) return json({ error: "missing_student_id" }, 400);
+        result = await coordinatorDeleteSkills(env, { studentId, classSessionId });
+        break;
+      case "delete_cpr_card":
+        if (!studentId) return json({ error: "missing_student_id" }, 400);
+        result = await coordinatorDeleteCprCard(env, { studentId, classSessionId });
+        break;
+      case "remove_instructor_day":
+        if (!targetPersonId) return json({ error: "missing_target_person_id" }, 400);
+        result = await coordinatorRemoveInstructorDay(env, { personId: targetPersonId, classSessionId });
+        break;
+      case "reset_student":
+        if (!studentId) return json({ error: "missing_student_id" }, 400);
+        result = await coordinatorResetStudent(env, { studentId, classSessionId });
+        break;
+      default:
+        return json({ error: "unknown_coordinator_action" }, 400);
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    await audit(env, "coordinator.action.failed", {
+      actorId: actorPersonId,
+      classSessionId,
+      studentId,
+      deviceId,
+      payload: { action, error: detail }
+    }).catch(() => undefined);
+    return json({ error: "coordinator_action_failed" }, 500);
   }
 
   await audit(env, "coordinator.action", {
@@ -1827,7 +2026,7 @@ async function coordinatorInstructorAttendanceOverride(
     input.courseId ?? null,
     input.courseTitle ?? null,
     input.courseDate ?? null,
-    isCheckIn ? input.at : null,
+    isCheckIn ? input.at : input.at,
     isCheckIn ? null : input.at,
     isCheckIn ? 1 : 0
   ).run();
@@ -2051,6 +2250,333 @@ async function coordinatorSignatureOptions(request: Request, env: Env): Promise<
     courseDate: stringField(item, "courseDate")
   }));
   return json({ ok: true, signatures });
+}
+
+async function coordinatorRefreshRegistrationCourse(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const actorPersonId = stringField(body, "actorPersonId") ?? stringField(body, "personId");
+  if (!isAcademyCoordinator(actorPersonId)) {
+    return json({ error: "coordinator_access_required" }, 403);
+  }
+  if (!env.JOTFORM_API_KEY) {
+    return json({ error: "jotform_not_configured" }, 503);
+  }
+
+  const classSessionId = stringField(body, "classSessionId");
+  const courseId = stringField(body, "courseId");
+  const courseTitle = stringField(body, "courseTitle");
+  const maxDetailFetches = Math.min(Math.max(numberFromUnknown(body.maxDetailFetches) ?? 500, 1), 1200);
+  const maxSubmissionPages = Math.min(Math.max(numberFromUnknown(body.maxSubmissionPages) ?? 3, 1), 12);
+  const includeDiagnostics = boolFromUnknown(body.includeDiagnostics) === true;
+  if (!classSessionId && !courseId && !courseTitle) {
+    return json({ error: "missing_registration_refresh_course" }, 400);
+  }
+
+  const target = {
+    classSessionId,
+    courseId,
+    courseTitle: courseTitle ? normalizedCourseTitle(courseTitle) : undefined
+  };
+  const now = new Date().toISOString();
+  const submissions = await fetchRegistrationSubmissions(env, maxSubmissionPages);
+  const seen = new Set<string>();
+  const matched = new Map<string, { attendee: NormalizedAttendee; formId: string; course: InstructorCourse; source: string }>();
+  const detailCandidates: Array<{ submissionId: string; formId: string }> = [];
+  const diagnostics: JsonRecord[] = [];
+
+  for (const submission of submissions) {
+    const submissionId = stringField(submission, "id");
+    const formId = stringField(submission, "form_id") ?? REGISTRATION_FORM_ID;
+    const answers = recordField(submission, "answers");
+    if (!submissionId || !answers || !answer(answers, "39") || seen.has(submissionId)) {
+      continue;
+    }
+    seen.add(submissionId);
+
+    if (detailCandidates.length < maxDetailFetches) {
+      detailCandidates.push({ submissionId, formId });
+    }
+  }
+
+  const detailBatchSize = 12;
+  for (let index = 0; index < detailCandidates.length; index += detailBatchSize) {
+    const batch = detailCandidates.slice(index, index + detailBatchSize);
+    const hydrated = await Promise.all(batch.map(async (candidate) => {
+      const detail = await fetchJotformSubmission(env, candidate.submissionId).catch(() => undefined);
+      const content = recordField(detail ?? {}, "content");
+      const detailAnswers = recordField(content ?? {}, "answers");
+      if (!detailAnswers || !answer(detailAnswers, "39")) {
+        return undefined;
+      }
+      const detailFormId = stringField(content ?? {}, "form_id") ?? candidate.formId;
+      if (!registrationHasSelectedProduct(detailAnswers)) {
+        if (includeDiagnostics) {
+          const diagnostic = registrationRefreshDiagnostic(candidate.submissionId, detailAnswers, detailFormId, target, "missing_selected_product");
+          if (diagnostic) {
+            diagnostics.push(diagnostic);
+          }
+        }
+        return undefined;
+      }
+      const detailNormalized = normalizeRegistrationSubmission(detailAnswers, candidate.submissionId, detailFormId);
+      const detailMatch = registrationRefreshMatch(detailNormalized, detailFormId, target);
+      if (!detailMatch && includeDiagnostics) {
+        const diagnostic = registrationRefreshDiagnostic(candidate.submissionId, detailAnswers, detailFormId, target, "selected_product_no_match", detailNormalized);
+        if (diagnostic) {
+          diagnostics.push(diagnostic);
+        }
+      }
+      return detailMatch ? { submissionId: candidate.submissionId, match: detailMatch } : undefined;
+    }));
+    for (const item of hydrated) {
+      if (item) {
+        matched.set(item.submissionId, { ...item.match, source: "detail" });
+      }
+    }
+  }
+
+  for (const entry of matched.values()) {
+    await upsertScheduledCourse(env, { ...entry.course, expectedCount: matched.size }, now);
+    await upsertScheduledStudent(env, entry, now);
+  }
+  if (classSessionId || courseId) {
+    await refreshScheduledCourseExpectedCount(env, classSessionId ?? "", courseId, now);
+  }
+
+  await audit(env, "coordinator.registration_refresh_course", {
+    actorId: actorPersonId,
+    classSessionId: classSessionId ?? null,
+    payload: {
+      courseId: courseId ?? null,
+      courseTitle: courseTitle ?? null,
+      submissionsScanned: submissions.length,
+      detailFetches: detailCandidates.length,
+      matched: matched.size
+    }
+  });
+
+  return json({
+    ok: true,
+    matched: matched.size,
+    detailFetches: detailCandidates.length,
+    submissionsScanned: submissions.length,
+    diagnostics: includeDiagnostics ? diagnostics.slice(0, 200) : undefined,
+    students: [...matched.values()].map((entry) => ({
+      submissionId: entry.attendee.submissionId,
+      studentId: entry.attendee.oemsId || entry.attendee.submissionId,
+      firstName: entry.attendee.firstName,
+      lastName: entry.attendee.lastName,
+      email: entry.attendee.email,
+      courseId: entry.course.courseId,
+      classSessionId: entry.course.classSessionId,
+      source: entry.source
+    }))
+  });
+}
+
+async function coordinatorBackfillJotformAttendance(request: Request, env: Env): Promise<Response> {
+  const body = await readJson(request);
+  const actorPersonId = stringField(body, "actorPersonId") ?? stringField(body, "personId");
+  const submissionIds = arrayField(body, "submissionIds")
+    .map((value) => typeof value === "string" ? value.trim() : "")
+    .filter((value) => value.length > 0);
+  if (!isAcademyCoordinator(actorPersonId)) {
+    return json({ error: "coordinator_access_required" }, 403);
+  }
+  if (!env.JOTFORM_API_KEY) {
+    return json({ error: "jotform_not_configured" }, 503);
+  }
+  if (submissionIds.length === 0) {
+    return json({ error: "missing_submission_ids" }, 400);
+  }
+
+  const results: JsonRecord[] = [];
+  for (const submissionId of submissionIds) {
+    const row = await attendanceAuditContextForJotformSubmission(env, submissionId);
+    if (!row) {
+      results.push({ submissionId, ok: false, error: "attendance_audit_not_found" });
+      continue;
+    }
+
+    const inOut = stringField(row, "in_out") ?? "";
+    const submittedAt = stringField(row, "submitted_at") ?? stringField(row, "created_at") ?? new Date().toISOString();
+    const fields = attendanceJotformFields({
+      firstName: stringField(row, "first_name") ?? "Unknown",
+      lastName: stringField(row, "last_name") ?? "Student",
+      oemsId: stringField(row, "oems_id") ?? stringField(row, "student_id") ?? "",
+      courseId: stringField(row, "course_id"),
+      courseType: stringField(row, "course_title") ?? "Class Session",
+      courseDate: stringField(row, "course_date") ?? stringField(row, "class_session_id"),
+      dob: stringField(row, "dob"),
+      inOut,
+      submittedAt,
+      appform: "1"
+    });
+
+    try {
+      const update = await updateJotformSubmission(env, submissionId, fields);
+      const verification = await fetchJotformSubmission(env, submissionId)
+        .then((source) => summarizeJotformAttendanceSubmission(source))
+        .catch(() => undefined);
+      results.push({
+        submissionId,
+        ok: true,
+        update,
+        verification,
+        studentId: stringField(row, "student_id"),
+        classSessionId: stringField(row, "class_session_id"),
+        inOut,
+        fields: Object.keys(fields).sort()
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      results.push({ submissionId, ok: false, error: message });
+    }
+  }
+
+  await audit(env, "coordinator.attendance_jotform_backfill", {
+    actorId: actorPersonId,
+    payload: {
+      requested: submissionIds,
+      results: results.map((result) => ({
+        submissionId: result.submissionId,
+        ok: result.ok,
+        error: result.error,
+        studentId: result.studentId,
+        classSessionId: result.classSessionId,
+        inOut: result.inOut
+      }))
+    }
+  });
+
+  return json({ ok: results.every((result) => result.ok === true), results });
+}
+
+async function attendanceAuditContextForJotformSubmission(env: Env, submissionId: string): Promise<JsonRecord | undefined> {
+  const like = `%"jotformSubmissionId":"${submissionId}"%`;
+  const row = await env.DB.prepare(
+    `SELECT ae.id AS audit_id, ae.student_id, ae.class_session_id, ae.created_at AS submitted_at,
+            json_extract(ae.payload_json, '$.inOut') AS in_out,
+            s.first_name, s.last_name, s.email, s.oems_id,
+            scs.dob,
+            COALESCE(cs.course_id, scs.course_id) AS course_id,
+            COALESCE(cs.course_title, scs.course_title) AS course_title,
+            COALESCE(cs.course_date, scs.course_date) AS course_date
+     FROM audit_events ae
+     LEFT JOIN students s ON s.id = ae.student_id
+     LEFT JOIN class_sessions cs ON cs.id = ae.class_session_id
+     LEFT JOIN scheduled_course_students scs
+       ON scs.class_session_id = ae.class_session_id
+      AND scs.student_id = ae.student_id
+     WHERE ae.event_type = 'attendance.submit'
+       AND ae.payload_json LIKE ?1
+     ORDER BY ae.created_at DESC
+     LIMIT 1`
+  ).bind(like).first<JsonRecord>();
+  return row ?? undefined;
+}
+
+function summarizeJotformAttendanceSubmission(source: JsonRecord): JsonRecord {
+  const content = recordField(source, "content");
+  const answers = recordField(content, "answers") ?? {};
+  const read = (qid: string): string | undefined => {
+    const field = recordField(answers, qid);
+    if (!field) {
+      return undefined;
+    }
+    return answerStringFromField(field);
+  };
+  return {
+    firstName: read("3"),
+    lastName: read("5"),
+    njOems: read("6"),
+    courseId: read("7"),
+    courseType: read("8"),
+    date: read("10"),
+    dateRaw: recordField(answers, "10") ?? null,
+    inout: read("12"),
+    courseDate: read("16"),
+    courseDateRaw: recordField(answers, "16") ?? null,
+    dob: read("22"),
+    appform: read("25")
+  };
+}
+
+function registrationRefreshMatch(
+  normalized: {
+    formId: string;
+    formType: "registration" | "refresher";
+    attendee: NormalizedAttendee;
+    options: SessionOption[];
+  },
+  formId: string,
+  target: { classSessionId?: string; courseId?: string; courseTitle?: string }
+): { attendee: NormalizedAttendee; formId: string; course: InstructorCourse } | undefined {
+  for (const option of normalized.options) {
+    const attendee = attendeeWithOption(normalized.attendee, option);
+    const course = instructorCourseFromAttendee(attendee, formId);
+    if (target.classSessionId && course.classSessionId !== target.classSessionId) {
+      continue;
+    }
+    if (target.courseId && course.courseId !== target.courseId) {
+      continue;
+    }
+    if (target.courseTitle && normalizedCourseTitle(course.title) !== target.courseTitle) {
+      continue;
+    }
+    if (!validCourseDate(course.date)) {
+      continue;
+    }
+    return { attendee, formId, course };
+  }
+  return undefined;
+}
+
+function registrationRefreshDiagnostic(
+  submissionId: string,
+  answers: JsonRecord,
+  formId: string,
+  target: { classSessionId?: string; courseId?: string; courseTitle?: string },
+  reason: string,
+  normalized?: {
+    attendee: NormalizedAttendee;
+    options: SessionOption[];
+  }
+): JsonRecord | undefined {
+  const source = normalized ?? normalizeRegistrationSubmission(answers, submissionId, formId);
+  const text = JSON.stringify(answer(answers, "39") ?? {}).toLowerCase();
+  const targetTitle = target.courseTitle ?? "";
+  const titleHit = targetTitle ? text.includes(targetTitle) || source.options.some((option) => normalizedCourseTitle(option.courseType) === targetTitle) : false;
+  const courseIdHit = target.courseId ? text.includes(target.courseId) || source.options.some((option) => option.courseId === target.courseId) : false;
+  const dateHit = target.classSessionId
+    ? text.includes(target.classSessionId) ||
+      text.includes(target.classSessionId.replace(/-/g, "/")) ||
+      source.options.some((option) => sessionIdFor(option.dateRaw) === target.classSessionId)
+    : false;
+  if (!titleHit && !courseIdHit && !dateHit) {
+    return undefined;
+  }
+  const courseField = answer(answers, "39");
+  const answerPayload = courseField && isJsonRecord(courseField) ? recordField(courseField, "answer") : undefined;
+  return {
+    reason,
+    submissionId,
+    selectedProduct: registrationHasSelectedProduct(answers),
+    attendee: {
+      firstName: source.attendee.firstName,
+      lastName: source.attendee.lastName,
+      email: source.attendee.email,
+      oemsId: source.attendee.oemsId,
+      courseType: source.attendee.courseType,
+      courseDate: source.attendee.courseDate,
+      courseId: source.attendee.courseId
+    },
+    optionCount: source.options.length,
+    options: source.options.slice(0, 4),
+    answerKeys: answerPayload ? Object.keys(answerPayload) : [],
+    pretty: courseField && isJsonRecord(courseField) ? stringField(courseField, "prettyFormat") : undefined,
+    targetHits: { title: titleHit, courseId: courseIdHit, date: dateHit }
+  };
 }
 
 async function fetchRmsSignatureOptions(
@@ -2389,7 +2915,7 @@ async function checkoutMagicPage(url: URL, env: Env): Promise<Response> {
   return htmlResponse(checkoutMagicFormHtml(context, token));
 }
 
-async function checkoutMagicSubmit(request: Request, url: URL, env: Env): Promise<Response> {
+async function checkoutMagicSubmit(request: Request, url: URL, env: Env, ctx?: ExecutionContext): Promise<Response> {
   await ensureCheckoutMagicLinksTable(env);
   const token = checkoutTokenFromPath(url);
   const body = await readJson(request);
@@ -2468,6 +2994,20 @@ async function checkoutMagicSubmit(request: Request, url: URL, env: Env): Promis
   if (!rms?.ok) {
     return json({ error: "checkout_submit_failed", warnings }, 502);
   }
+
+  maybePostAttendanceLocationToJamf(ctx, env, {
+    source: "checkout_magic_link",
+    studentId: context.studentId,
+    classSessionId: context.classSessionId,
+    actorId: context.createdByPersonId,
+    deviceId: "web-magic-checkout",
+    body,
+    attestation,
+    location,
+    signedAt: now,
+    inOut: "Check-Out",
+    attestationId: rms.attestationId
+  });
 
   await writeProgress(env, {
     studentId: context.studentId,
@@ -2906,19 +3446,26 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
     }
 
     const normalized = normalizeRegistrationSubmission(answers, submissionId, formId);
-    for (const option of normalized.options) {
+    for (const option of normalized.options.filter((candidate) => validCourseDate(candidate.dateRaw))) {
       const attendee = attendeeWithOption(normalized.attendee, option);
-      const course = instructorCourseFromAttendee(attendee, formId);
-      if (!validCourseDate(course.date)) {
+      if (!attendee.oemsId && !attendee.submissionId) {
         continue;
       }
+      const course = instructorCourseFromAttendee(attendee, formId);
       const existing = courseMap.get(course.id) ?? { course, students: [] };
       existing.students.push({
         attendee,
         formId,
         course
       });
-      existing.course.expectedCount = existing.students.length;
+      existing.course = {
+        ...existing.course,
+        courseId: existing.course.courseId ?? course.courseId,
+        title: existing.course.title || course.title,
+        date: existing.course.date || course.date,
+        location: existing.course.location ?? course.location,
+        expectedCount: existing.students.length
+      };
       courseMap.set(course.id, existing);
     }
   }
@@ -2937,10 +3484,11 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
 
   const now = new Date().toISOString();
   for (const entry of courseMap.values()) {
-    await upsertScheduledCourse(env, entry.course, now);
+    await upsertScheduledCourse(env, { ...entry.course, expectedCount: entry.students.length }, now);
     for (const student of entry.students) {
       await upsertScheduledStudent(env, student, now);
     }
+    await refreshScheduledCourseExpectedCount(env, entry.course.classSessionId, entry.course.courseId, now);
   }
 
   return instructorCourseMenuList([...courseMap.values()].map((entry) => entry.course));
@@ -3020,12 +3568,12 @@ async function refreshInstructorCourseCatalogForMenu(env: Env, source: string): 
   }
 }
 
-async function fetchRegistrationSubmissions(env: Env): Promise<JsonRecord[]> {
+async function fetchRegistrationSubmissions(env: Env, maxPages = 12): Promise<JsonRecord[]> {
   const submissions: JsonRecord[] = [];
   const limit = 1000;
-  const maxPages = 12;
+  const boundedPages = Math.min(Math.max(maxPages, 1), 12);
 
-  for (let page = 0; page < maxPages; page += 1) {
+  for (let page = 0; page < boundedPages; page += 1) {
     const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/form/${REGISTRATION_FORM_ID}/submissions`));
     url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
     url.searchParams.set("limit", String(limit));
@@ -3142,8 +3690,8 @@ async function upsertScheduledCourse(env: Env, course: InstructorCourse, now: st
       course_location = excluded.course_location,
       source_form_id = excluded.source_form_id,
       expected_count = CASE
-        WHEN excluded.expected_count > 0 THEN excluded.expected_count
-        ELSE scheduled_courses.expected_count
+        WHEN scheduled_courses.expected_count > excluded.expected_count THEN scheduled_courses.expected_count
+        ELSE excluded.expected_count
       END,
       raw_json = excluded.raw_json,
       updated_at = excluded.updated_at`
@@ -3746,11 +4294,14 @@ function registrationProducts(answers: JsonRecord): JsonRecord[] {
   const selectedProduct = selectedJson ? parseJsonRecord(selectedJson) : undefined;
   const products = arrayField(courseField, "products").filter(isJsonRecord);
 
-  if (selectedProduct) {
-    return [selectedProduct, ...products.filter((product) => stringField(product, "name") !== stringField(selectedProduct, "name"))];
-  }
+  return selectedProduct ? [selectedProduct] : products;
+}
 
-  return products;
+function registrationHasSelectedProduct(answers: JsonRecord): boolean {
+  const courseField = answer(answers, "39");
+  const answerPayload = courseField ? recordField(courseField, "answer") : undefined;
+  const selectedJson = answerPayload ? stringField(answerPayload, "1") : undefined;
+  return Boolean(selectedJson && parseJsonRecord(selectedJson));
 }
 
 function productToOption(product: JsonRecord, courseLocation?: string): SessionOption {
@@ -3761,7 +4312,7 @@ function productToOption(product: JsonRecord, courseLocation?: string): SessionO
     stringField(product, "text"),
     "Unnamed Course"
   );
-  const description = stringField(product, "description") ?? "";
+  const description = productDescriptionText(product);
   const fields = parseDescriptionFields(description);
   return {
     courseType: cleanCourseName(name),
@@ -3773,6 +4324,42 @@ function productToOption(product: JsonRecord, courseLocation?: string): SessionO
     courseImageURL: firstImage(product),
     courseLocation: courseLocation || undefined
   };
+}
+
+function productDescriptionText(product: JsonRecord): string {
+  const plain = stringField(product, "description");
+  if (plain) {
+    return plain;
+  }
+
+  const parts: string[] = [];
+  const collect = (value: unknown): void => {
+    if (typeof value === "string") {
+      const clean = value.trim();
+      if (clean) {
+        parts.push(clean);
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        collect(item);
+      }
+      return;
+    }
+    if (isJsonRecord(value)) {
+      const text = stringField(value, "text");
+      if (text) {
+        parts.push(text);
+      }
+      const children = arrayField(value, "children");
+      for (const child of children) {
+        collect(child);
+      }
+    }
+  };
+  collect(product.description);
+  return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
 function attendeeWithOption(attendee: NormalizedAttendee, option: SessionOption): NormalizedAttendee {
@@ -3810,6 +4397,9 @@ async function getProgress(url: URL, env: Env): Promise<Response> {
   for (const attempt of attempts.results ?? []) {
     const quizId = stringField(attempt, "quiz_id");
     if (!quizId || quizResults[quizId]) {
+      continue;
+    }
+    if (isVersionAComponentQuizId(quizId) && !versionAAttemptLooksCompleted(attempt)) {
       continue;
     }
     completedQuizIds.push(quizId);
@@ -3857,10 +4447,17 @@ async function latestFinalExamResult(
      LIMIT 20`
   ).bind(studentId, classSessionId).all<JsonRecord>();
 
-  const row = (rows.results ?? []).find((candidate) => {
+  let row: JsonRecord | undefined;
+  for (const candidate of rows.results ?? []) {
     const quizId = stringField(candidate, "quiz_id") ?? "";
-    return !allowedQuizIds || allowedQuizIds.has(quizId);
-  });
+    if (allowedQuizIds && !allowedQuizIds.has(quizId)) {
+      continue;
+    }
+    if (await finalExamRowIsDisplayableForStudentProgress(env, candidate, studentId, classSessionId)) {
+      row = candidate;
+      break;
+    }
+  }
   if (!row) {
     return undefined;
   }
@@ -3886,6 +4483,21 @@ async function finalExamQuizIdsForClassSession(env: Env, classSessionId: string)
     return undefined;
   }
   return new Set([course.aggregateQuizId, versionBQuizIdForCourseLetter(course.letter)]);
+}
+
+async function finalExamRowIsDisplayableForStudentProgress(
+  env: Env,
+  row: JsonRecord,
+  studentId: string,
+  classSessionId: string
+): Promise<boolean> {
+  const quizId = stringField(row, "quiz_id") ?? "";
+  const course = versionACourseForQuizId(quizId);
+  if (!course || course.aggregateQuizId !== quizId) {
+    return true;
+  }
+  const completion = await versionACompletedQuizCount(env, { course, studentId, classSessionId });
+  return completion >= course.quizIds.length;
 }
 
 async function quizMatchesClassSession(env: Env, classSessionId: string, quizId: string): Promise<boolean> {
@@ -4137,7 +4749,7 @@ async function touchInstructorDeviceContext(
   ).run();
 }
 
-async function submitAttendance(request: Request, env: Env): Promise<Response> {
+async function submitAttendance(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const body = await readJson(request);
   const formId = stringField(body, "formId");
   const inOut = stringField(body, "inOut");
@@ -4198,6 +4810,19 @@ async function submitAttendance(request: Request, env: Env): Promise<Response> {
   if (!rms?.ok && !jotform.submissionId) {
     return json({ error: "attendance_submit_failed", warnings }, 502);
   }
+
+  maybePostAttendanceLocationToJamf(ctx, env, {
+    source: "student_attendance",
+    studentId,
+    classSessionId,
+    actorId: undefined,
+    deviceId,
+    body,
+    attestation,
+    signedAt: attestation ? stringField(attestation, "signedAt") ?? now : now,
+    inOut,
+    attestationId: rms?.attestationId
+  });
 
   await ensureProgressParents(env, {
     studentId,
@@ -4941,6 +5566,295 @@ async function postAcademyRmsAttendance(
   };
 }
 
+function maybePostAttendanceLocationToJamf(
+  ctx: ExecutionContext | undefined,
+  env: Env,
+  input: {
+    source: string;
+    studentId?: string;
+    classSessionId?: string;
+    actorId?: string;
+    deviceId?: string;
+    body?: JsonRecord;
+    attestation?: JsonRecord;
+    location?: JsonRecord;
+    signedAt?: string;
+    inOut?: string;
+    attestationId?: string;
+  }
+): void {
+  const task = postAttendanceLocationToJamf(env, input).catch((error) => {
+    console.error("jamf attendance location update failed", error);
+  });
+  if (ctx) {
+    ctx.waitUntil(task);
+  }
+}
+
+async function postAttendanceLocationToJamf(
+  env: Env,
+  input: {
+    source: string;
+    studentId?: string;
+    classSessionId?: string;
+    actorId?: string;
+    deviceId?: string;
+    body?: JsonRecord;
+    attestation?: JsonRecord;
+    location?: JsonRecord;
+    signedAt?: string;
+    inOut?: string;
+    attestationId?: string;
+  }
+): Promise<void> {
+  const location = input.location ?? recordField(input.attestation, "location");
+  const latitude = location ? numberField(location, "latitude") : undefined;
+  const longitude = location ? numberField(location, "longitude") : undefined;
+  if (latitude === undefined || longitude === undefined) {
+    return;
+  }
+
+  const identity = jamfDeviceIdentityFrom(input.body, input.deviceId);
+  if (!jamfConfigured(env)) {
+    await audit(env, "jamf.location.skipped", {
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      actorId: input.actorId,
+      deviceId: input.deviceId,
+      payload: {
+        reason: "jamf_not_configured",
+        source: input.source
+      }
+    });
+    return;
+  }
+
+  const jamfId = await resolveJamfMobileDeviceId(env, identity);
+  if (!jamfId) {
+    await audit(env, "jamf.location.skipped", {
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      actorId: input.actorId,
+      deviceId: input.deviceId,
+      payload: {
+        reason: "device_not_resolved",
+        source: input.source,
+        identity
+      }
+    });
+    return;
+  }
+
+  const eaId = numberFromUnknown(env.JAMF_LAST_LOCATION_EA_ID) ?? 23;
+  const signedAt = input.signedAt ?? new Date().toISOString();
+  const accuracy = location ? numberField(location, "horizontalAccuracy") : undefined;
+  const label = input.studentId ?? input.actorId ?? "ClassManager";
+  const detailParts = [
+    input.inOut,
+    input.classSessionId,
+    input.attestationId ? `attestation:${input.attestationId}` : undefined,
+    accuracy !== undefined ? `accuracy:${Math.round(accuracy)}m` : undefined
+  ].filter(Boolean);
+  const value = [
+    signedAt,
+    "ClassManager",
+    label,
+    `${latitude},${longitude}`,
+    input.source,
+    ...detailParts
+  ].join(" ");
+
+  const response = await updateJamfMobileDeviceExtensionAttribute(env, jamfId, eaId, value);
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    await audit(env, "jamf.location.failed", {
+      studentId: input.studentId,
+      classSessionId: input.classSessionId,
+      actorId: input.actorId,
+      deviceId: input.deviceId,
+      payload: {
+        source: input.source,
+        jamfId,
+        status: response.status,
+        error: errorText.slice(0, 300)
+      }
+    });
+    return;
+  }
+
+  await audit(env, "jamf.location.updated", {
+    studentId: input.studentId,
+    classSessionId: input.classSessionId,
+    actorId: input.actorId,
+    deviceId: input.deviceId,
+    payload: {
+      source: input.source,
+      jamfId,
+      eaId,
+      value
+    }
+  });
+}
+
+function jamfDeviceIdentityFrom(body?: JsonRecord, deviceId?: string): JsonRecord {
+  const nested = recordField(body, "jamfDevice") ?? recordField(body, "jamf") ?? {};
+  const identity: JsonRecord = {
+    id: stringField(nested, "id") ?? stringField(body ?? {}, "jamfId") ?? stringField(body ?? {}, "jamfMobileDeviceId"),
+    serialNumber: stringField(nested, "serialNumber") ?? stringField(body ?? {}, "serialNumber") ?? stringField(body ?? {}, "serial"),
+    udid: stringField(nested, "udid") ?? stringField(body ?? {}, "udid") ?? stringField(body ?? {}, "UDID"),
+    managementId: stringField(nested, "managementId") ?? stringField(body ?? {}, "managementId"),
+    deviceId
+  };
+  return Object.fromEntries(Object.entries(identity).filter(([, value]) => typeof value === "string" && value.trim().length > 0));
+}
+
+function jamfConfigured(env: Env): boolean {
+  return Boolean(getJamfBaseUrl(env) && env.JAMF_CLIENT_ID && env.JAMF_CLIENT_SECRET);
+}
+
+function getJamfBaseUrl(env: Env): string {
+  return (env.JAMF_API_BASE_URL || env.JAMF_BASE_URL || "").replace(/\/+$/, "");
+}
+
+async function getJamfAccessToken(env: Env): Promise<string> {
+  if (cachedJamfToken && cachedJamfToken.expiresAt > Date.now() + 60_000) {
+    return cachedJamfToken.token;
+  }
+  const baseUrl = getJamfBaseUrl(env);
+  if (!baseUrl || !env.JAMF_CLIENT_ID || !env.JAMF_CLIENT_SECRET) {
+    throw new Error("Missing Jamf URL or API client credentials.");
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: env.JAMF_CLIENT_ID,
+    client_secret: env.JAMF_CLIENT_SECRET
+  });
+  const tokenPaths = ["/api/v1/oauth/token", "/api/oauth/token"];
+  let response: Response | undefined;
+  for (const path of tokenPaths) {
+    response = await fetch(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/x-www-form-urlencoded" },
+      body
+    });
+    if (response.ok || response.status !== 404) {
+      break;
+    }
+  }
+  if (!response?.ok) {
+    throw new Error(`Jamf token request failed with status ${response?.status ?? "unknown"}.`);
+  }
+  const payload = await response.json<JsonRecord>().catch(() => ({}));
+  const token = stringField(payload, "access_token");
+  if (!token) {
+    throw new Error("Jamf token response did not include access_token.");
+  }
+  cachedJamfToken = {
+    token,
+    expiresAt: Date.now() + (numberField(payload, "expires_in") ?? 1200) * 1000
+  };
+  return token;
+}
+
+async function jamfFetch(env: Env, path: string, init: RequestInit = {}): Promise<Response> {
+  const run = async () => {
+    const token = await getJamfAccessToken(env);
+    return fetch(`${getJamfBaseUrl(env)}${path}`, {
+      ...init,
+      headers: {
+        ...(init.headers ?? {}),
+        authorization: `Bearer ${token}`
+      }
+    });
+  };
+  let response = await run();
+  if (response.status === 401) {
+    cachedJamfToken = undefined;
+    response = await run();
+  }
+  return response;
+}
+
+async function resolveJamfMobileDeviceId(env: Env, identity: JsonRecord): Promise<number | undefined> {
+  const directId = numberFromUnknown(identity.id);
+  if (directId && directId > 0) {
+    return Math.trunc(directId);
+  }
+
+  const candidates = [
+    stringField(identity, "serialNumber"),
+    stringField(identity, "udid"),
+    stringField(identity, "managementId"),
+    stringField(identity, "deviceId")
+  ].filter((value): value is string => Boolean(value));
+
+  for (const candidate of candidates) {
+    const id = await searchJamfMobileDeviceId(env, candidate);
+    if (id) {
+      return id;
+    }
+  }
+  return undefined;
+}
+
+async function searchJamfMobileDeviceId(env: Env, candidate: string): Promise<number | undefined> {
+  const escaped = candidate.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const filters = [
+    `serialNumber=="${escaped}"`,
+    `udid=="${escaped}"`,
+    `managementId=="${escaped}"`
+  ];
+  if (/^\d+$/.test(candidate)) {
+    filters.unshift(`id=="${escaped}"`, `mobileDeviceId=="${escaped}"`);
+  }
+
+  for (const filter of filters) {
+    const params = new URLSearchParams({ page: "0", "page-size": "1", filter });
+    params.append("section", "GENERAL");
+    const response = await jamfFetch(env, `/api/v2/mobile-devices/detail?${params.toString()}`, {
+      headers: { accept: "application/json" }
+    });
+    if (!response.ok) {
+      continue;
+    }
+    const payload = await response.json<JsonRecord>().catch(() => ({}));
+    const row = arrayField(payload, "results").find(isJsonRecord);
+    const general = isJsonRecord(row?.general) ? row.general : undefined;
+    const id = numberFromUnknown(row?.mobileDeviceId) ?? numberFromUnknown(row?.deviceId) ?? numberFromUnknown(row?.id) ?? numberFromUnknown(general?.id);
+    if (id && id > 0) {
+      return Math.trunc(id);
+    }
+  }
+  return undefined;
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+async function updateJamfMobileDeviceExtensionAttribute(
+  env: Env,
+  jamfId: number,
+  extensionAttributeId: number,
+  value: string
+): Promise<Response> {
+  const xml = `<mobile_device><extension_attributes><extension_attribute><id>${extensionAttributeId}</id><value>${escapeXml(value)}</value></extension_attribute></extension_attributes></mobile_device>`;
+  return jamfFetch(env, `/JSSResource/mobiledevices/id/${jamfId}`, {
+    method: "PUT",
+    headers: {
+      accept: "application/xml",
+      "content-type": "application/xml"
+    },
+    body: xml
+  });
+}
+
 async function postJotformSubmission(
   env: Env,
   formId: string,
@@ -4949,8 +5863,9 @@ async function postJotformSubmission(
   const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/form/${encodeURIComponent(formId)}/submissions`));
   url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
   const body = new URLSearchParams();
+  const submissionFields = formId === ATTENDANCE_FORM_ID ? expandAttendanceJotformFields(fields) : fields;
 
-  for (const [key, value] of Object.entries(fields)) {
+  for (const [key, value] of Object.entries(submissionFields)) {
     if (typeof value === "string" && value.trim().length > 0) {
       body.set(jotformSubmissionFieldName(key), value.trim());
     }
@@ -4976,6 +5891,41 @@ async function postJotformSubmission(
   };
 }
 
+async function updateJotformSubmission(
+  env: Env,
+  submissionId: string,
+  fields: JsonRecord
+): Promise<{ submissionId: string; responseCode?: number; message?: string }> {
+  const url = new URL(joinUrl(env.JOTFORM_BASE_URL, `/submission/${encodeURIComponent(submissionId)}`));
+  url.searchParams.set("apiKey", env.JOTFORM_API_KEY ?? "");
+  const body = new URLSearchParams();
+  const submissionFields = expandAttendanceJotformFields(fields);
+
+  for (const [key, value] of Object.entries(submissionFields)) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      body.set(jotformSubmissionFieldName(key), value.trim());
+    }
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/x-www-form-urlencoded; charset=utf-8"
+    },
+    body
+  });
+  const data = await response.json<JsonRecord>().catch(() => ({}));
+  if (!response.ok) {
+    throw new HttpError(502, stringField(data, "message") ?? "jotform_update_failed");
+  }
+  return {
+    submissionId,
+    responseCode: numberField(data, "responseCode"),
+    message: stringField(data, "message")
+  };
+}
+
 function jotformSubmissionFieldName(key: string): string {
   const clean = key.trim();
   const firstBracket = clean.indexOf("[");
@@ -4986,6 +5936,177 @@ function jotformSubmissionFieldName(key: string): string {
   const root = clean.slice(0, firstBracket);
   const suffix = clean.slice(firstBracket);
   return `submission[${root}]${suffix}`;
+}
+
+function attendanceJotformFields(input: {
+  firstName: string;
+  lastName: string;
+  oemsId: string;
+  courseId?: string;
+  courseType: string;
+  courseDate?: string;
+  dob?: string;
+  inOut: string;
+  submittedAt: string;
+  appform?: string;
+}): JsonRecord {
+  const attendanceDateTime = formatEasternDateTimeForJotform(input.submittedAt);
+  const courseDate = normalizeDateToMMDDYYYY(input.courseDate ?? "");
+  const fields: JsonRecord = {
+    firstName: input.firstName,
+    lastName: input.lastName,
+    njOems: input.oemsId,
+    courseId: input.courseId ?? "",
+    courseType: cleanCourseName(input.courseType),
+    inout: input.inOut,
+    date: attendanceDateTime.display,
+    courseDate,
+    dob: normalizeDateToMMDDYYYY(input.dob ?? ""),
+    appform: input.appform ?? "1"
+  };
+  return fields;
+}
+
+function expandAttendanceJotformFields(fields: JsonRecord): JsonRecord {
+  const expanded: JsonRecord = { ...fields };
+  const aliases: Array<[string, string[]]> = [
+    ["firstName", ["3"]],
+    ["lastName", ["5"]],
+    ["njOems", ["6", "oemsId", "njOemsId"]],
+    ["courseId", ["7"]],
+    ["courseType", ["8"]],
+    ["appform", ["25"]],
+    ["dob", ["22"]],
+    ["inout", ["12", "inOut"]]
+  ];
+  for (const [canonical, keys] of aliases) {
+    const value = firstFieldValue(expanded, [canonical, ...keys]);
+    if (!value) {
+      continue;
+    }
+    expanded[canonical] = value;
+    for (const key of keys) {
+      expanded[key] = value;
+    }
+  }
+
+  const submitted = firstFieldValue(expanded, ["date", "10"]);
+  if (submitted) {
+    addJotformDateAliases(expanded, "10", "date", submitted, true);
+  }
+  const courseDate = firstFieldValue(expanded, ["courseDate", "16"]);
+  if (courseDate) {
+    addJotformDateAliases(expanded, "16", "courseDate", courseDate, false);
+  }
+  return expanded;
+}
+
+function firstFieldValue(source: JsonRecord, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = stringField(source, key);
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function addJotformDateAliases(
+  fields: JsonRecord,
+  qid: string,
+  name: string,
+  value: string,
+  includeTime: boolean
+): void {
+  const parsed = parseJotformDateTime(value);
+  if (!parsed) {
+    fields[qid] = value;
+    fields[name] = value;
+    return;
+  }
+  fields[qid] = parsed.display;
+  fields[name] = parsed.display;
+  fields[`${qid}[month]`] = parsed.month;
+  fields[`${qid}[day]`] = parsed.day;
+  fields[`${qid}[year]`] = parsed.year;
+  fields[`${name}[month]`] = parsed.month;
+  fields[`${name}[day]`] = parsed.day;
+  fields[`${name}[year]`] = parsed.year;
+  if (includeTime) {
+    fields[`${qid}[hour]`] = parsed.hour;
+    fields[`${qid}[min]`] = parsed.minute;
+    fields[`${qid}[ampm]`] = parsed.ampm;
+    fields[`${name}[hour]`] = parsed.hour;
+    fields[`${name}[min]`] = parsed.minute;
+    fields[`${name}[ampm]`] = parsed.ampm;
+  }
+}
+
+function formatEasternDateTimeForJotform(value: string): { display: string; month: string; day: string; year: string; hour: string; minute: string; ampm: string } {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return parseJotformDateTime(value) ?? {
+      display: value,
+      month: "",
+      day: "",
+      year: "",
+      hour: "",
+      minute: "",
+      ampm: ""
+    };
+  }
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  }).formatToParts(date);
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  const month = pick("month");
+  const day = pick("day");
+  const year = pick("year");
+  const hour = pick("hour");
+  const minute = pick("minute");
+  const ampm = pick("dayPeriod").toUpperCase();
+  return {
+    display: `${month}/${day}/${year} ${hour}:${minute} ${ampm}`,
+    month,
+    day,
+    year,
+    hour,
+    minute,
+    ampm
+  };
+}
+
+function parseJotformDateTime(value: string): { display: string; month: string; day: string; year: string; hour: string; minute: string; ampm: string } | undefined {
+  const trimmed = value.trim();
+  const match = trimmed.match(/\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?:\s*([AP]M))?)?/i);
+  if (!match) {
+    return undefined;
+  }
+  let hour = match[4] ?? "";
+  const minute = match[5] ?? "";
+  let ampm = (match[6] ?? "").toUpperCase();
+  if (hour && !ampm) {
+    const numericHour = Number(hour);
+    if (Number.isFinite(numericHour)) {
+      ampm = numericHour >= 12 ? "PM" : "AM";
+      hour = String(((numericHour + 11) % 12) + 1).padStart(2, "0");
+    }
+  }
+  return {
+    display: `${match[1].padStart(2, "0")}/${match[2].padStart(2, "0")}/${match[3]}${hour ? ` ${hour.padStart(2, "0")}:${minute} ${ampm || "AM"}` : ""}`,
+    month: match[1].padStart(2, "0"),
+    day: match[2].padStart(2, "0"),
+    year: match[3],
+    hour: hour.padStart(2, "0"),
+    minute,
+    ampm
+  };
 }
 
 async function writeProgress(
@@ -6304,11 +7425,7 @@ async function aggregateVersionAReview(
   const correct = answered.filter((question) => question.isCorrect === true).length;
   const percentage = answered.length > 0 ? (correct / answered.length) * 100 : undefined;
   const passed = percentage === undefined ? undefined : percentage >= REFRESHER_VERSION_A_PASSING_SCORE;
-  const latestCompleted = reviews
-    .map((review) => review.completedAt)
-    .filter((value): value is string => !!value)
-    .sort()
-    .pop();
+  const latestCompleted = latestTimestamp(reviews.map((review) => review.completedAt));
 
   return {
     ok: true,
@@ -6865,6 +7982,23 @@ async function versionBLaunchEligibility(
       details: { aggregateQuizId: course.aggregateQuizId }
     };
   }
+  const completion = await versionACompletedQuizCount(env, {
+    course,
+    studentId: input.studentId,
+    classSessionId: input.classSessionId
+  });
+  if (completion < course.quizIds.length) {
+    return {
+      ok: false,
+      reason: "version_a_mini_quizzes_incomplete",
+      message: "All four Version A mini quizzes must be completed before Version B can be issued.",
+      details: {
+        aggregateQuizId: course.aggregateQuizId,
+        completed: completion,
+        required: course.quizIds.length
+      }
+    };
+  }
 
   const scoreText = stringField(versionA, "score_text");
   const percentage = numberFromUnknown(versionA.percentage_score) ?? scorePartsFromText(scoreText).percent;
@@ -6952,6 +8086,30 @@ async function versionARemediationEligibility(
       message: "Version A must be completed before remediation can be recorded."
     };
   }
+  const course = versionACourseForQuizId(input.quizId);
+  if (!course) {
+    return {
+      ok: false,
+      reason: "version_a_course_unknown",
+      message: "Version A course could not be resolved."
+    };
+  }
+  const completion = await versionACompletedQuizCount(env, {
+    course,
+    studentId: input.studentId,
+    classSessionId: input.classSessionId
+  });
+  if (completion < course.quizIds.length) {
+    return {
+      ok: false,
+      reason: "version_a_mini_quizzes_incomplete",
+      message: "All four Version A mini quizzes must be completed before remediation can be recorded.",
+      details: {
+        completed: completion,
+        required: course.quizIds.length
+      }
+    };
+  }
 
   const scoreText = stringField(versionA, "score_text");
   const percentage = numberFromUnknown(versionA.percentage_score) ?? scorePartsFromText(scoreText).percent;
@@ -6978,6 +8136,27 @@ async function versionARemediationEligibility(
 function versionAComponentIndex(course: VersionACourse, quizId: string): number | undefined {
   const index = course.quizIds.indexOf(quizId);
   return index >= 0 ? index : undefined;
+}
+
+async function versionACompletedQuizCount(
+  env: Env,
+  input: { course: VersionACourse; studentId: string; classSessionId: string }
+): Promise<number> {
+  const rows = await env.DB.prepare(
+    `SELECT quiz_id, score_text, result_text, completed_at, updated_at
+     FROM quiz_attempts
+     WHERE student_id = ?1
+       AND class_session_id = ?2
+       AND quiz_id IN (${input.course.quizIds.map((_, index) => `?${index + 3}`).join(", ")})`
+  ).bind(input.studentId, input.classSessionId, ...input.course.quizIds).all<JsonRecord>();
+  const completed = new Set<string>();
+  for (const row of rows.results ?? []) {
+    const quizId = stringField(row, "quiz_id");
+    if (quizId && versionAAttemptLooksCompleted(row)) {
+      completed.add(quizId);
+    }
+  }
+  return completed.size;
 }
 
 function scorePartsFromText(text?: string): { points?: number; available?: number; percent?: number } {
@@ -7011,6 +8190,167 @@ function scorePartsFromAttempt(attempt: JsonRecord): { points?: number; availabl
   return scorePartsFromText(stringField(attempt, "score_text"));
 }
 
+function versionAAttemptLooksCompleted(attempt: JsonRecord): boolean {
+  const quizId = stringField(attempt, "quiz_id") ?? stringField(attempt, "quizId") ?? "";
+  if (!isVersionAComponentQuizId(quizId)) {
+    return false;
+  }
+  const resultText = stringField(attempt, "result_text") ?? stringField(attempt, "resultText") ?? stringField(attempt, "status");
+  const normalizedResult = (resultText ?? "").toLowerCase();
+  if (/(^|[^a-z])(not[_ -]?submitted|unsubmitted|incomplete|in[_ -]?progress|pending|started|open)([^a-z]|$)/.test(normalizedResult)) {
+    return false;
+  }
+  const parts = scorePartsFromAttempt(attempt);
+  return parts.available !== undefined && parts.available > 0 && parts.points !== undefined;
+}
+
+function normalizedTimestamp(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?$/.test(trimmed)
+    ? `${trimmed.replace(" ", "T")}Z`
+    : trimmed;
+  const millis = Date.parse(normalized);
+  return Number.isFinite(millis) ? new Date(millis).toISOString() : trimmed;
+}
+
+function timestampMillis(value?: string): number | undefined {
+  const normalized = normalizedTimestamp(value);
+  if (!normalized) {
+    return undefined;
+  }
+  const millis = Date.parse(normalized);
+  return Number.isFinite(millis) ? millis : undefined;
+}
+
+function latestTimestamp(values: Array<string | undefined>): string | undefined {
+  let latestValue: string | undefined;
+  let latestMillis = Number.NEGATIVE_INFINITY;
+  for (const value of values) {
+    const millis = timestampMillis(value);
+    if (millis !== undefined && millis > latestMillis) {
+      latestMillis = millis;
+      latestValue = normalizedTimestamp(value);
+    }
+  }
+  return latestValue;
+}
+
+async function syncVersionAAttemptsForDashboard(
+  env: Env,
+  classSessionId: string,
+  studentRows: JsonRecord[]
+): Promise<void> {
+  if (!env.FLEXIQUIZ_API_KEY || studentRows.length === 0) {
+    return;
+  }
+  const course = await refresherCourseForClassSession(env, classSessionId);
+  if (!course) {
+    return;
+  }
+
+  const knownRows = await env.DB.prepare(
+    `SELECT student_id, quiz_id, score_text, result_text, completed_at, updated_at
+     FROM quiz_attempts
+     WHERE class_session_id = ?1
+       AND quiz_id IN (${course.quizIds.map((_, index) => `?${index + 2}`).join(", ")})`
+  ).bind(classSessionId, ...course.quizIds).all<JsonRecord>();
+  const completedByStudent = new Map<string, Set<string>>();
+  for (const row of knownRows.results ?? []) {
+    if (!versionAAttemptLooksCompleted(row)) {
+      continue;
+    }
+    const studentId = stringField(row, "student_id");
+    const quizId = stringField(row, "quiz_id");
+    if (!studentId || !quizId) {
+      continue;
+    }
+    const set = completedByStudent.get(studentId) ?? new Set<string>();
+    set.add(quizId);
+    completedByStudent.set(studentId, set);
+  }
+
+  let synced = 0;
+  for (const row of studentRows.slice(0, 60)) {
+    const studentId = stringField(row, "student_id");
+    const email = stringField(row, "email");
+    if (!studentId || !email) {
+      continue;
+    }
+    const completed = completedByStudent.get(studentId) ?? new Set<string>();
+    const missingQuizIds = course.quizIds.filter((quizId) => !completed.has(quizId));
+    if (missingQuizIds.length === 0) {
+      continue;
+    }
+    const flexiquizUserName = classRegistrationFlexiQuizUserName({
+      email,
+      sourceSubmissionId: stringField(row, "source_submission_id"),
+      studentId,
+      classSessionId
+    });
+    const flexiquizUserId = await flexiFindUserId(env, flexiquizUserName).catch(() => undefined);
+    if (!flexiquizUserId) {
+      continue;
+    }
+
+    for (const quizId of missingQuizIds) {
+      const responses = await flexiListResponses(env, flexiquizUserId, quizId).catch(() => []);
+      const latest = responses.find((item) => responseLooksCompleted(item));
+      const responseId = latest ? responseIdFrom(latest) : undefined;
+      if (!latest || !responseId) {
+        continue;
+      }
+      const finalResult = finalExamResultFromRms({
+        ...latest,
+        quiz_id: quizId,
+        response_id: responseId
+      });
+      const attemptRecord = {
+        quiz_id: quizId,
+        score_text: scoreTextFromPoints(finalResult.points, finalResult.availablePoints) ?? ratioScoreText(finalResult.scoreText) ?? finalResult.scoreText,
+        result_text: finalResult.resultText ?? null
+      };
+      if (!versionAAttemptLooksCompleted(attemptRecord)) {
+        continue;
+      }
+      await saveQuizAttemptFromFinalResult(env, {
+        finalResult,
+        quizId,
+        responseId,
+        studentId,
+        classSessionId,
+        email,
+        flexiquizUserId
+      });
+      completed.add(quizId);
+      synced += 1;
+    }
+
+    completedByStudent.set(studentId, completed);
+    if (completed.size === course.quizIds.length) {
+      await maybeSaveAggregatedVersionAFinal(env, {
+        course,
+        studentId,
+        classSessionId,
+        email,
+        flexiquizUserId
+      });
+    }
+  }
+
+  if (synced > 0) {
+    await audit(env, "dashboard.version_a_attempts_synced", {
+      classSessionId,
+      payload: { synced, course: course.letter }
+    });
+  }
+}
+
 async function maybeSaveAggregatedVersionAFinal(
   env: Env,
   input: {
@@ -7035,7 +8375,7 @@ async function maybeSaveAggregatedVersionAFinal(
   const newestByQuiz = new Map<string, JsonRecord>();
   for (const row of rows.results ?? []) {
     const quizId = stringField(row, "quiz_id");
-    if (quizId && !newestByQuiz.has(quizId)) {
+    if (quizId && !newestByQuiz.has(quizId) && versionAAttemptLooksCompleted(row)) {
       newestByQuiz.set(quizId, row);
     }
   }
@@ -7061,13 +8401,14 @@ async function maybeSaveAggregatedVersionAFinal(
       percentTotal += parts.percent;
       percentCount += 1;
     }
+    const completedAt = normalizedTimestamp(stringField(attempt, "completed_at") ?? stringField(attempt, "updated_at"));
     components.push({
       quiz_id: quizId,
       quiz_number: (versionAComponentIndex(input.course, quizId) ?? 0) + 1,
       response_id: stringField(attempt, "response_id") ?? null,
       score_text: stringField(attempt, "score_text") ?? null,
       result_text: stringField(attempt, "result_text") ?? null,
-      completed_at: stringField(attempt, "completed_at") ?? stringField(attempt, "updated_at") ?? null
+      completed_at: completedAt ?? null
     });
   }
 
@@ -7084,11 +8425,7 @@ async function maybeSaveAggregatedVersionAFinal(
   const scoreText = totalAvailable > 0
     ? `${Math.round(totalPoints)}/${Math.round(totalAvailable)} (${Math.round(percentageScore)}%)`
     : `${Math.round(percentageScore)}%`;
-  const latestCompleted = components
-    .map((component) => stringField(component, "completed_at"))
-    .filter((value): value is string => !!value)
-    .sort()
-    .pop();
+  const latestCompleted = latestTimestamp(components.map((component) => stringField(component, "completed_at")));
   const responseId = `version-a-aggregate:${input.classSessionId}:${input.studentId}:${input.course.letter}`;
   const finalResult: FinalExamResult = {
     quizId: input.course.aggregateQuizId,

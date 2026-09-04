@@ -3507,7 +3507,7 @@ private struct SurveyWebView: UIViewRepresentable {
         userContentController.addUserScript(WKUserScript(
             source: Self.completionBridgeScript,
             injectionTime: .atDocumentEnd,
-            forMainFrameOnly: true
+            forMainFrameOnly: false
         ))
         userContentController.add(context.coordinator, name: "classmanagerSurvey")
         config.userContentController = userContentController
@@ -3616,6 +3616,28 @@ private struct SurveyWebView: UIViewRepresentable {
       if (hasCompletionText()) {
         post('complete');
       }
+
+      var pushState = history.pushState;
+      var replaceState = history.replaceState;
+      history.pushState = function() {
+        var result = pushState.apply(this, arguments);
+        setTimeout(function() {
+          if (hasCompletionText()) { post('complete'); }
+        }, 250);
+        return result;
+      };
+      history.replaceState = function() {
+        var result = replaceState.apply(this, arguments);
+        setTimeout(function() {
+          if (hasCompletionText()) { post('complete'); }
+        }, 250);
+        return result;
+      };
+      window.addEventListener('popstate', function() {
+        setTimeout(function() {
+          if (hasCompletionText()) { post('complete'); }
+        }, 250);
+      });
     })();
     """
 

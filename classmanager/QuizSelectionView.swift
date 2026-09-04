@@ -33,17 +33,19 @@ struct QuizSelectionView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     if let finalResult = progressStore.progress.finalExamResult {
-                        if isFailedVersionA(finalResult), versionBCompleted, let versionBQuiz {
+                        if isPendingVersionAAggregate(finalResult) {
+                            miniQuizCards
+                        } else if isFailedVersionA(finalResult), versionBCompleted, let versionBQuiz {
                             versionBRetestCard(versionBQuiz)
                         } else if isFailedVersionA(finalResult), versionBInProgress, let versionBQuiz {
                             versionBResultsPendingCard(versionBQuiz)
                         } else {
                             fullExamReviewCard(finalResult)
                         }
-                        if isFailedVersionA(finalResult), let versionBQuiz, !versionBInProgress {
+                        if !isPendingVersionAAggregate(finalResult), isFailedVersionA(finalResult), let versionBQuiz, !versionBInProgress {
                             versionBRetestCard(versionBQuiz)
                         }
-                        if QuizInfo.isCombinedVersionAQuizId(finalResult.quizId) {
+                        if QuizInfo.isCombinedVersionAQuizId(finalResult.quizId), !allVersionAMiniQuizzesComplete {
                             miniQuizCards
                         }
                     } else {
@@ -318,7 +320,22 @@ struct QuizSelectionView: View {
     }
 
     private func isFailedVersionA(_ result: ClassManagerAPIClient.FinalExamResult) -> Bool {
-        QuizInfo.isCombinedVersionAQuizId(result.quizId) && result.passed == false
+        QuizInfo.isCombinedVersionAQuizId(result.quizId) && result.passed == false && allVersionAMiniQuizzesComplete
+    }
+
+    private func isPendingVersionAAggregate(_ result: ClassManagerAPIClient.FinalExamResult) -> Bool {
+        QuizInfo.isCombinedVersionAQuizId(result.quizId) && !allVersionAMiniQuizzesComplete
+    }
+
+    private var allVersionAMiniQuizzesComplete: Bool {
+        let versionAQuizIds = quizURLs
+            .filter { QuizInfo.isVersionAQuizId($0.flexiQuizId) }
+            .map(\.id)
+        guard !versionAQuizIds.isEmpty else { return true }
+        let completed = Set(progressStore.progress.completedQuizIDs)
+            .union(completedQuizzes)
+            .union(progressStore.progress.quizResults.keys)
+        return versionAQuizIds.allSatisfy { completed.contains($0) }
     }
 
     private var versionAReviewCompleted: Bool {
