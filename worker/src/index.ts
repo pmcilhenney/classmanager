@@ -2340,6 +2340,16 @@ async function coordinatorRefreshRegistrationCourse(request: Request, env: Env):
     await upsertScheduledStudent(env, entry, now);
   }
   if (classSessionId || courseId) {
+    const matchedEntries = [...matched.values()];
+    const reconcileCourse = matchedEntries[0]?.course ?? {
+      id: [classSessionId, courseId, courseTitle].filter(Boolean).join(":"),
+      classSessionId: classSessionId ?? "",
+      courseId,
+      title: courseTitle ?? "Class Session",
+      date: "",
+      expectedCount: matchedEntries.length
+    };
+    await reconcileScheduledCourseStudents(env, reconcileCourse, matchedEntries);
     await refreshScheduledCourseExpectedCount(env, classSessionId ?? "", courseId, now);
   }
 
@@ -3445,7 +3455,17 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
       continue;
     }
 
-    const normalized = normalizeRegistrationSubmission(answers, submissionId, formId);
+    let normalized = normalizeRegistrationSubmission(answers, submissionId, formId);
+    if (normalized.options.some((candidate) => validCourseDate(candidate.dateRaw) && instructorCourseDateInMenuWindow(candidate.dateRaw))) {
+      const detail = await fetchJotformSubmission(env, submissionId).catch(() => undefined);
+      const content = recordField(detail ?? {}, "content");
+      const detailAnswers = recordField(content ?? {}, "answers");
+      if (!detailAnswers || !answer(detailAnswers, "39")) {
+        continue;
+      }
+      const detailFormId = stringField(content ?? {}, "form_id") ?? formId;
+      normalized = normalizeRegistrationSubmission(detailAnswers, submissionId, detailFormId);
+    }
     for (const option of normalized.options.filter((candidate) => validCourseDate(candidate.dateRaw))) {
       const attendee = attendeeWithOption(normalized.attendee, option);
       if (!attendee.oemsId && !attendee.submissionId) {
@@ -3488,6 +3508,7 @@ async function fetchRegistrationCourses(env: Env): Promise<InstructorCourse[]> {
     for (const student of entry.students) {
       await upsertScheduledStudent(env, student, now);
     }
+    await reconcileScheduledCourseStudents(env, entry.course, entry.students);
     await refreshScheduledCourseExpectedCount(env, entry.course.classSessionId, entry.course.courseId, now);
   }
 
@@ -3756,6 +3777,60 @@ async function upsertScheduledStudent(env: Env, row: JsonRecord, now: string): P
   ).run();
 }
 
+async function reconcileScheduledCourseStudents(
+  env: Env,
+  course: Pick<InstructorCourse, "classSessionId" | "courseId">,
+  currentRows: JsonRecord[]
+): Promise<void> {
+  const classSessionId = course.classSessionId?.trim();
+  if (!classSessionId) {
+    return;
+  }
+
+  const currentKeys = currentRows
+    .map((row) => {
+      const attendee = recordField(row, "attendee") as NormalizedAttendee | undefined;
+      if (!attendee) {
+        return undefined;
+      }
+      const studentId = (attendee.oemsId || attendee.submissionId).trim();
+      const submissionId = attendee.submissionId.trim();
+      return studentId && submissionId ? { studentId, submissionId } : undefined;
+    })
+    .filter((value): value is { studentId: string; submissionId: string } => !!value);
+
+  const binds: unknown[] = [classSessionId, course.courseId ?? null];
+  let keepClause = "";
+  if (currentKeys.length > 0) {
+    const clauses: string[] = [];
+    for (const key of currentKeys) {
+      binds.push(key.studentId, key.submissionId);
+      const studentParam = binds.length - 1;
+      const submissionParam = binds.length;
+      clauses.push(`(student_id = ?${studentParam} AND submission_id = ?${submissionParam})`);
+    }
+    keepClause = `AND NOT (${clauses.join(" OR ")})`;
+  }
+
+  const result = await env.DB.prepare(
+    `DELETE FROM scheduled_course_students
+     WHERE class_session_id = ?1
+       AND (?2 IS NULL OR course_id = ?2)
+       ${keepClause}`
+  ).bind(...binds).run();
+
+  if ((result.meta.changes ?? 0) > 0) {
+    await audit(env, "registration.expected_roster_pruned", {
+      classSessionId,
+      payload: {
+        courseId: course.courseId ?? null,
+        removed: result.meta.changes,
+        current: currentKeys.length
+      }
+    });
+  }
+}
+
 async function refreshScheduledCourseExpectedCount(
   env: Env,
   classSessionId: string,
@@ -3817,6 +3892,16 @@ function instructorCourseMenuList(courses: InstructorCourse[]): InstructorCourse
   return scoped
     .sort(compareInstructorCourses)
     .slice(0, INSTRUCTOR_MAX_COURSES);
+}
+
+function instructorCourseDateInMenuWindow(date: string): boolean {
+  const todayValue = dateSortValue(todayEasternDate());
+  const value = dateSortValue(date);
+  if (!Number.isFinite(value) || value === Number.MAX_SAFE_INTEGER) {
+    return false;
+  }
+  const delta = daysBetweenDateValues(todayValue, value);
+  return delta >= -INSTRUCTOR_PAST_COURSE_DAYS && delta <= INSTRUCTOR_UPCOMING_COURSE_DAYS;
 }
 
 function dedupeInstructorCourses(courses: InstructorCourse[]): InstructorCourse[] {
