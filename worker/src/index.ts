@@ -1527,7 +1527,15 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
   }
 
   const rows = await env.DB.prepare(
-    `SELECT
+    `WITH ranked_registrations AS (
+       SELECT scs.*, ROW_NUMBER() OVER (
+         PARTITION BY scs.class_session_id, scs.student_id
+         ORDER BY scs.updated_at DESC, scs.submission_id DESC, scs.id DESC
+       ) AS registration_rank
+       FROM scheduled_course_students scs
+       WHERE scs.class_session_id = ?1
+     )
+     SELECT
        COALESCE(scs.student_id, sp.student_id) AS student_id,
        COALESCE(scs.class_session_id, sp.class_session_id) AS class_session_id,
        COALESCE(sp.did_check_in, 0) AS did_check_in,
@@ -1543,12 +1551,12 @@ async function instructorDashboard(url: URL, env: Env): Promise<Response> {
        COALESCE(scs.course_date, cs.course_date) AS course_date,
        COALESCE(scs.course_id, cs.course_id) AS course_id,
        CASE WHEN scs.id IS NULL THEN 0 ELSE 1 END AS expected
-     FROM scheduled_course_students scs
+     FROM ranked_registrations scs
      LEFT JOIN student_progress sp
        ON sp.student_id = scs.student_id AND sp.class_session_id = scs.class_session_id
      LEFT JOIN students s ON s.id = COALESCE(sp.student_id, scs.student_id)
      LEFT JOIN class_sessions cs ON cs.id = COALESCE(sp.class_session_id, scs.class_session_id)
-     WHERE scs.class_session_id = ?1
+     WHERE scs.class_session_id = ?1 AND scs.registration_rank = 1
      UNION
      SELECT
        sp.student_id, sp.class_session_id, sp.did_check_in, sp.did_check_out,
@@ -3838,7 +3846,7 @@ async function refreshScheduledCourseExpectedCount(
   now: string
 ): Promise<void> {
   const row = await env.DB.prepare(
-    `SELECT COUNT(*) AS expected_count
+    `SELECT COUNT(DISTINCT student_id) AS expected_count
      FROM scheduled_course_students
      WHERE class_session_id = ?1
        AND (?2 IS NULL OR course_id = ?2)`
