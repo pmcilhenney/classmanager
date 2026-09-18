@@ -6307,6 +6307,30 @@ async function ensureProgressParents(
   ).run();
 }
 
+async function verifyQuizRegistrationOwner(
+  env: Env, studentId: string | undefined, sourceSubmissionId: string | undefined
+): Promise<void> {
+  if (!studentId || !sourceSubmissionId) {
+    throw new HttpError(400, "missing_quiz_student_identity");
+  }
+  const owners = await env.DB.prepare(
+    `SELECT DISTINCT student_id FROM scheduled_course_students WHERE submission_id = ?1`
+  ).bind(sourceSubmissionId).all<JsonRecord>();
+  let ownerIds = (owners.results ?? []).map(row => stringField(row, "student_id"));
+  if (ownerIds.length === 0) {
+    const source = await fetchJotformSubmission(env, sourceSubmissionId);
+    const attendee = normalizeSessionLookup(source, sourceSubmissionId).attendee;
+    ownerIds = [attendee.oemsId || attendee.submissionId];
+  }
+  if (ownerIds.some(owner => owner !== studentId)) {
+    await audit(env, "quiz.identity_mismatch.blocked", {
+      studentId,
+      payload: { sourceSubmissionId, ownerIds }
+    });
+    throw new HttpError(409, "quiz_registration_identity_mismatch_rescan_student_badge");
+  }
+}
+
 async function assignQuiz(request: Request, env: Env): Promise<Response> {
   const body = await readJson(request);
   const email = stringField(body, "email");
@@ -6333,6 +6357,8 @@ async function assignQuiz(request: Request, env: Env): Promise<Response> {
   if (!env.FLEXIQUIZ_API_KEY || !env.FLEXIQUIZ_SSO_SHARED_SECRET) {
     return json({ error: "flexiquiz_not_configured" }, 503);
   }
+
+  await verifyQuizRegistrationOwner(env, studentId, sourceSubmissionId);
 
   const versionBEligibility = await versionBLaunchEligibility(env, {
     quizId,
@@ -6691,6 +6717,8 @@ async function quizReview(url: URL, env: Env): Promise<Response> {
   const questionStart = intFromUnknown(url.searchParams.get("questionStart") ?? undefined);
   const questionEnd = intFromUnknown(url.searchParams.get("questionEnd") ?? undefined);
   const debug = url.searchParams.get("debug") === "1";
+
+  await verifyQuizRegistrationOwner(env, studentId, sourceSubmissionId);
 
   if (!quizId) {
     return json({ error: "missing_quiz_id" }, 400);
