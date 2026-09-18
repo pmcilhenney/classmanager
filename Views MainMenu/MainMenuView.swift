@@ -681,7 +681,12 @@ struct MainMenuView: View {
                 }
                 Menu {
                     Button(action: {
-                        showingQRScanner = true
+                        if let onRequestLaunchReset {
+                            resetForNewScan()
+                            onRequestLaunchReset()
+                        } else {
+                            showingQRScanner = true
+                        }
                     }) {
                         Label("Scan New Student QR Code", systemImage: "qrcode.viewfinder")
                     }

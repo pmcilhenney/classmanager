@@ -4801,8 +4801,12 @@ async function touchDeviceContext(
     `UPDATE device_tokens
      SET student_id = COALESCE(?2, student_id),
          class_session_id = COALESCE(?3, class_session_id),
-         email = COALESCE(?4, email),
-         flexiquiz_user_id = COALESCE(?5, flexiquiz_user_id),
+         email = CASE WHEN (?2 IS NOT NULL AND student_id IS NOT ?2)
+                           OR (?3 IS NOT NULL AND class_session_id IS NOT ?3)
+                      THEN ?4 ELSE COALESCE(?4, email) END,
+         flexiquiz_user_id = CASE WHEN (?2 IS NOT NULL AND student_id IS NOT ?2)
+                                      OR (?3 IS NOT NULL AND class_session_id IS NOT ?3)
+                                 THEN ?5 ELSE COALESCE(?5, flexiquiz_user_id) END,
          updated_at = ?6
      WHERE device_id = ?1`
   ).bind(
@@ -4856,6 +4860,8 @@ async function submitAttendance(request: Request, env: Env, ctx?: ExecutionConte
   if (!formId || !inOut || !studentId || !classSessionId || !attendee || !fields) {
     return json({ error: "missing_attendance_fields" }, 400);
   }
+
+  await verifyQuizRegistrationOwner(env, studentId, stringField(attendee, "submissionId"));
 
   if (!env.JOTFORM_API_KEY && !env.ACADEMY_RMS_BASE_URL) {
     return json({ error: "attendance_destinations_not_configured" }, 503);
@@ -7398,7 +7404,15 @@ async function rmsFlexiQuizResult(request: Request, env: Env): Promise<Response>
     return json({ error: "missing_flexiquiz_result_identity" }, 400);
   }
 
-  const contexts = await matchingDeviceContexts(env, { email, flexiquizUserId });
+  const candidates = await matchingDeviceContexts(env, { email, flexiquizUserId });
+  const userName = stringField(result, "user_name") ??
+    (flexiquizUserId ? (await flexiGetUserProfile(env, flexiquizUserId))?.userName : undefined);
+  if (!userName) return json({ error: "flexiquiz_result_identity_unverified" }, 503);
+  const contexts = await verifiedResultDeviceContexts(env, candidates, userName);
+  if (contexts.length === 0) {
+    await audit(env, "quiz.result_identity_unresolved", { payload: { responseId, quizId, userName } });
+    return json({ error: "flexiquiz_result_identity_unverified" }, 409);
+  }
   const finalResult = finalExamResultFromRms(result);
   let saved = 0;
   let sent = 0;
@@ -7782,6 +7796,45 @@ async function notifyStudentDevicesForContext(
       });
     }
   }
+}
+
+async function verifiedResultDeviceContexts(
+  env: Env, candidates: JsonRecord[], userName: string
+): Promise<JsonRecord[]> {
+  const verified: JsonRecord[] = [];
+  for (const context of candidates) {
+    const studentId = stringField(context, "student_id");
+    const classSessionId = stringField(context, "class_session_id");
+    if (!studentId || !classSessionId) continue;
+    const registrations = await env.DB.prepare(
+      `SELECT submission_id FROM scheduled_course_students WHERE student_id = ?1 AND class_session_id = ?2`
+    ).bind(studentId, classSessionId).all<JsonRecord>();
+    const names = (registrations.results ?? []).map(row => classRegistrationFlexiQuizUserName({
+      sourceSubmissionId: stringField(row, "submission_id"), studentId, classSessionId
+    }));
+    names.push(classRegistrationFlexiQuizUserName({ studentId, classSessionId }));
+    if (names.some(name => name.toLowerCase() === userName.toLowerCase())) {
+      verified.push(context);
+    } else {
+      await audit(env, "quiz.result_device_identity.blocked", {
+        studentId, classSessionId,
+        payload: { userName, deviceId: stringField(context, "device_id") }
+      });
+    }
+  }
+  // A device may have moved on to another student before the webhook arrives.
+  // Still save the result for an unambiguous registration owner, without pushing
+  // private results to the tablet's new occupant.
+  if (verified.length === 0) {
+    const registrationId = /^classmanager\.(\d+)@gcemstrainingacademy\.org$/i.exec(userName)?.[1];
+    if (registrationId) {
+      const owners = await env.DB.prepare(
+        `SELECT DISTINCT student_id, class_session_id FROM scheduled_course_students WHERE submission_id = ?1`
+      ).bind(registrationId).all<JsonRecord>();
+      if (owners.results?.length === 1) verified.push(owners.results[0]);
+    }
+  }
+  return verified;
 }
 
 async function matchingDeviceContexts(
@@ -8615,6 +8668,7 @@ async function saveFinalExamResult(
     raw: JsonRecord;
   }
 ): Promise<boolean> {
+  await verifyQuizResponseOwner(env, input.studentId, input.responseId);
   const classSessionId = await canonicalQuizClassSessionId(env, {
     studentId: input.studentId,
     classSessionId: input.classSessionId,
@@ -8771,6 +8825,23 @@ async function quizMetadata(url: URL, env: Env): Promise<Response> {
   });
 }
 
+async function verifyQuizResponseOwner(env: Env, studentId: string, responseId?: string): Promise<void> {
+  // Workflow markers and aggregate IDs are not FlexiQuiz response identities.
+  if (!responseId || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(responseId)) return;
+  const conflict = await env.DB.prepare(
+    `SELECT student_id FROM quiz_attempts WHERE response_id = ?1 AND student_id != ?2
+     UNION ALL
+     SELECT student_id FROM final_exam_results WHERE response_id = ?1 AND student_id != ?2
+     LIMIT 1`
+  ).bind(responseId, studentId).first<JsonRecord>();
+  if (conflict) {
+    await audit(env, "quiz.response_owner_conflict.blocked", {
+      studentId, payload: { responseId, existingStudentId: conflict.student_id }
+    });
+    throw new HttpError(409, "quiz_response_owner_conflict");
+  }
+}
+
 async function saveQuizAttempt(
   env: Env,
   input: {
@@ -8782,6 +8853,7 @@ async function saveQuizAttempt(
     questionEnd?: number;
   }
 ): Promise<void> {
+  await verifyQuizResponseOwner(env, input.studentId, input.review.responseId);
   const now = new Date().toISOString();
   const section = sectionAttemptSummary(input.review, input.questionStart, input.questionEnd);
   if (section && section.answered === 0) {
@@ -8950,6 +9022,7 @@ async function saveQuizAttemptFromFinalResult(
     flexiquizUserId?: string;
   }
 ): Promise<void> {
+  await verifyQuizResponseOwner(env, input.studentId, input.responseId);
   const now = new Date().toISOString();
   const classSessionId = await canonicalQuizClassSessionId(env, {
     studentId: input.studentId,

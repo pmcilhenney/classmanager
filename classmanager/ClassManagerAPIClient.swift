@@ -1478,6 +1478,10 @@ extension ClassManagerAPIClient {
                 return nil
             }
             switch payload.error {
+            case "quiz_registration_identity_mismatch_rescan_student_badge", "missing_quiz_student_identity":
+                return "This badge does not match the active student. Return to the start screen and scan your own registration badge."
+            case "quiz_response_owner_conflict":
+                return "This exam result is linked to another student. Please ask your instructor to review the record."
             case "flexiquiz_quiz_not_assigned":
                 return "FlexiQuiz did not assign this quiz to the student. Check the quiz assignment/API settings in FlexiQuiz."
             case "flexiquiz_quiz_unavailable":

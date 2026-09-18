@@ -61,6 +61,7 @@ struct WelcomeView: View {
     @State private var scanning = false
     @State private var fetched: RosterAttendee?
     @State private var showReview = false
+    @State private var rescanAfterReview = false
     @State private var navigateToMain = false
     @State private var acceptedAttendee: RosterAttendee?
     @State private var instructorSession: ClassManagerAPIClient.InstructorScanResponse?
@@ -118,6 +119,7 @@ struct WelcomeView: View {
                     onRequestLaunchReset: resetActiveSessionForNewClass,
                     initialNotificationRoute: pendingNotificationRoute
                 )
+                .id("\(att.submissionId):\(att.oemsId):\(att.courseDate ?? "")")
             } else {
                 // Welcome / scanning UI
                 ScrollView {
@@ -234,18 +236,27 @@ struct WelcomeView: View {
                 }
             )
         }
-        .sheet(isPresented: $showReview) {
+        .sheet(isPresented: $showReview, onDismiss: {
+            if rescanAfterReview {
+                rescanAfterReview = false
+                scanning = true
+            }
+        }) {
             if let attendee = fetched {
                 ReviewAndEditView(
                     original: attendee,
-                    onDismiss: { showReview = false },
+                    onDismiss: {
+                        rescanAfterReview = true
+                        showReview = false
+                        fetched = nil
+                        acceptedAttendee = nil
+                    },
                     onAccept: { accepted in
                         ClassManagerLaunchSession.markScan()
                         acceptedAttendee = accepted
                         showReview = false
                         navigateToMain = true
-                    },
-                    onSaveEdits: { _ in }
+                    }
                 )
             }
         }
@@ -374,6 +385,8 @@ struct WelcomeView: View {
             errorText = nil
             sessionOptions = []
             fetched = nil
+            acceptedAttendee = nil
+            navigateToMain = false
             lastPickedOption = nil
             showReview = false
             showSessionPicker = false

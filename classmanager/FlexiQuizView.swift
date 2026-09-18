@@ -196,6 +196,7 @@ struct FlexiQuizWebViewRepresentable: UIViewRepresentable {
     
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.websiteDataStore = .nonPersistent()
         config.preferences.javaScriptEnabled = true
         
         let webView = WKWebView(frame: .zero, configuration: config)

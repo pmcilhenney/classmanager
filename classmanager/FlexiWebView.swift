@@ -116,6 +116,7 @@ struct FlexiSimpleWebViewRepresentable: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.websiteDataStore = .nonPersistent()
         let viewportScript = """
         (function() {
           var meta = document.querySelector('meta[name="viewport"]');
@@ -284,6 +285,7 @@ struct LegacyFlexiQuizWebViewRepresentable: UIViewRepresentable {
     
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.websiteDataStore = .nonPersistent()
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.load(URLRequest(url: url))
